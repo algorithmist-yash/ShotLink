@@ -1,89 +1,114 @@
-// controllers/urlController.js
+const ClickEvent = require("../models/ClickEvent");
 const Url = require("../models/Url");
-const { nanoid } = require("nanoid");
+const Workspace = require("../models/Workspace");
+const { buildClickContext } = require("../utils/deviceInfo");
+const {
+  getHostnameFromUrl,
+  getRequestHostname,
+  isLocalHostname,
+} = require("../utils/domainUtils");
+const { renderUnavailablePage } = require("../utils/failoverPage");
+const {
+  getDestinationSummaries,
+  needsHealthRefresh,
+  refreshUrlHealth,
+  selectRedirectTarget,
+} = require("../services/healthService");
 
-/* ---------------- CREATE SHORT URL ---------------- */
-exports.createShortUrl = async (req, res) => {
+function isDefaultRedirectHost(hostname) {
+  const baseHost = getHostnameFromUrl(process.env.BASE_URL || "");
+  return !hostname || isLocalHostname(hostname) || hostname === baseHost;
+}
+
+async function findUrlForRequest(req, shortCode) {
+  const requestHost = getRequestHostname(req);
+
+  if (isDefaultRedirectHost(requestHost)) {
+    return Url.findOne({ shortCode });
+  }
+
+  const workspace = await Workspace.findOne({
+    customDomains: {
+      $elemMatch: {
+        hostname: requestHost,
+        status: "verified",
+      },
+    },
+  });
+
+  if (!workspace) {
+    return null;
+  }
+
+  return Url.findOne({
+    shortCode,
+    workspaceId: workspace._id,
+    customDomainHost: requestHost,
+  });
+}
+
+exports.redirectToOriginal = async (req, res) => {
   try {
-    const { originalUrl, expiresInMinutes } = req.body;
+    const { shortCode } = req.params;
+    const url = await findUrlForRequest(req, shortCode);
 
-    if (!originalUrl) {
-      return res.status(400).json({ error: "Original URL is required" });
+    if (!url) {
+      return res.status(404).send("Short URL not found");
     }
 
-    // ✅ USE VALUE FROM FRONTEND, fallback to 30
-    const expiryMinutes =
-      Number(expiresInMinutes) > 0 ? Number(expiresInMinutes) : 30;
+    if (!url.isActive || url.expiresAt < new Date()) {
+      return res.status(410).send("This link has expired");
+    }
 
-    const shortCode = nanoid(7);
+    if (needsHealthRefresh(url)) {
+      await refreshUrlHealth(url);
+    }
 
-    const expiresAt = new Date(
-      Date.now() + expiryMinutes * 60 * 1000
-    );
+    const selectedTarget = selectRedirectTarget(url);
+    const clickContext = buildClickContext(req);
 
-    const url = await Url.create({
-      originalUrl,
-      shortCode,
-      expiresAt,
-      isActive: true,
-      clicks: 0,
-    });
+    if (!selectedTarget) {
+      await ClickEvent.create({
+        urlId: url._id,
+        shortCode,
+        ...clickContext,
+        redirectTarget: "",
+        redirectTargetKind: "none",
+        redirectStatus: 502,
+      });
 
-    res.status(201).json({
-      shortUrl: `${process.env.BASE_URL}/${shortCode}`,
-      expiresAt: url.expiresAt,
-    });
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: "Server error" });
+      return res
+        .status(502)
+        .type("html")
+        .send(
+          renderUnavailablePage({
+            shortCode,
+            destinations: getDestinationSummaries(url),
+          })
+        );
+    }
+
+    await Promise.all([
+      ClickEvent.create({
+        urlId: url._id,
+        shortCode,
+        ...clickContext,
+        redirectTarget: selectedTarget.url,
+        redirectTargetKind: selectedTarget.kind,
+        redirectStatus: 302,
+      }),
+      Url.updateOne(
+        { _id: url._id },
+        {
+          $inc: { clicks: 1 },
+          $set: { lastClickedAt: new Date() },
+        }
+      ),
+    ]);
+
+    return res.redirect(302, selectedTarget.url);
+  } catch (error) {
+    console.error(error);
+    return res.status(500).send("Server error");
   }
-};
-
-
-/* ---------------- REDIRECT ---------------- */
-exports.redirectToOriginal = async (req, res) => {
-  const { shortCode } = req.params;
-
-  const url = await Url.findOne({ shortCode });
-
-  if (!url || !url.isActive || url.expiresAt < new Date()) {
-    return res.status(410).send("This link has expired");
-  }
-
-  url.clicks += 1;
-  await url.save();
-
-  res.redirect(url.originalUrl);
-};
-
-
-/* ---------------- ANALYTICS ---------------- */
-exports.getAnalytics = async (req, res) => {
-  const { shortCode } = req.params;
-
-  const url = await Url.findOne({ shortCode });
-
-  if (!url) {
-    return res.status(404).json({ error: "URL not found" });
-  }
-
-  res.json({
-    originalUrl: url.originalUrl,
-    clicks: url.clicks,
-    createdAt: url.createdAt,
-    expiresAt: url.expiresAt,
-    isActive: url.isActive && url.expiresAt > new Date(),
-  });
-};
-
-/* ---------------- MANUAL EXPIRE (IMPORTANT) ---------------- */
-exports.expireUrlManually = async (req, res) => {
-  const url = await Url.findOne({ shortCode: req.params.shortCode });
-
-  if (!url) return res.status(404).json({ error: "URL not found" });
-
-  url.isActive = false;
-  await url.save();
-
-  res.json({ message: "URL expired manually" });
 };
