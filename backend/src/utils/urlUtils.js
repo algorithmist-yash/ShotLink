@@ -1,7 +1,64 @@
+const net = require("net");
+
 const VALID_PROTOCOLS = new Set(["http:", "https:"]);
 const MAX_FALLBACK_URLS = 5;
 const DEFAULT_EXPIRY_MINUTES = 30;
 const MAX_EXPIRY_MINUTES = 60 * 24 * 7;
+const BLOCKED_HOSTNAMES = new Set(["localhost", "localhost.localdomain"]);
+
+function isPrivateIpv4(hostname) {
+  const parts = hostname.split(".").map((part) => Number(part));
+  if (
+    parts.length !== 4 ||
+    parts.some((part) => !Number.isInteger(part) || part < 0 || part > 255)
+  ) {
+    return false;
+  }
+
+  const [first, second] = parts;
+
+  return (
+    first === 0 ||
+    first === 10 ||
+    first === 127 ||
+    (first === 100 && second >= 64 && second <= 127) ||
+    (first === 169 && second === 254) ||
+    (first === 172 && second >= 16 && second <= 31) ||
+    (first === 192 && second === 168) ||
+    (first === 198 && (second === 18 || second === 19)) ||
+    first >= 224
+  );
+}
+
+function isPrivateIpv6(hostname) {
+  const normalized = hostname.toLowerCase();
+
+  return (
+    normalized === "::1" ||
+    normalized === "0:0:0:0:0:0:0:1" ||
+    normalized === "::" ||
+    normalized.startsWith("fc") ||
+    normalized.startsWith("fd") ||
+    normalized.startsWith("fe80:")
+  );
+}
+
+function isBlockedHostname(hostname) {
+  const normalized = String(hostname || "")
+    .trim()
+    .toLowerCase()
+    .replace(/^\[|\]$/g, "");
+
+  if (!normalized) return true;
+  if (BLOCKED_HOSTNAMES.has(normalized)) return true;
+  if (normalized.endsWith(".localhost") || normalized.endsWith(".local")) return true;
+
+  const ipVersion = net.isIP(normalized);
+  if (ipVersion === 4) return isPrivateIpv4(normalized);
+  if (ipVersion === 6) return isPrivateIpv6(normalized);
+
+  return false;
+}
 
 function normalizeUrl(value) {
   if (typeof value !== "string") return null;
@@ -12,6 +69,10 @@ function normalizeUrl(value) {
   try {
     const parsed = new URL(trimmed);
     if (!VALID_PROTOCOLS.has(parsed.protocol)) {
+      return null;
+    }
+
+    if (isBlockedHostname(parsed.hostname)) {
       return null;
     }
 
@@ -97,6 +158,7 @@ module.exports = {
   DEFAULT_EXPIRY_MINUTES,
   MAX_EXPIRY_MINUTES,
   MAX_FALLBACK_URLS,
+  isBlockedHostname,
   normalizeUrl,
   normalizeFallbackUrls,
   parseExpiryMinutes,

@@ -6,6 +6,11 @@ const Workspace = require("../models/Workspace");
 const { serializeBillingSnapshot } = require("../config/billingPlans");
 const { extractClientIp, hashIp } = require("../utils/deviceInfo");
 const {
+  ACCOUNT_POLICY_VERSION,
+  buildAccountComplianceRecord,
+  validateAccountConsents,
+} = require("../utils/consentUtils");
+const {
   SESSION_TTL_DAYS,
   generateSessionToken,
   hashPassword,
@@ -66,6 +71,15 @@ function serializeAuthPayload(user, workspace, sessionDetails) {
       name: user.name,
       email: user.email,
       defaultWorkspaceId: user.defaultWorkspaceId,
+      compliance: {
+        policyVersion: user.compliance?.policyVersion || "",
+        termsAcceptedAt: user.compliance?.termsAcceptedAt || null,
+        privacyAcceptedAt: user.compliance?.privacyAcceptedAt || null,
+        analyticsAcceptedAt: user.compliance?.analyticsAcceptedAt || null,
+        lawfulUseAcceptedAt: user.compliance?.lawfulUseAcceptedAt || null,
+        ageConfirmedAt: user.compliance?.ageConfirmedAt || null,
+        marketingOptIn: Boolean(user.compliance?.marketingOptIn),
+      },
     },
     workspace: {
       id: workspace._id,
@@ -77,7 +91,7 @@ function serializeAuthPayload(user, workspace, sessionDetails) {
       customDomains,
       domainSetup: {
         cnameTarget: getDefaultCnameTarget(),
-        txtPrefix: "_urlshortener",
+        txtPrefix: "_shotlink",
       },
     },
   };
@@ -106,7 +120,20 @@ exports.register = async (req, res) => {
     }
 
     if (!isStrongEnoughPassword(password)) {
-      return res.status(400).json({ error: "Password must be at least 8 characters" });
+      return res.status(400).json({
+        error:
+          "Password must be at least 8 characters and include uppercase, lowercase, and a number",
+      });
+    }
+
+    const consentValidation = validateAccountConsents(req.body);
+    if (!consentValidation.ok) {
+      return res.status(400).json({
+        error:
+          "Please accept the required Terms, Privacy Notice, analytics notice, lawful-use policy, and age confirmation before creating an account.",
+        missingConsents: consentValidation.missing,
+        policyVersion: ACCOUNT_POLICY_VERSION,
+      });
     }
 
     const existingUser = await User.exists({ email });
@@ -118,6 +145,7 @@ exports.register = async (req, res) => {
       name,
       email,
       passwordHash: hashPassword(password),
+      compliance: buildAccountComplianceRecord(req, consentValidation.consents),
     });
 
     const workspace = await Workspace.create({

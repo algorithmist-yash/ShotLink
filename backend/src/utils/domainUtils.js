@@ -51,11 +51,11 @@ function getDefaultCnameTarget() {
   if (configuredTarget) return configuredTarget;
 
   const baseUrlHost = getHostnameFromUrl(process.env.BASE_URL || "");
-  return baseUrlHost || "go.yourbrand.in";
+  return baseUrlHost || "go.shotlink.in";
 }
 
 function getTxtRecordName(hostname) {
-  return `_urlshortener.${normalizeHostname(hostname)}`;
+  return `_shotlink.${normalizeHostname(hostname)}`;
 }
 
 function getRequestHostname(req) {

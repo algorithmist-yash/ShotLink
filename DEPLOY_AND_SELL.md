@@ -25,15 +25,15 @@ Best early customers in India:
 - Database: MongoDB Atlas
 - Billing: Razorpay
 - Domains:
-  - `app.yourbrand.in`
-  - `api.yourbrand.in`
-  - `go.yourbrand.in`
+  - `shotlink.in`
+  - `api.shotlink.in`
+  - `go.shotlink.in`
 
 ## 3. What each domain does
 
-- `app.yourbrand.in` hosts the dashboard
-- `api.yourbrand.in` serves authenticated API requests
-- `go.yourbrand.in` handles public redirects
+- `shotlink.in` hosts the dashboard
+- `api.shotlink.in` serves authenticated API requests
+- `go.shotlink.in` handles public redirects
 
 This keeps the system cleaner and makes future scaling easier.
 
@@ -53,11 +53,11 @@ Environment variables:
 - `PORT=5000`
 - `NODE_ENV=production`
 - `MONGO_URI=...`
-- `BASE_URL=https://go.yourbrand.in`
-- `APP_BASE_URL=https://app.yourbrand.in`
-- `CUSTOM_DOMAIN_CNAME_TARGET=go.yourbrand.in`
+- `BASE_URL=https://go.shotlink.in`
+- `APP_BASE_URL=https://shotlink.in`
+- `CUSTOM_DOMAIN_CNAME_TARGET=go.shotlink.in`
 - `IP_HASH_SALT=...`
-- `ALLOWED_ORIGINS=https://app.yourbrand.in`
+- `ALLOWED_ORIGINS=https://shotlink.in`
 - `RAZORPAY_KEY_ID=...`
 - `RAZORPAY_KEY_SECRET=...`
 - `RAZORPAY_WEBHOOK_SECRET=...`
@@ -65,8 +65,8 @@ Environment variables:
 
 After deploy:
 
-- add `api.yourbrand.in` as a custom domain
-- add `go.yourbrand.in` as another custom domain
+- add `api.shotlink.in` as a custom domain
+- add `go.shotlink.in` as another custom domain
 
 ## 5. Frontend deployment on Vercel
 
@@ -81,11 +81,11 @@ Recommended Vercel settings:
 
 Environment variable:
 
-- `VITE_API_BASE_URL=https://api.yourbrand.in`
+- `VITE_API_BASE_URL=https://api.shotlink.in`
 
 After deploy:
 
-- add `app.yourbrand.in` as a custom domain
+- add `shotlink.in` as a custom domain
 
 ## 6. MongoDB Atlas
 
@@ -117,7 +117,7 @@ For the current codebase, this is how billing works:
 
 Webhook URL:
 
-- `https://api.yourbrand.in/api/v1/billing/webhooks/razorpay`
+- `https://api.shotlink.in/api/v1/billing/webhooks/razorpay`
 
 Webhook events:
 
@@ -131,7 +131,7 @@ Webhook events:
 For each customer branded domain:
 
 1. Add the customer hostname to the Railway backend service as a custom domain.
-2. Ask the customer to create `CNAME go.customerbrand.in -> go.yourbrand.in`.
+2. Ask the customer to create `CNAME go.customerbrand.in -> go.shotlink.in`.
 3. Ask the customer to create the dashboard-provided TXT verification record.
 4. Wait for Railway SSL/domain verification.
 5. Click Verify in this app's workspace dashboard.

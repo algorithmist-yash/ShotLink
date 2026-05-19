@@ -20,5 +20,5 @@ test("isValidCustomHostname rejects local hosts and invalid labels", () => {
 });
 
 test("getTxtRecordName returns the expected ownership record", () => {
-  assert.equal(getTxtRecordName("Links.Example.com"), "_urlshortener.links.example.com");
+  assert.equal(getTxtRecordName("Links.Example.com"), "_shotlink.links.example.com");
 });

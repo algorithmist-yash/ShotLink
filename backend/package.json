@@ -1,7 +1,7 @@
 {
-  "name": "url-shortener",
+  "name": "shotlink-backend",
   "version": "1.0.0",
-  "description": "",
+  "description": "Shotlink backend API and redirect service",
   "main": "index.js",
   "scripts": {
     "start": "node src/server.js",

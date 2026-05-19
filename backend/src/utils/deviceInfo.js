@@ -50,12 +50,12 @@ function detectOs(userAgent = "") {
 }
 
 function extractClientIp(req) {
-  const forwarded = req.headers["x-forwarded-for"];
+  const forwarded = req.headers?.["x-forwarded-for"];
   if (typeof forwarded === "string" && forwarded.trim()) {
     return forwarded.split(",")[0].trim();
   }
 
-  return req.ip || req.socket?.remoteAddress || "";
+  return req?.ip || req?.socket?.remoteAddress || "";
 }
 
 function hashIp(ipAddress) {

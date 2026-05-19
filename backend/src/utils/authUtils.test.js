@@ -29,6 +29,7 @@ test("session tokens hash deterministically and are non-empty", () => {
 test("email and password validators enforce the minimum rules", () => {
   assert.equal(isValidEmail("founder@example.com"), true);
   assert.equal(isValidEmail("not-an-email"), false);
-  assert.equal(isStrongEnoughPassword("12345678"), true);
+  assert.equal(isStrongEnoughPassword("Stronger123"), true);
+  assert.equal(isStrongEnoughPassword("12345678"), false);
   assert.equal(isStrongEnoughPassword("short"), false);
 });

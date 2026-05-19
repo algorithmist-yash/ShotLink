@@ -38,7 +38,7 @@ function serializeWorkspaceSettings(workspace) {
       customDomains: workspace.customDomains.map(serializeDomain),
       domainSetup: {
         cnameTarget: getDefaultCnameTarget(),
-        txtPrefix: "_urlshortener",
+        txtPrefix: "_shotlink",
       },
     },
   };

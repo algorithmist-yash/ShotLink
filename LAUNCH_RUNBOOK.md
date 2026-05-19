@@ -15,9 +15,9 @@ This is the shortest path from this repo to a paid, public product.
 
 Use one domain and three subdomains:
 
-- `app.yourbrand.in` for the dashboard on Vercel
-- `api.yourbrand.in` for authenticated backend APIs on Railway
-- `go.yourbrand.in` for public short-link redirects on Railway
+- `shotlink.in` for the dashboard on Vercel
+- `api.shotlink.in` for authenticated backend APIs on Railway
+- `go.shotlink.in` for public short-link redirects on Railway
 
 ## 3. MongoDB Atlas
 
@@ -26,7 +26,7 @@ Create one cluster and one database user.
 Use a database name like:
 
 ```text
-url_shortener
+shotlink
 ```
 
 In Network Access, allow Railway to connect. For the first launch, you can temporarily allow access from anywhere, then tighten it after your Railway service is stable.
@@ -52,22 +52,22 @@ Set these variables:
 
 ```text
 NODE_ENV=production
-MONGO_URI=mongodb+srv://username:password@cluster.mongodb.net/url_shortener?retryWrites=true&w=majority
-BASE_URL=https://go.yourbrand.in
-APP_BASE_URL=https://app.yourbrand.in
-CUSTOM_DOMAIN_CNAME_TARGET=go.yourbrand.in
+MONGO_URI=mongodb+srv://username:password@cluster.mongodb.net/shotlink?retryWrites=true&w=majority
+BASE_URL=https://go.shotlink.in
+APP_BASE_URL=https://shotlink.in
+CUSTOM_DOMAIN_CNAME_TARGET=go.shotlink.in
 IP_HASH_SALT=make-this-long-random-and-private
-ALLOWED_ORIGINS=https://app.yourbrand.in
+ALLOWED_ORIGINS=https://shotlink.in
 RAZORPAY_KEY_ID=rzp_live_or_test_key
 RAZORPAY_KEY_SECRET=razorpay_secret
 RAZORPAY_WEBHOOK_SECRET=your_webhook_secret
-SUPPORT_EMAIL=founder@yourbrand.in
+SUPPORT_EMAIL=support@shotlink.in
 ```
 
 Add these Railway domains to the same backend service:
 
-- `api.yourbrand.in`
-- `go.yourbrand.in`
+- `api.shotlink.in`
+- `go.shotlink.in`
 
 ## 5. Vercel frontend
 
@@ -83,13 +83,13 @@ Use these project settings:
 Set this variable:
 
 ```text
-VITE_API_BASE_URL=https://api.yourbrand.in
+VITE_API_BASE_URL=https://api.shotlink.in
 ```
 
 Add this Vercel domain:
 
 ```text
-app.yourbrand.in
+shotlink.in
 ```
 
 ## 6. Razorpay setup
@@ -99,7 +99,7 @@ Start in Razorpay Test Mode.
 Create a webhook with this URL:
 
 ```text
-https://api.yourbrand.in/api/v1/billing/webhooks/razorpay
+https://api.shotlink.in/api/v1/billing/webhooks/razorpay
 ```
 
 Subscribe to these events:
@@ -119,10 +119,10 @@ RAZORPAY_WEBHOOK_SECRET=...
 
 Run this checklist after deploy:
 
-1. Open `https://app.yourbrand.in`.
+1. Open `https://shotlink.in`.
 2. Create a new account.
 3. Create one short link.
-4. Open the generated `https://go.yourbrand.in/...` short link.
+4. Open the generated `https://go.shotlink.in/...` short link.
 5. Confirm the click appears in analytics.
 6. Click the Pro plan.
 7. Pay through Razorpay Test Mode.
@@ -144,8 +144,8 @@ After the test mode flow works:
 For each paid customer domain, ask them to create:
 
 ```text
-CNAME go.customerbrand.in -> go.yourbrand.in
-TXT _urlshortener.go.customerbrand.in -> value shown inside the dashboard
+CNAME go.customerbrand.in -> go.shotlink.in
+TXT _shotlink.go.customerbrand.in -> value shown inside the dashboard
 ```
 
 Also add `go.customerbrand.in` as a custom domain on the Railway backend service:

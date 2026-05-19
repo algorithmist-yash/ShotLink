@@ -1,7 +1,7 @@
 {
-  "name": "url-shortener",
+  "name": "shotlink",
   "version": "1.0.0",
-  "description": "",
+  "description": "Shotlink production URL shortener and analytics backend",
   "main": "index.js",
   "scripts": {
     "start": "npm --prefix backend start",

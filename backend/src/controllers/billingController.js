@@ -20,7 +20,7 @@ function getAppBaseUrl() {
 }
 
 function getSupportEmail() {
-  return process.env.SUPPORT_EMAIL || "founder@yourbrand.in";
+  return process.env.SUPPORT_EMAIL || "support@shotlink.in";
 }
 
 function formatAmountInInr(amountInPaise) {

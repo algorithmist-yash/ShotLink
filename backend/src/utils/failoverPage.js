@@ -27,7 +27,7 @@ function renderUnavailablePage({ shortCode, destinations = [] }) {
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Link temporarily unavailable</title>
+    <title>Shotlink destination temporarily unavailable</title>
     <style>
       body {
         margin: 0;
@@ -77,7 +77,7 @@ function renderUnavailablePage({ shortCode, destinations = [] }) {
   </head>
   <body>
     <main>
-      <h1>We could not safely open this short link</h1>
+      <h1>Shotlink could not safely open this short link</h1>
       <p>
         The primary destination for <strong>${escapeHtml(shortCode)}</strong> appears to be having
         server-side trouble. If one of the alternatives below works for you, you can open it directly.

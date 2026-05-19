@@ -2,6 +2,7 @@ const test = require("node:test");
 const assert = require("node:assert/strict");
 
 const {
+  isBlockedHostname,
   normalizeUrl,
   validateShortenPayload,
 } = require("./urlUtils");
@@ -14,6 +15,15 @@ test("normalizeUrl accepts http and https URLs", () => {
 test("normalizeUrl rejects unsupported protocols", () => {
   assert.equal(normalizeUrl("ftp://example.com/file"), null);
   assert.equal(normalizeUrl("not-a-url"), null);
+});
+
+test("normalizeUrl blocks private and local network destinations", () => {
+  assert.equal(normalizeUrl("http://localhost:3000"), null);
+  assert.equal(normalizeUrl("http://127.0.0.1/admin"), null);
+  assert.equal(normalizeUrl("http://10.0.0.2/admin"), null);
+  assert.equal(normalizeUrl("http://192.168.1.10/router"), null);
+  assert.equal(normalizeUrl("http://[::1]/admin"), null);
+  assert.equal(isBlockedHostname("example.com"), false);
 });
 
 test("validateShortenPayload sanitizes fallback URLs and deduplicates primary URL", () => {

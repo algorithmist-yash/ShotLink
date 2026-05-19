@@ -1,6 +1,6 @@
-# 🔗 URL Shortener – Full Stack Application
+# 🔗 Shotlink – Full Stack Application
 
-A modern **full-stack URL Shortener** built with **React, Node.js, Express, and MongoDB Atlas**, featuring **custom expiry**, **real-time analytics**, **QR code generation**, and **manual link expiration**.
+A modern **full-stack Shotlink** built with **React, Node.js, Express, and MongoDB Atlas**, featuring **custom expiry**, **real-time analytics**, **QR code generation**, and **manual link expiration**.
 
 Designed with **scalability**, **clean architecture**, and **production-ready practices** in mind.
 
@@ -42,7 +42,7 @@ Designed with **scalability**, **clean architecture**, and **production-ready pr
 ## 📁 Project Structure
 
 ```
-url-shortener/
+shotlink/
 │
 ├── backend/
 │   ├── config/
@@ -94,8 +94,8 @@ VITE_API_BASE_URL=http://localhost:5000
 
 ### 1️⃣ Clone the repository
 ```
-git clone https://github.com/algorithmist-yash/url-shortener.git
-cd url-shortener
+git clone https://github.com/algorithmist-yash/shotlink.git
+cd shotlink
 ```
 
 ### 2️⃣ Backend Setup

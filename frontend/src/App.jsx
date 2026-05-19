@@ -6,6 +6,50 @@ const API_BASE = (import.meta.env.VITE_API_BASE_URL || "http://localhost:5000").
   ""
 );
 const STORAGE_KEY = "url-shortener-session-token";
+const ACCOUNT_POLICY_VERSION = "2026-05-19";
+const LINK_POLICY_VERSION = "2026-05-19";
+
+const REQUIRED_AUTH_CONSENTS = [
+  {
+    id: "ageConfirmed",
+    label: "I confirm I am 18+ or legally allowed to use this service.",
+  },
+  {
+    id: "termsAccepted",
+    label: "I agree to the Terms of Service and paid-plan rules.",
+  },
+  {
+    id: "privacyAccepted",
+    label: "I have read the Privacy Notice for account, billing, and support data.",
+  },
+  {
+    id: "analyticsAccepted",
+    label:
+      "I understand link visits collect time, device type, browser, OS, referrer, and hashed IP for analytics, security, and abuse prevention.",
+  },
+  {
+    id: "lawfulUseAccepted",
+    label:
+      "I agree not to use this service for spam, phishing, malware, impersonation, illegal content, or misleading links.",
+  },
+];
+
+const LEGAL_NOTICES = [
+  "Privacy: account data, billing records, support messages, and link analytics are used to run the service, prevent abuse, and provide reports.",
+  "Acceptable use: no phishing, malware, spam, unlawful content, impersonation, deceptive redirects, or links you do not have authority to share.",
+  "Grievance: publish a real support/grievance email before launch and respond to serious abuse/privacy complaints quickly.",
+];
+
+function createDefaultConsents() {
+  return {
+    ageConfirmed: false,
+    termsAccepted: false,
+    privacyAccepted: false,
+    analyticsAccepted: false,
+    lawfulUseAccepted: false,
+    marketingOptIn: false,
+  };
+}
 
 const EXPIRY_OPTIONS = [
   { label: "5 minutes", value: 5 },
@@ -157,6 +201,20 @@ function DeviceBar({ item, total }) {
   );
 }
 
+function ConsentCheckbox({ checked, onChange, children }) {
+  return (
+    <label style={styles.checkboxRow}>
+      <input
+        type="checkbox"
+        checked={checked}
+        onChange={(event) => onChange(event.target.checked)}
+        style={styles.checkboxInput}
+      />
+      <span>{children}</span>
+    </label>
+  );
+}
+
 function getHealthTone(status) {
   if (status === "healthy") return "healthy";
   if (status === "unhealthy") return "danger";
@@ -190,6 +248,7 @@ export default function App() {
     email: "",
     password: "",
     workspaceName: "",
+    consents: createDefaultConsents(),
   });
   const [authLoading, setAuthLoading] = useState(Boolean(localStorage.getItem(STORAGE_KEY)));
   const [authSubmitting, setAuthSubmitting] = useState(false);
@@ -206,7 +265,7 @@ export default function App() {
   const [error, setError] = useState("");
   const [copied, setCopied] = useState("");
   const [publicPlans, setPublicPlans] = useState(DEFAULT_PUBLIC_PLANS);
-  const [supportEmail, setSupportEmail] = useState("founder@yourbrand.in");
+  const [supportEmail, setSupportEmail] = useState("support@shotlink.in");
   const [billingSummary, setBillingSummary] = useState(null);
   const [billingLoading, setBillingLoading] = useState(false);
   const [billingSubmittingPlan, setBillingSubmittingPlan] = useState("");
@@ -216,6 +275,7 @@ export default function App() {
   const [domainSaving, setDomainSaving] = useState(false);
   const [domainVerifying, setDomainVerifying] = useState("");
   const [selectedDomainHost, setSelectedDomainHost] = useState("");
+  const [linkComplianceAccepted, setLinkComplianceAccepted] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
 
   useEffect(() => {
@@ -236,7 +296,7 @@ export default function App() {
         const data = await response.json();
         if (!cancelled) {
           setPublicPlans(data.plans?.length ? data.plans : DEFAULT_PUBLIC_PLANS);
-          setSupportEmail(data.supportEmail || "founder@yourbrand.in");
+          setSupportEmail(data.supportEmail || "support@shotlink.in");
         }
       } catch {
         // The default catalog is enough if billing is not reachable yet.
@@ -445,6 +505,7 @@ export default function App() {
     setDomainSaving(false);
     setDomainVerifying("");
     setSelectedDomainHost("");
+    setLinkComplianceAccepted(false);
   };
 
   const authorizedFetch = async (path, options = {}) => {
@@ -584,14 +645,25 @@ export default function App() {
     });
   };
 
+  const updateAuthConsent = (field, checked) => {
+    setAuthForm((current) => ({
+      ...current,
+      consents: {
+        ...current.consents,
+        [field]: checked,
+      },
+    }));
+  };
+
   const submitAuth = async () => {
     setAuthSubmitting(true);
     setError("");
 
     try {
+      const { consents, ...registerFields } = authForm;
       const payload =
         authMode === "register"
-          ? authForm
+          ? { ...registerFields, consents }
           : { email: authForm.email, password: authForm.password };
 
       const response = await fetch(`${API_BASE}/api/v1/auth/${authMode}`, {
@@ -613,6 +685,7 @@ export default function App() {
         email: authForm.email,
         password: "",
         workspaceName: "",
+        consents: createDefaultConsents(),
       });
     } catch (requestError) {
       setError(requestError.message || "Authentication failed");
@@ -790,6 +863,11 @@ export default function App() {
       return;
     }
 
+    if (!linkComplianceAccepted) {
+      setError("Please confirm the destination authority and anti-abuse consent before creating this link.");
+      return;
+    }
+
     setLoading(true);
     setError("");
     setCopied("");
@@ -802,6 +880,12 @@ export default function App() {
           expiresInMinutes: expiry,
           fallbackUrls: parseFallbackUrls(),
           customDomainHost: selectedDomainHost,
+          compliance: {
+            destinationAuthorityAccepted: true,
+            securityScanAccepted: true,
+            abusePolicyAccepted: true,
+            policyVersion: LINK_POLICY_VERSION,
+          },
         }),
       });
 
@@ -815,6 +899,7 @@ export default function App() {
       setUrl("");
       setFallbackInput("");
       setExpiry(30);
+      setLinkComplianceAccepted(false);
       await refreshAnalytics(data.link.shortCode);
       await refreshBillingSummary();
     } catch (requestError) {
@@ -900,7 +985,7 @@ export default function App() {
   const customDomains = session?.workspace?.customDomains || [];
   const verifiedDomains = customDomains.filter((domain) => domain.status === "verified");
   const domainLimit = currentPlan.domainLimit ?? 0;
-  const cnameTarget = session?.workspace?.domainSetup?.cnameTarget || "go.yourbrand.in";
+  const cnameTarget = session?.workspace?.domainSetup?.cnameTarget || "go.shotlink.in";
   const activeLinkCount =
     billingSummary?.currentPlan?.linkCountUsed ?? links.filter((link) => link.isActive).length;
   const activeLinkLimit = currentPlan.linkLimit || 20;
@@ -909,6 +994,12 @@ export default function App() {
     Math.max(activeLinkLimit - activeLinkCount, 0);
   const currentPlanRank = PLAN_ORDER[currentPlan.effectivePlanId] ?? 0;
   const latestPayment = billingSummary?.recentPayments?.[0] || null;
+  const requiredAccountConsentsAccepted = REQUIRED_AUTH_CONSENTS.every(
+    (item) => authForm.consents[item.id]
+  );
+  const authSubmitDisabled =
+    authSubmitting || (authMode === "register" && !requiredAccountConsentsAccepted);
+  const linkSubmitDisabled = loading || remainingLinkSlots <= 0 || !linkComplianceAccepted;
 
   if (authLoading) {
     return (
@@ -936,12 +1027,11 @@ export default function App() {
           }}
         >
           <section style={styles.heroPanel}>
-            <StatusPill label="India-ready link infra" tone="accent" />
-            <h1 style={styles.title}>Build resilient short links as a real workspace product.</h1>
+            <StatusPill label="Shotlink for India" tone="accent" />
+            <h1 style={styles.title}>Shotlink turns every campaign URL into a resilient business link.</h1>
             <p style={styles.subtitle}>
-              Teams now get owned links, protected analytics, session-based auth, and
-              health-aware failover routing. This is the first real SaaS layer on top of the
-              redirect engine.
+              Teams get branded short links on shotlink.in, protected analytics, session-based
+              auth, and health-aware failover routing for campaigns that cannot afford dead URLs.
             </p>
 
             <div style={styles.featureGrid}>
@@ -1010,6 +1100,33 @@ export default function App() {
                 ))}
               </div>
             </div>
+
+            <div style={styles.legalCard}>
+              <div>
+                <p style={styles.sectionEyebrow}>Legal basics</p>
+                <h2 style={styles.panelTitle}>Consent and abuse controls are built in</h2>
+              </div>
+              <div style={styles.legalList}>
+                {LEGAL_NOTICES.map((notice) => (
+                  <p key={notice} style={styles.legalNoticeItem}>
+                    {notice}
+                  </p>
+                ))}
+              </div>
+              <p style={styles.legalFinePrint}>
+                Policy version {ACCOUNT_POLICY_VERSION}. Replace placeholder brand/contact details
+                with your real business name, address, grievance email, refund policy, and lawyer
+                reviewed Terms before accepting paid customers.
+              </p>
+              <div style={styles.legalLinkRow}>
+                <a href={`mailto:${supportEmail}`} style={styles.link}>
+                  Contact support
+                </a>
+                <a href={`mailto:${supportEmail}?subject=Abuse%20report`} style={styles.link}>
+                  Report abuse
+                </a>
+              </div>
+            </div>
           </section>
 
           <section style={styles.authCard}>
@@ -1060,7 +1177,7 @@ export default function App() {
                   onChange={(event) =>
                     setAuthForm((current) => ({ ...current, email: event.target.value }))
                   }
-                  placeholder="founder@brand.com"
+                    placeholder="founder@shotlink.in"
                 />
               </label>
 
@@ -1073,7 +1190,7 @@ export default function App() {
                   onChange={(event) =>
                     setAuthForm((current) => ({ ...current, password: event.target.value }))
                   }
-                  placeholder="At least 8 characters"
+                  placeholder="8+ chars with uppercase, lowercase, and a number"
                 />
               </label>
 
@@ -1089,14 +1206,51 @@ export default function App() {
                         workspaceName: event.target.value,
                       }))
                     }
-                    placeholder="Growth Lab India"
+                    placeholder="Shotlink Growth Team"
                   />
                 </label>
               ) : null}
 
+              {authMode === "register" ? (
+                <div style={styles.consentBox}>
+                  <div>
+                    <p style={styles.sectionEyebrow}>Required consent</p>
+                    <p style={styles.consentIntro}>
+                      We store this consent record with a hashed IP, user agent, and timestamp so
+                      the business has evidence of what the user accepted.
+                    </p>
+                  </div>
+
+                  {REQUIRED_AUTH_CONSENTS.map((item) => (
+                    <ConsentCheckbox
+                      key={item.id}
+                      checked={Boolean(authForm.consents[item.id])}
+                      onChange={(checked) => updateAuthConsent(item.id, checked)}
+                    >
+                      {item.label}
+                    </ConsentCheckbox>
+                  ))}
+
+                  <ConsentCheckbox
+                    checked={Boolean(authForm.consents.marketingOptIn)}
+                    onChange={(checked) => updateAuthConsent("marketingOptIn", checked)}
+                  >
+                    Optional: send me product updates and launch offers by email.
+                  </ConsentCheckbox>
+                </div>
+              ) : null}
+
               {error ? <p style={styles.error}>{error}</p> : null}
 
-              <button style={styles.primaryButton} onClick={submitAuth} disabled={authSubmitting}>
+              <button
+                style={
+                  authSubmitDisabled
+                    ? { ...styles.primaryButton, opacity: 0.6, cursor: "not-allowed" }
+                    : styles.primaryButton
+                }
+                onClick={submitAuth}
+                disabled={authSubmitDisabled}
+              >
                 {authSubmitting
                   ? "Working..."
                   : authMode === "register"
@@ -1496,19 +1650,36 @@ export default function App() {
               </select>
             </label>
 
+            <div style={styles.consentBox}>
+              <p style={styles.consentIntro}>
+                Link policy version {LINK_POLICY_VERSION}. Required for every link so abusive or
+                illegal destinations can be suspended with a clear audit trail.
+              </p>
+              <ConsentCheckbox
+                checked={linkComplianceAccepted}
+                onChange={setLinkComplianceAccepted}
+              >
+                I have authority to share these destinations, consent to automated health checks,
+                and will not use this link for phishing, malware, spam, impersonation, or unlawful
+                content.
+              </ConsentCheckbox>
+            </div>
+
             <button
               style={
-                loading || remainingLinkSlots <= 0
+                linkSubmitDisabled
                   ? { ...styles.primaryButton, opacity: 0.6, cursor: "not-allowed" }
                   : styles.primaryButton
               }
               onClick={createLink}
-              disabled={loading || remainingLinkSlots <= 0}
+              disabled={linkSubmitDisabled}
             >
               {loading
                 ? "Creating link..."
                 : remainingLinkSlots <= 0
                   ? "Upgrade to create more links"
+                  : !linkComplianceAccepted
+                    ? "Accept link policy to create"
                   : "Create resilient short link"}
             </button>
 
@@ -2037,6 +2208,64 @@ const styles = {
     margin: 0,
     color: "#cbd5e1",
     lineHeight: 1.6,
+  },
+  legalCard: {
+    display: "grid",
+    gap: 16,
+    padding: 22,
+    borderRadius: 24,
+    background: "rgba(6, 78, 59, 0.24)",
+    border: "1px solid rgba(45, 212, 191, 0.18)",
+  },
+  legalList: {
+    display: "grid",
+    gap: 10,
+  },
+  legalNoticeItem: {
+    margin: 0,
+    color: "#d1fae5",
+    lineHeight: 1.65,
+  },
+  legalFinePrint: {
+    margin: 0,
+    color: "#a7f3d0",
+    fontSize: 13,
+    lineHeight: 1.6,
+  },
+  legalLinkRow: {
+    display: "flex",
+    gap: 16,
+    flexWrap: "wrap",
+  },
+  consentBox: {
+    display: "grid",
+    gap: 12,
+    padding: 16,
+    borderRadius: 18,
+    background: "rgba(2, 6, 23, 0.52)",
+    border: "1px solid rgba(45, 212, 191, 0.18)",
+  },
+  consentIntro: {
+    margin: 0,
+    color: "#cbd5e1",
+    fontSize: 13,
+    lineHeight: 1.6,
+  },
+  checkboxRow: {
+    display: "grid",
+    gridTemplateColumns: "20px minmax(0, 1fr)",
+    gap: 10,
+    alignItems: "start",
+    color: "#e2e8f0",
+    fontSize: 13,
+    lineHeight: 1.5,
+    cursor: "pointer",
+  },
+  checkboxInput: {
+    width: 16,
+    height: 16,
+    marginTop: 2,
+    accentColor: "#14b8a6",
   },
   metricsGrid: {
     display: "grid",

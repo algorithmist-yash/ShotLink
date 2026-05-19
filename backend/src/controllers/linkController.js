@@ -3,6 +3,11 @@ const { nanoid } = require("nanoid");
 const { resolveEffectivePlan } = require("../config/billingPlans");
 const ClickEvent = require("../models/ClickEvent");
 const Url = require("../models/Url");
+const {
+  LINK_POLICY_VERSION,
+  buildLinkComplianceRecord,
+  validateLinkConsents,
+} = require("../utils/consentUtils");
 const { normalizeHostname } = require("../utils/domainUtils");
 const { validateShortenPayload } = require("../utils/urlUtils");
 const {
@@ -122,6 +127,16 @@ exports.createLink = async (req, res) => {
     const shortCode = await generateUniqueShortCode();
     const expiresAt = new Date(Date.now() + expiryMinutes * 60 * 1000);
     const customDomainHost = normalizeHostname(req.body.customDomainHost);
+    const consentValidation = validateLinkConsents(req.body);
+
+    if (!consentValidation.ok) {
+      return res.status(400).json({
+        error:
+          "Please confirm you have authority to use this destination, consent to automated health checks, and accept the anti-abuse policy before creating the link.",
+        missingConsents: consentValidation.missing,
+        policyVersion: LINK_POLICY_VERSION,
+      });
+    }
 
     if (customDomainHost) {
       const matchingDomain = req.auth.workspace.customDomains.find(
@@ -147,6 +162,7 @@ exports.createLink = async (req, res) => {
       isActive: true,
       clicks: 0,
       fallbackUrls,
+      compliance: buildLinkComplianceRecord(req, req.auth.user._id),
     });
 
     await refreshUrlHealth(url);

@@ -53,6 +53,20 @@ const urlSchema = new mongoose.Schema(
       type: [fallbackUrlSchema],
       default: [],
     },
+    compliance: {
+      policyVersion: { type: String, default: "" },
+      acceptedAt: { type: Date, default: null },
+      acceptedBy: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "User",
+        default: null,
+      },
+      destinationAuthorityAcceptedAt: { type: Date, default: null },
+      securityScanAcceptedAt: { type: Date, default: null },
+      abusePolicyAcceptedAt: { type: Date, default: null },
+      consentIpHash: { type: String, default: "" },
+      consentUserAgent: { type: String, default: "" },
+    },
   },
   { timestamps: true }
 );

@@ -37,7 +37,13 @@ function isValidEmail(email) {
 }
 
 function isStrongEnoughPassword(password) {
-  return typeof password === "string" && password.length >= MIN_PASSWORD_LENGTH;
+  return (
+    typeof password === "string" &&
+    password.length >= MIN_PASSWORD_LENGTH &&
+    /[a-z]/.test(password) &&
+    /[A-Z]/.test(password) &&
+    /\d/.test(password)
+  );
 }
 
 module.exports = {

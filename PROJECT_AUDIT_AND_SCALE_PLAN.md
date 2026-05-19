@@ -1,8 +1,8 @@
-# URL Shortener Project Audit and Scale Plan
+# Shotlink Project Audit and Scale Plan
 
 ## 1. Executive Summary
 
-This repository is a good MVP for demonstrating the basic URL shortener flow:
+This repository is a good MVP for demonstrating the basic Shotlink flow:
 
 - create a short link
 - redirect to the original URL
@@ -538,7 +538,7 @@ The first changes I would make in this exact codebase are:
 
 ## 15. Final Recommendation
 
-Your idea is viable if you position it as a reliable link infrastructure and analytics product, not only a URL shortener.
+Your idea is viable if you position it as a reliable link infrastructure and analytics product, not only a Shotlink.
 
 The smartest build order is:
 

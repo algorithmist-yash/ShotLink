@@ -65,7 +65,7 @@ function createRateLimiter({ windowMs, max, keyPrefix = "global" }) {
 
 const authRateLimit = createRateLimiter({
   windowMs: 15 * 60 * 1000,
-  max: 30,
+  max: 12,
   keyPrefix: "auth",
 });
 
