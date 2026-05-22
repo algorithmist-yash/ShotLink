@@ -1164,7 +1164,7 @@ export default function App() {
                     onChange={(event) =>
                       setAuthForm((current) => ({ ...current, name: event.target.value }))
                     }
-                    placeholder="Yash Raj"
+                    placeholder="Enter your full name"
                   />
                 </label>
               ) : null}
@@ -1177,7 +1177,7 @@ export default function App() {
                   onChange={(event) =>
                     setAuthForm((current) => ({ ...current, email: event.target.value }))
                   }
-                    placeholder="founder@shotlink.in"
+                    placeholder="Enter your email address"
                 />
               </label>
 
@@ -1190,7 +1190,7 @@ export default function App() {
                   onChange={(event) =>
                     setAuthForm((current) => ({ ...current, password: event.target.value }))
                   }
-                  placeholder="8+ chars with uppercase, lowercase, and a number"
+                  placeholder="Create a strong password"
                 />
               </label>
 
@@ -1206,7 +1206,7 @@ export default function App() {
                         workspaceName: event.target.value,
                       }))
                     }
-                    placeholder="Shotlink Growth Team"
+                    placeholder="Enter your workspace or company name"
                   />
                 </label>
               ) : null}
@@ -1450,7 +1450,7 @@ export default function App() {
               <div style={styles.inlineForm}>
                 <input
                   style={styles.input}
-                  placeholder="go.customerbrand.in"
+                  placeholder="Enter your branded domain, e.g. go.yourcompany.in"
                   value={customDomainInput}
                   onChange={(event) => setCustomDomainInput(event.target.value)}
                   disabled={domainSaving || customDomains.length >= domainLimit}
@@ -1619,7 +1619,7 @@ export default function App() {
               Primary destination
               <input
                 style={styles.input}
-                placeholder="https://campaign.brand.com/launch"
+                placeholder="Paste the destination URL"
                 value={url}
                 onChange={(event) => setUrl(event.target.value)}
               />
@@ -1629,7 +1629,7 @@ export default function App() {
               Fallback destinations
               <textarea
                 style={styles.textarea}
-                placeholder={"https://backup-1.example.com\nhttps://backup-2.example.com"}
+                placeholder={"Optional: paste backup URLs, one per line\nhttps://backup-1.yourcompany.in\nhttps://backup-2.yourcompany.in"}
                 value={fallbackInput}
                 onChange={(event) => setFallbackInput(event.target.value)}
               />
