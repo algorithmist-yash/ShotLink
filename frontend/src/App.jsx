@@ -19,8 +19,8 @@ const PUBLIC_NAV_ITEMS = [
 ];
 
 const HOME_FEATURES = [
-  "Branded short links",
-  "Click analytics",
+  "Edge-ready redirects",
+  "Signal-rich analytics",
   "Fallback routing",
 ];
 
@@ -60,6 +60,53 @@ const LEGAL_SECTIONS = [
     title: "Support",
     body: "For help, takedowns, or privacy requests, contact support@shotlink.in.",
   },
+];
+
+const LANDING_METRICS = [
+  { label: "Avg. redirect target", value: "<50ms", hint: "cache-first architecture" },
+  { label: "Route checks", value: "24/7", hint: "health-aware fallbacks" },
+  { label: "Data captured", value: "9+", hint: "device, referrer, geo signals" },
+  { label: "Launch region", value: "India", hint: "built for local teams first" },
+];
+
+const PRODUCT_FEATURES = [
+  {
+    title: "Smart routing",
+    body: "Send every visitor through the healthiest available destination.",
+    signal: "Route mesh",
+  },
+  {
+    title: "Branded infrastructure",
+    body: "Operate short links, QR paths, and campaign links under your brand.",
+    signal: "Domain layer",
+  },
+  {
+    title: "Analytics console",
+    body: "Understand clicks by time, device, browser, referrer, and route health.",
+    signal: "Live telemetry",
+  },
+  {
+    title: "Developer API",
+    body: "Prepare your workspace for programmatic link creation and reporting.",
+    signal: "API-ready",
+  },
+];
+
+const TRUST_SIGNALS = [
+  "Encrypted account sessions",
+  "Abuse policy and takedown flow",
+  "Fallback destinations",
+  "Consent-backed analytics",
+];
+
+const API_SNIPPET_LINES = [
+  "POST /api/v1/links",
+  "Authorization: Bearer sk_live_...",
+  "{",
+  '  "originalUrl": "https://example.com/campaign",',
+  '  "fallbackUrls": ["https://backup.example.com"],',
+  '  "expiresInMinutes": 10080',
+  "}",
 ];
 
 const REQUIRED_AUTH_CONSENTS = [
@@ -203,11 +250,11 @@ function formatDate(value) {
 
 function StatusPill({ label, tone = "neutral" }) {
   const tones = {
-    healthy: { background: "rgba(34, 197, 94, 0.16)", color: "#bbf7d0" },
-    warning: { background: "rgba(251, 191, 36, 0.18)", color: "#fde68a" },
-    danger: { background: "rgba(248, 113, 113, 0.18)", color: "#fecaca" },
-    neutral: { background: "rgba(148, 163, 184, 0.18)", color: "#e2e8f0" },
-    accent: { background: "rgba(56, 189, 248, 0.18)", color: "#bae6fd" },
+    healthy: { background: "rgba(143, 255, 210, 0.14)", color: "#c9ffec" },
+    warning: { background: "rgba(255, 214, 102, 0.16)", color: "#ffe9a8" },
+    danger: { background: "rgba(255, 107, 122, 0.16)", color: "#ffd3d8" },
+    neutral: { background: "rgba(255, 255, 255, 0.08)", color: "#e7ecff" },
+    accent: { background: "rgba(76, 85, 255, 0.18)", color: "#f3f5ff" },
   };
 
   const palette = tones[tone] || tones.neutral;
@@ -275,6 +322,55 @@ function BrandLogo({ compact = false, style }) {
         ...style,
       }}
     />
+  );
+}
+
+function TransmissionVisual() {
+  return (
+    <div className="sl-lift sl-transmission" style={styles.transmissionCard}>
+      <div style={styles.visualHeader}>
+        <span style={styles.visualDot} />
+        <span style={styles.visualLabel}>Live routing fabric</span>
+        <StatusPill label="Online" tone="healthy" />
+      </div>
+
+      <div style={styles.routeCanvas}>
+        <div style={{ ...styles.routeNode, ...styles.routeNodeSource }}>IN</div>
+        <div style={{ ...styles.routeNode, ...styles.routeNodeEdge }}>EDGE</div>
+        <div style={{ ...styles.routeNode, ...styles.routeNodeTarget }}>APP</div>
+        <span className="sl-route-line sl-route-line-one" />
+        <span className="sl-route-line sl-route-line-two" />
+        <span className="sl-route-packet sl-route-packet-one" />
+        <span className="sl-route-packet sl-route-packet-two" />
+      </div>
+
+      <div style={styles.latencyGrid}>
+        <div style={styles.latencyCard}>
+          <span style={styles.latencyValue}>31ms</span>
+          <span style={styles.latencyLabel}>Mumbai edge</span>
+        </div>
+        <div style={styles.latencyCard}>
+          <span style={styles.latencyValue}>99.9%</span>
+          <span style={styles.latencyLabel}>route health</span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function MiniTrafficChart() {
+  const bars = [32, 52, 44, 78, 62, 91, 72, 96, 84, 104, 92, 116];
+
+  return (
+    <div style={styles.chartPreview} aria-label="Traffic chart preview">
+      {bars.map((height, index) => (
+        <span
+          key={`${height}-${index}`}
+          className="sl-chart-bar"
+          style={{ ...styles.chartBar, height }}
+        />
+      ))}
+    </div>
   );
 }
 
@@ -737,7 +833,11 @@ export default function App() {
       }}
     >
       {publicPlans.map((plan) => (
-        <div key={plan.id} style={styles.planCard}>
+        <div
+          key={plan.id}
+          className="sl-lift"
+          style={plan.id === "pro" ? { ...styles.planCard, ...styles.planCardFeatured } : styles.planCard}
+        >
           <div style={styles.planHeader}>
             <strong style={styles.planName}>{plan.name}</strong>
             <StatusPill label={`${plan.linkLimit} links`} tone={getPlanTone(plan.id)} />
@@ -770,9 +870,13 @@ export default function App() {
   const renderPublicContent = () => {
     if (publicPage === "pricing") {
       return (
-        <section style={styles.publicPageCard}>
+        <section className="sl-reveal" style={styles.publicPageCard}>
           <p style={styles.sectionEyebrow}>Pricing</p>
-          <h1 style={styles.publicTitle}>Simple plans for growing teams</h1>
+          <h1 style={styles.publicTitle}>Infrastructure pricing without enterprise fog.</h1>
+          <p style={styles.publicLead}>
+            Start with a real short-link stack today. Upgrade when branded domains, richer analytics,
+            and campaign scale matter.
+          </p>
           {renderPublicPricing()}
         </section>
       );
@@ -780,15 +884,26 @@ export default function App() {
 
     if (publicPage === "docs") {
       return (
-        <section style={styles.publicPageCard}>
+        <section className="sl-reveal" style={styles.publicPageCard}>
           <p style={styles.sectionEyebrow}>Documentation</p>
-          <h1 style={styles.publicTitle}>Shotlink setup guide</h1>
+          <h1 style={styles.publicTitle}>Build on the Shotlink routing layer.</h1>
+          <p style={styles.publicLead}>
+            A concise operator guide for links, analytics, domains, billing, and API-ready workflows.
+          </p>
           <div style={styles.docGrid}>
             {DOC_SECTIONS.map((section) => (
-              <article key={section.title} style={styles.docCard}>
+              <article key={section.title} className="sl-lift" style={styles.docCard}>
                 <h2 style={styles.docTitle}>{section.title}</h2>
                 <p style={styles.helperText}>{section.body}</p>
               </article>
+            ))}
+          </div>
+          <div style={styles.codePanel}>
+            <p style={styles.mutedLabel}>API shape</p>
+            {API_SNIPPET_LINES.map((line) => (
+              <code key={line} style={styles.codeRow}>
+                {line}
+              </code>
             ))}
           </div>
         </section>
@@ -797,12 +912,15 @@ export default function App() {
 
     if (publicPage === "legal") {
       return (
-        <section style={styles.publicPageCard}>
+        <section className="sl-reveal" style={styles.publicPageCard}>
           <p style={styles.sectionEyebrow}>Legal</p>
-          <h1 style={styles.publicTitle}>Terms, privacy, and abuse policy</h1>
+          <h1 style={styles.publicTitle}>Trust rules for public link infrastructure.</h1>
+          <p style={styles.publicLead}>
+            Shotlink is designed for lawful routing, transparent analytics, and fast abuse response.
+          </p>
           <div style={styles.docGrid}>
             {LEGAL_SECTIONS.map((section) => (
-              <article key={section.title} style={styles.docCard}>
+              <article key={section.title} className="sl-lift" style={styles.docCard}>
                 <h2 style={styles.docTitle}>{section.title}</h2>
                 <p style={styles.helperText}>{section.body}</p>
               </article>
@@ -817,29 +935,87 @@ export default function App() {
     }
 
     return (
-      <section style={styles.heroPanel}>
-        <BrandLogo style={styles.heroLogo} />
-        <StatusPill label="Shotlink for India" tone="accent" />
-        <h1 style={styles.title}>Shorter links. Smarter routes.</h1>
-        <p style={styles.subtitle}>
-          Branded short links with analytics, QR codes, and fallback destinations for campaigns.
-        </p>
-        <div style={styles.heroActions}>
-          <button style={styles.primaryButton} onClick={() => setAuthMode("register")}>
-            Start free
-          </button>
-          <a href="#pricing" style={styles.secondaryLinkButton}>
-            See pricing
-          </a>
-        </div>
-        <div style={styles.compactFeatureGrid}>
-          {HOME_FEATURES.map((feature) => (
-            <div key={feature} style={styles.compactFeatureCard}>
-              {feature}
+      <div className="sl-reveal" style={styles.homeStack}>
+        <section style={styles.heroPanel}>
+          <div style={styles.heroCopy}>
+            <BrandLogo style={styles.heroLogo} />
+            <StatusPill label="Intelligent routing infrastructure" tone="accent" />
+            <h1 style={styles.title}>High-speed links for serious internet teams.</h1>
+            <p style={styles.subtitle}>
+              Shotlink turns every short URL into a measurable, branded, fallback-aware route.
+            </p>
+            <div style={styles.heroActions}>
+              <button className="sl-action" style={styles.primaryButton} onClick={() => setAuthMode("register")}>
+                Start routing
+              </button>
+              <a className="sl-action-secondary" href="#docs" style={styles.secondaryLinkButton}>
+                View docs
+              </a>
             </div>
+            <div style={styles.compactFeatureGrid}>
+              {HOME_FEATURES.map((feature) => (
+                <div key={feature} className="sl-lift" style={styles.compactFeatureCard}>
+                  {feature}
+                </div>
+              ))}
+            </div>
+          </div>
+          <TransmissionVisual />
+        </section>
+
+        <section style={styles.metricStrip}>
+          {LANDING_METRICS.map((metric) => (
+            <article key={metric.label} className="sl-lift" style={styles.metricStripCard}>
+              <p style={styles.metricLabel}>{metric.label}</p>
+              <strong style={styles.metricStripValue}>{metric.value}</strong>
+              <span style={styles.metricHint}>{metric.hint}</span>
+            </article>
           ))}
-        </div>
-      </section>
+        </section>
+
+        <section style={styles.showcaseGrid}>
+          {PRODUCT_FEATURES.map((feature) => (
+            <article key={feature.title} className="sl-lift" style={styles.showcaseCard}>
+              <span style={styles.signalBadge}>{feature.signal}</span>
+              <h2 style={styles.showcaseTitle}>{feature.title}</h2>
+              <p style={styles.featureText}>{feature.body}</p>
+            </article>
+          ))}
+        </section>
+
+        <section className="sl-lift" style={styles.analyticsPreviewCard}>
+          <div>
+            <p style={styles.sectionEyebrow}>Analytics preview</p>
+            <h2 style={styles.publicSectionTitle}>Traffic intelligence, not vanity clicks.</h2>
+            <p style={styles.helperText}>
+              Read device mix, route health, and click velocity from one control surface.
+            </p>
+          </div>
+          <MiniTrafficChart />
+        </section>
+
+        <section className="sl-lift" style={styles.apiPreviewCard}>
+          <div>
+            <p style={styles.sectionEyebrow}>Developer API</p>
+            <h2 style={styles.publicSectionTitle}>Designed for automation.</h2>
+          </div>
+          <div style={styles.codePanel}>
+            {API_SNIPPET_LINES.slice(0, 5).map((line) => (
+              <code key={line} style={styles.codeRow}>
+                {line}
+              </code>
+            ))}
+          </div>
+        </section>
+
+        <section style={styles.trustGrid}>
+          {TRUST_SIGNALS.map((signal) => (
+            <span key={signal} style={styles.trustPill}>
+              {signal}
+            </span>
+          ))}
+        </section>
+      </div>
     );
   };
 
@@ -1201,9 +1377,10 @@ export default function App() {
 
   if (authLoading) {
     return (
-      <div style={styles.page}>
-        <div style={styles.backgroundGlowTop} />
-        <div style={styles.backgroundGlowBottom} />
+      <div className="sl-page" style={styles.page}>
+        <div className="sl-grid-overlay" style={styles.backgroundGrid} />
+        <div className="sl-glow sl-glow-top" style={styles.backgroundGlowTop} />
+        <div className="sl-glow sl-glow-bottom" style={styles.backgroundGlowBottom} />
         <div style={styles.loadingShell}>
           <BrandLogo compact style={styles.loadingLogo} />
           <h1 style={styles.loadingTitle}>Loading workspace...</h1>
@@ -1215,9 +1392,10 @@ export default function App() {
 
   if (!session) {
     return (
-      <div style={styles.page}>
-        <div style={styles.backgroundGlowTop} />
-        <div style={styles.backgroundGlowBottom} />
+      <div className="sl-page" style={styles.page}>
+        <div className="sl-grid-overlay" style={styles.backgroundGrid} />
+        <div className="sl-glow sl-glow-top" style={styles.backgroundGlowTop} />
+        <div className="sl-glow sl-glow-bottom" style={styles.backgroundGlowBottom} />
 
         <div style={styles.publicShell}>
           <header style={styles.publicNav}>
@@ -1390,9 +1568,10 @@ export default function App() {
   }
 
   return (
-    <div style={styles.page}>
-      <div style={styles.backgroundGlowTop} />
-      <div style={styles.backgroundGlowBottom} />
+    <div className="sl-page" style={styles.page}>
+      <div className="sl-grid-overlay" style={styles.backgroundGrid} />
+      <div className="sl-glow sl-glow-top" style={styles.backgroundGlowTop} />
+      <div className="sl-glow sl-glow-bottom" style={styles.backgroundGlowBottom} />
 
       <div style={styles.dashboardShell}>
         <header style={styles.headerBar}>
@@ -1417,6 +1596,24 @@ export default function App() {
             </button>
           </div>
         </header>
+
+        <section style={styles.commandStrip}>
+          <article className="sl-lift" style={styles.commandCard}>
+            <p style={styles.metricLabel}>Routing layer</p>
+            <strong style={styles.commandValue}>Active</strong>
+            <span style={styles.metricHint}>Mongo-backed route registry</span>
+          </article>
+          <article className="sl-lift" style={styles.commandCard}>
+            <p style={styles.metricLabel}>Tracked clicks</p>
+            <strong style={styles.commandValue}>{analytics?.clicks ?? 0}</strong>
+            <span style={styles.metricHint}>selected link telemetry</span>
+          </article>
+          <article className="sl-lift" style={styles.commandCard}>
+            <p style={styles.metricLabel}>Domains</p>
+            <strong style={styles.commandValue}>{customDomains.length}/{domainLimit}</strong>
+            <span style={styles.metricHint}>branded link surfaces</span>
+          </article>
+        </section>
 
         <div
           style={{
@@ -2024,43 +2221,77 @@ export default function App() {
   );
 }
 
+const designTokens = {
+  colors: {
+    ink: "#f8fbff",
+    text: "#d7def0",
+    muted: "#8e99b7",
+    black: "#03040a",
+    night: "#070914",
+    panel: "rgba(8, 10, 22, 0.84)",
+    panelStrong: "rgba(10, 13, 28, 0.94)",
+    border: "rgba(146, 163, 255, 0.16)",
+    borderBright: "rgba(88, 97, 255, 0.42)",
+    blue: "#4c55ff",
+    blueHot: "#3038ff",
+    white: "#ffffff",
+    ice: "#eef3ff",
+    cyan: "#79e6ff",
+    success: "#8fffd2",
+    danger: "#ff6b7a",
+  },
+  shadows: {
+    blueGlow: "0 0 42px rgba(76, 85, 255, 0.28)",
+    panel: "0 30px 100px rgba(0, 0, 0, 0.42)",
+    lift: "0 24px 70px rgba(3, 4, 10, 0.48)",
+  },
+};
+
 const styles = {
   page: {
     minHeight: "100vh",
     position: "relative",
     overflowX: "hidden",
     background:
-      "radial-gradient(circle at top left, rgba(34,197,94,0.12), transparent 32%), radial-gradient(circle at bottom right, rgba(56,189,248,0.12), transparent 30%), linear-gradient(180deg, #020617 0%, #07111f 50%, #0f172a 100%)",
-    color: "#f8fafc",
-    padding: "32px 20px 40px",
+      "radial-gradient(circle at 16% 8%, rgba(76, 85, 255, 0.30), transparent 32%), radial-gradient(circle at 86% 18%, rgba(255, 255, 255, 0.12), transparent 25%), radial-gradient(circle at 72% 82%, rgba(121, 230, 255, 0.10), transparent 30%), linear-gradient(155deg, #03040a 0%, #080b18 46%, #02030a 100%)",
+    color: designTokens.colors.ink,
+    padding: "26px 18px 44px",
+    fontFamily:
+      "'Inter Tight', Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
+  },
+  backgroundGrid: {
+    position: "absolute",
+    inset: 0,
+    pointerEvents: "none",
+    opacity: 0.7,
   },
   backgroundGlowTop: {
     position: "absolute",
-    top: -120,
-    left: -100,
-    width: 320,
-    height: 320,
-    background: "rgba(16, 185, 129, 0.16)",
-    filter: "blur(70px)",
+    top: -160,
+    left: "8%",
+    width: 420,
+    height: 420,
+    background: "rgba(76, 85, 255, 0.22)",
+    filter: "blur(86px)",
     pointerEvents: "none",
   },
   backgroundGlowBottom: {
     position: "absolute",
-    right: -120,
-    bottom: -120,
-    width: 340,
-    height: 340,
-    background: "rgba(14, 165, 233, 0.18)",
-    filter: "blur(80px)",
+    right: "-7%",
+    bottom: "-12%",
+    width: 520,
+    height: 520,
+    background: "rgba(121, 230, 255, 0.12)",
+    filter: "blur(104px)",
     pointerEvents: "none",
   },
   publicShell: {
     position: "relative",
     zIndex: 1,
-    maxWidth: 1180,
+    maxWidth: 1260,
     margin: "0 auto",
     display: "grid",
-    gap: 28,
+    gap: 34,
   },
   publicNav: {
     display: "flex",
@@ -2068,7 +2299,7 @@ const styles = {
     alignItems: "center",
     gap: 18,
     flexWrap: "wrap",
-    padding: "4px 2px 10px",
+    padding: "8px 4px 12px",
   },
   brandLink: {
     display: "inline-flex",
@@ -2086,20 +2317,24 @@ const styles = {
     flexWrap: "wrap",
     padding: 6,
     borderRadius: 999,
-    background: "rgba(15, 23, 42, 0.72)",
-    border: "1px solid rgba(148, 163, 184, 0.14)",
+    background: "rgba(5, 7, 16, 0.72)",
+    border: `1px solid ${designTokens.colors.border}`,
+    boxShadow: "inset 0 1px 0 rgba(255, 255, 255, 0.05)",
+    backdropFilter: "blur(18px)",
   },
   publicNavLink: {
     padding: "9px 13px",
     borderRadius: 999,
-    color: "#cbd5e1",
+    color: designTokens.colors.text,
     textDecoration: "none",
     fontSize: 14,
     fontWeight: 700,
+    transition: "background 180ms ease, color 180ms ease, transform 180ms ease",
   },
   publicNavLinkActive: {
-    color: "#f8fafc",
-    background: "rgba(67, 56, 202, 0.42)",
+    color: designTokens.colors.white,
+    background: "linear-gradient(135deg, rgba(76, 85, 255, 0.72), rgba(255, 255, 255, 0.08))",
+    boxShadow: designTokens.shadows.blueGlow,
   },
   publicContentGrid: {
     display: "grid",
@@ -2118,10 +2353,10 @@ const styles = {
   dashboardShell: {
     position: "relative",
     zIndex: 1,
-    maxWidth: 1380,
+    maxWidth: 1440,
     margin: "0 auto",
     display: "grid",
-    gap: 24,
+    gap: 22,
   },
   loadingShell: {
     position: "relative",
@@ -2129,9 +2364,10 @@ const styles = {
     maxWidth: 640,
     margin: "12vh auto 0",
     padding: 32,
-    borderRadius: 28,
-    background: "rgba(15, 23, 42, 0.88)",
-    border: "1px solid rgba(148, 163, 184, 0.15)",
+    borderRadius: 30,
+    background: designTokens.colors.panelStrong,
+    border: `1px solid ${designTokens.colors.border}`,
+    boxShadow: designTokens.shadows.panel,
     textAlign: "center",
   },
   loadingLogo: {
@@ -2147,26 +2383,40 @@ const styles = {
   },
   heroPanel: {
     display: "grid",
+    gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))",
+    gap: 24,
+    alignItems: "center",
+    paddingTop: 8,
+  },
+  homeStack: {
+    display: "grid",
     gap: 18,
-    paddingTop: 18,
+  },
+  heroCopy: {
+    display: "grid",
+    gap: 18,
+    minWidth: 0,
   },
   heroLogo: {
-    width: "min(420px, 92vw)",
+    width: "min(430px, 88vw)",
     height: "auto",
+    filter: "drop-shadow(0 0 34px rgba(76, 85, 255, 0.16))",
   },
   title: {
-    margin: "8px 0 4px",
-    fontSize: "clamp(2.5rem, 4vw, 4.8rem)",
-    lineHeight: 0.97,
-    letterSpacing: "-0.05em",
-    maxWidth: 680,
+    margin: "4px 0",
+    fontSize: "clamp(3rem, 6vw, 6.8rem)",
+    lineHeight: 0.88,
+    letterSpacing: "-0.075em",
+    maxWidth: 760,
+    color: designTokens.colors.white,
+    textShadow: "0 0 42px rgba(76, 85, 255, 0.18)",
   },
   subtitle: {
     margin: 0,
-    maxWidth: 560,
-    fontSize: "1.05rem",
-    lineHeight: 1.6,
-    color: "#cbd5e1",
+    maxWidth: 610,
+    fontSize: "clamp(1rem, 1.5vw, 1.22rem)",
+    lineHeight: 1.65,
+    color: designTokens.colors.text,
   },
   heroActions: {
     display: "flex",
@@ -2175,15 +2425,16 @@ const styles = {
     alignItems: "center",
   },
   secondaryLinkButton: {
-    border: "1px solid rgba(125, 211, 252, 0.24)",
+    border: `1px solid ${designTokens.colors.border}`,
     borderRadius: 18,
     padding: "15px 18px",
     fontSize: 15,
     fontWeight: 800,
-    background: "rgba(15, 23, 42, 0.92)",
-    color: "#e0f2fe",
+    background: "rgba(8, 10, 22, 0.78)",
+    color: designTokens.colors.ice,
     cursor: "pointer",
     textDecoration: "none",
+    boxShadow: "inset 0 1px 0 rgba(255, 255, 255, 0.06)",
   },
   compactFeatureGrid: {
     display: "grid",
@@ -2192,26 +2443,45 @@ const styles = {
   },
   compactFeatureCard: {
     padding: "14px 16px",
-    borderRadius: 18,
-    background: "rgba(15, 23, 42, 0.76)",
-    border: "1px solid rgba(148, 163, 184, 0.12)",
-    color: "#e2e8f0",
+    borderRadius: 16,
+    background:
+      "linear-gradient(145deg, rgba(12, 15, 31, 0.84), rgba(5, 7, 16, 0.72))",
+    border: `1px solid ${designTokens.colors.border}`,
+    color: designTokens.colors.ice,
     fontWeight: 800,
+    boxShadow: "inset 0 1px 0 rgba(255, 255, 255, 0.05)",
   },
   publicPageCard: {
     display: "grid",
     gap: 20,
-    padding: 24,
-    borderRadius: 28,
-    background: "rgba(15, 23, 42, 0.82)",
-    border: "1px solid rgba(148, 163, 184, 0.15)",
-    boxShadow: "0 20px 60px rgba(2, 6, 23, 0.32)",
+    padding: "clamp(22px, 4vw, 42px)",
+    borderRadius: 34,
+    background:
+      "linear-gradient(150deg, rgba(12, 15, 31, 0.90), rgba(4, 6, 14, 0.86))",
+    border: `1px solid ${designTokens.colors.border}`,
+    boxShadow: designTokens.shadows.panel,
+    backdropFilter: "blur(24px)",
   },
   publicTitle: {
     margin: 0,
-    fontSize: "clamp(2rem, 4vw, 3.8rem)",
+    fontSize: "clamp(2.35rem, 5vw, 5rem)",
+    lineHeight: 0.94,
+    letterSpacing: "-0.065em",
+    color: designTokens.colors.white,
+  },
+  publicLead: {
+    margin: 0,
+    maxWidth: 720,
+    color: designTokens.colors.text,
+    lineHeight: 1.7,
+    fontSize: "1.04rem",
+  },
+  publicSectionTitle: {
+    margin: "8px 0 10px",
+    fontSize: "clamp(1.35rem, 2.3vw, 2.1rem)",
     lineHeight: 1,
     letterSpacing: "-0.04em",
+    color: designTokens.colors.white,
   },
   docGrid: {
     display: "grid",
@@ -2222,13 +2492,235 @@ const styles = {
     display: "grid",
     gap: 8,
     padding: 18,
-    borderRadius: 20,
-    background: "rgba(2, 6, 23, 0.58)",
-    border: "1px solid rgba(148, 163, 184, 0.12)",
+    borderRadius: 22,
+    background: "rgba(3, 4, 10, 0.58)",
+    border: `1px solid ${designTokens.colors.border}`,
+    boxShadow: "inset 0 1px 0 rgba(255, 255, 255, 0.05)",
   },
   docTitle: {
     margin: 0,
     fontSize: "1rem",
+  },
+  transmissionCard: {
+    position: "relative",
+    overflow: "hidden",
+    minHeight: 372,
+    padding: 22,
+    borderRadius: 34,
+    background:
+      "linear-gradient(150deg, rgba(12, 15, 31, 0.92), rgba(3, 4, 10, 0.92))",
+    border: `1px solid ${designTokens.colors.borderBright}`,
+    boxShadow: "0 28px 90px rgba(0, 0, 0, 0.42), 0 0 80px rgba(76, 85, 255, 0.12)",
+  },
+  visualHeader: {
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 12,
+    position: "relative",
+    zIndex: 1,
+  },
+  visualDot: {
+    width: 9,
+    height: 9,
+    borderRadius: 999,
+    background: designTokens.colors.blue,
+    boxShadow: "0 0 22px rgba(76, 85, 255, 0.9)",
+  },
+  visualLabel: {
+    flex: 1,
+    color: designTokens.colors.text,
+    fontSize: 13,
+    fontWeight: 800,
+    letterSpacing: "0.08em",
+    textTransform: "uppercase",
+  },
+  routeCanvas: {
+    position: "relative",
+    height: 220,
+    margin: "28px 0 22px",
+    borderRadius: 28,
+    background:
+      "linear-gradient(180deg, rgba(76, 85, 255, 0.10), rgba(255, 255, 255, 0.02)), linear-gradient(90deg, rgba(255,255,255,0.04) 1px, transparent 1px), linear-gradient(0deg, rgba(255,255,255,0.04) 1px, transparent 1px)",
+    backgroundSize: "auto, 34px 34px, 34px 34px",
+    border: "1px solid rgba(255, 255, 255, 0.08)",
+    overflow: "hidden",
+  },
+  routeNode: {
+    position: "absolute",
+    zIndex: 2,
+    width: 68,
+    height: 68,
+    display: "grid",
+    placeItems: "center",
+    borderRadius: 18,
+    fontSize: 12,
+    fontWeight: 900,
+    letterSpacing: "0.08em",
+    color: designTokens.colors.white,
+    background: "rgba(8, 10, 22, 0.92)",
+    border: "1px solid rgba(255, 255, 255, 0.14)",
+    boxShadow: designTokens.shadows.blueGlow,
+  },
+  routeNodeSource: {
+    left: 24,
+    top: 76,
+  },
+  routeNodeEdge: {
+    left: "calc(50% - 34px)",
+    top: 26,
+    background: "linear-gradient(135deg, rgba(76, 85, 255, 0.95), rgba(9, 12, 28, 0.92))",
+  },
+  routeNodeTarget: {
+    right: 24,
+    bottom: 34,
+  },
+  latencyGrid: {
+    display: "grid",
+    gridTemplateColumns: "1fr 1fr",
+    gap: 12,
+    position: "relative",
+    zIndex: 1,
+  },
+  latencyCard: {
+    display: "grid",
+    gap: 4,
+    padding: 14,
+    borderRadius: 18,
+    background: "rgba(255, 255, 255, 0.045)",
+    border: "1px solid rgba(255, 255, 255, 0.08)",
+  },
+  latencyValue: {
+    color: designTokens.colors.white,
+    fontSize: "1.55rem",
+    fontWeight: 950,
+    letterSpacing: "-0.04em",
+  },
+  latencyLabel: {
+    color: designTokens.colors.muted,
+    fontSize: 12,
+    fontWeight: 700,
+    textTransform: "uppercase",
+    letterSpacing: "0.06em",
+  },
+  metricStrip: {
+    display: "grid",
+    gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))",
+    gap: 12,
+  },
+  metricStripCard: {
+    display: "grid",
+    gap: 8,
+    padding: 18,
+    borderRadius: 22,
+    background: "rgba(7, 9, 20, 0.76)",
+    border: `1px solid ${designTokens.colors.border}`,
+  },
+  metricStripValue: {
+    color: designTokens.colors.white,
+    fontSize: "1.8rem",
+    lineHeight: 1,
+    letterSpacing: "-0.05em",
+  },
+  showcaseGrid: {
+    display: "grid",
+    gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
+    gap: 14,
+  },
+  showcaseCard: {
+    display: "grid",
+    gap: 12,
+    padding: 20,
+    borderRadius: 26,
+    minHeight: 190,
+    background:
+      "linear-gradient(145deg, rgba(12, 15, 31, 0.82), rgba(3, 4, 10, 0.72))",
+    border: `1px solid ${designTokens.colors.border}`,
+    boxShadow: "inset 0 1px 0 rgba(255, 255, 255, 0.05)",
+  },
+  signalBadge: {
+    width: "fit-content",
+    padding: "7px 10px",
+    borderRadius: 999,
+    background: "rgba(76, 85, 255, 0.14)",
+    color: designTokens.colors.ice,
+    border: "1px solid rgba(76, 85, 255, 0.28)",
+    fontSize: 11,
+    fontWeight: 900,
+    letterSpacing: "0.08em",
+    textTransform: "uppercase",
+  },
+  showcaseTitle: {
+    margin: 0,
+    color: designTokens.colors.white,
+    fontSize: "1.25rem",
+    letterSpacing: "-0.035em",
+  },
+  analyticsPreviewCard: {
+    display: "grid",
+    gap: 18,
+    padding: 22,
+    borderRadius: 28,
+    background:
+      "linear-gradient(135deg, rgba(76, 85, 255, 0.18), rgba(6, 8, 18, 0.86))",
+    border: `1px solid ${designTokens.colors.borderBright}`,
+    boxShadow: designTokens.shadows.panel,
+  },
+  chartPreview: {
+    height: 160,
+    display: "flex",
+    gap: 8,
+    alignItems: "end",
+    padding: 16,
+    borderRadius: 22,
+    background: "rgba(3, 4, 10, 0.54)",
+    border: "1px solid rgba(255, 255, 255, 0.08)",
+  },
+  chartBar: {
+    flex: 1,
+    minWidth: 8,
+    borderRadius: "999px 999px 6px 6px",
+    background: "linear-gradient(180deg, #ffffff 0%, #4c55ff 52%, #151cff 100%)",
+    boxShadow: "0 0 20px rgba(76, 85, 255, 0.32)",
+  },
+  apiPreviewCard: {
+    display: "grid",
+    gap: 16,
+    padding: 22,
+    borderRadius: 28,
+    background: "rgba(5, 7, 16, 0.82)",
+    border: `1px solid ${designTokens.colors.border}`,
+  },
+  codePanel: {
+    display: "grid",
+    gap: 6,
+    padding: 18,
+    borderRadius: 22,
+    background: "rgba(0, 0, 0, 0.42)",
+    border: "1px solid rgba(255, 255, 255, 0.08)",
+    overflowX: "auto",
+  },
+  codeRow: {
+    display: "block",
+    color: designTokens.colors.ice,
+    fontFamily: "ui-monospace, SFMono-Regular, Menlo, Consolas, monospace",
+    fontSize: 13,
+    lineHeight: 1.6,
+    whiteSpace: "pre",
+  },
+  trustGrid: {
+    display: "flex",
+    flexWrap: "wrap",
+    gap: 10,
+  },
+  trustPill: {
+    padding: "10px 13px",
+    borderRadius: 999,
+    color: designTokens.colors.text,
+    background: "rgba(255, 255, 255, 0.045)",
+    border: `1px solid ${designTokens.colors.border}`,
+    fontSize: 13,
+    fontWeight: 800,
   },
   featureGrid: {
     display: "grid",
@@ -2259,29 +2751,34 @@ const styles = {
     border: "1px solid rgba(148, 163, 184, 0.12)",
   },
   authCard: {
-    background: "rgba(15, 23, 42, 0.9)",
-    border: "1px solid rgba(148, 163, 184, 0.15)",
-    borderRadius: 28,
+    position: "sticky",
+    top: 22,
+    background:
+      "linear-gradient(160deg, rgba(13, 16, 34, 0.96), rgba(4, 6, 14, 0.94))",
+    border: `1px solid ${designTokens.colors.border}`,
+    borderRadius: 30,
     overflow: "hidden",
-    boxShadow: "0 20px 60px rgba(2, 6, 23, 0.44)",
+    boxShadow: designTokens.shadows.panel,
+    backdropFilter: "blur(22px)",
   },
   authTabs: {
     display: "grid",
     gridTemplateColumns: "1fr 1fr",
-    borderBottom: "1px solid rgba(148, 163, 184, 0.12)",
+    borderBottom: `1px solid ${designTokens.colors.border}`,
   },
   authTab: {
     border: "none",
     background: "transparent",
-    color: "#94a3b8",
+    color: designTokens.colors.muted,
     padding: "16px 18px",
     fontWeight: 700,
     cursor: "pointer",
   },
   authTabActive: {
     border: "none",
-    background: "rgba(56, 189, 248, 0.08)",
-    color: "#e0f2fe",
+    background:
+      "linear-gradient(135deg, rgba(76, 85, 255, 0.18), rgba(255, 255, 255, 0.04))",
+    color: designTokens.colors.white,
     padding: "16px 18px",
     fontWeight: 800,
     cursor: "pointer",
@@ -2298,10 +2795,11 @@ const styles = {
   authTitle: {
     margin: 0,
     fontSize: "1.7rem",
+    letterSpacing: "-0.04em",
   },
   authSubtitle: {
     margin: "4px 0 4px",
-    color: "#cbd5e1",
+    color: designTokens.colors.text,
     lineHeight: 1.6,
   },
   headerBar: {
@@ -2310,7 +2808,12 @@ const styles = {
     gap: 16,
     alignItems: "flex-start",
     flexWrap: "wrap",
-    padding: "4px 4px 0",
+    padding: 18,
+    borderRadius: 30,
+    background:
+      "linear-gradient(135deg, rgba(12, 15, 31, 0.82), rgba(5, 7, 16, 0.72))",
+    border: `1px solid ${designTokens.colors.border}`,
+    boxShadow: "inset 0 1px 0 rgba(255, 255, 255, 0.05)",
   },
   dashboardBrandBlock: {
     display: "flex",
@@ -2325,12 +2828,14 @@ const styles = {
   },
   dashboardTitle: {
     margin: "8px 0 0",
-    fontSize: "2.2rem",
-    lineHeight: 1.02,
+    fontSize: "clamp(1.8rem, 3vw, 3.2rem)",
+    lineHeight: 0.96,
+    letterSpacing: "-0.055em",
+    color: designTokens.colors.white,
   },
   workspaceMeta: {
     margin: "8px 0 0",
-    color: "#cbd5e1",
+    color: designTokens.colors.text,
   },
   headerActions: {
     display: "flex",
@@ -2343,21 +2848,44 @@ const styles = {
     gap: 20,
     alignItems: "start",
   },
+  commandStrip: {
+    display: "grid",
+    gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
+    gap: 14,
+  },
+  commandCard: {
+    display: "grid",
+    gap: 8,
+    padding: 18,
+    borderRadius: 24,
+    background:
+      "linear-gradient(145deg, rgba(12, 15, 31, 0.78), rgba(4, 6, 14, 0.74))",
+    border: `1px solid ${designTokens.colors.border}`,
+    boxShadow: "inset 0 1px 0 rgba(255, 255, 255, 0.05)",
+  },
+  commandValue: {
+    color: designTokens.colors.white,
+    fontSize: "1.65rem",
+    lineHeight: 1,
+    letterSpacing: "-0.05em",
+  },
   sidebarCard: {
-    background: "rgba(15, 23, 42, 0.86)",
-    border: "1px solid rgba(148, 163, 184, 0.15)",
-    borderRadius: 26,
+    background: "rgba(5, 7, 16, 0.38)",
+    border: `1px solid ${designTokens.colors.border}`,
+    borderRadius: 30,
     padding: 20,
     display: "grid",
     gap: 16,
   },
   builderCard: {
-    background: "rgba(15, 23, 42, 0.86)",
-    border: "1px solid rgba(148, 163, 184, 0.15)",
-    borderRadius: 26,
+    background:
+      "linear-gradient(155deg, rgba(12, 15, 31, 0.90), rgba(4, 6, 14, 0.88))",
+    border: `1px solid ${designTokens.colors.borderBright}`,
+    borderRadius: 30,
     padding: 22,
     display: "grid",
     gap: 18,
+    boxShadow: designTokens.shadows.panel,
   },
   analyticsPanel: {
     display: "grid",
@@ -2374,13 +2902,16 @@ const styles = {
   sectionEyebrow: {
     margin: 0,
     fontSize: 12,
-    letterSpacing: "0.08em",
+    letterSpacing: "0.14em",
     textTransform: "uppercase",
-    color: "#7dd3fc",
+    color: designTokens.colors.cyan,
+    fontWeight: 900,
   },
   panelTitle: {
     margin: "6px 0 0",
     fontSize: "1.15rem",
+    letterSpacing: "-0.03em",
+    color: designTokens.colors.white,
   },
   panelTitleRow: {
     display: "flex",
@@ -2394,61 +2925,67 @@ const styles = {
     gap: 10,
     fontSize: 14,
     fontWeight: 700,
-    color: "#e2e8f0",
+    color: designTokens.colors.ice,
   },
   input: {
     width: "100%",
-    borderRadius: 18,
-    border: "1px solid rgba(148, 163, 184, 0.24)",
-    background: "rgba(2, 6, 23, 0.74)",
-    color: "#f8fafc",
+    borderRadius: 16,
+    border: `1px solid ${designTokens.colors.border}`,
+    background: "rgba(0, 0, 0, 0.34)",
+    color: designTokens.colors.ink,
     padding: "15px 16px",
     outline: "none",
     fontSize: 15,
+    transition: "border-color 180ms ease, box-shadow 180ms ease, background 180ms ease",
   },
   textarea: {
     width: "100%",
     minHeight: 110,
     resize: "vertical",
-    borderRadius: 18,
-    border: "1px solid rgba(148, 163, 184, 0.24)",
-    background: "rgba(2, 6, 23, 0.74)",
-    color: "#f8fafc",
+    borderRadius: 16,
+    border: `1px solid ${designTokens.colors.border}`,
+    background: "rgba(0, 0, 0, 0.34)",
+    color: designTokens.colors.ink,
     padding: "15px 16px",
     outline: "none",
     fontSize: 15,
     fontFamily: "inherit",
+    transition: "border-color 180ms ease, box-shadow 180ms ease, background 180ms ease",
   },
   select: {
     width: "100%",
-    borderRadius: 18,
-    border: "1px solid rgba(148, 163, 184, 0.24)",
-    background: "rgba(2, 6, 23, 0.74)",
-    color: "#f8fafc",
+    borderRadius: 16,
+    border: `1px solid ${designTokens.colors.border}`,
+    background: "rgba(0, 0, 0, 0.34)",
+    color: designTokens.colors.ink,
     padding: "15px 16px",
     outline: "none",
     fontSize: 15,
   },
   primaryButton: {
     border: "none",
-    borderRadius: 18,
+    borderRadius: 16,
     padding: "15px 18px",
     fontSize: 15,
-    fontWeight: 800,
+    fontWeight: 900,
     letterSpacing: "0.01em",
-    background: "linear-gradient(135deg, #38bdf8 0%, #14b8a6 100%)",
-    color: "#04111d",
+    background:
+      "linear-gradient(135deg, #ffffff 0%, #dfe5ff 34%, #4c55ff 100%)",
+    color: "#060714",
     cursor: "pointer",
+    boxShadow: "0 14px 42px rgba(76, 85, 255, 0.34), inset 0 1px 0 rgba(255, 255, 255, 0.65)",
+    transition: "transform 180ms ease, box-shadow 180ms ease, filter 180ms ease",
   },
   secondaryButton: {
-    border: "1px solid rgba(125, 211, 252, 0.24)",
+    border: `1px solid ${designTokens.colors.border}`,
     borderRadius: 14,
     padding: "10px 14px",
     fontSize: 14,
-    fontWeight: 700,
-    background: "rgba(15, 23, 42, 0.92)",
-    color: "#e0f2fe",
+    fontWeight: 800,
+    background: "rgba(8, 10, 22, 0.84)",
+    color: designTokens.colors.ice,
     cursor: "pointer",
+    transition: "transform 180ms ease, border-color 180ms ease, background 180ms ease",
   },
   dangerButton: {
     border: "none",
@@ -2470,7 +3007,7 @@ const styles = {
   },
   helperText: {
     margin: 0,
-    color: "#cbd5e1",
+    color: designTokens.colors.text,
     lineHeight: 1.6,
   },
   legalCard: {
@@ -2529,7 +3066,7 @@ const styles = {
     width: 16,
     height: 16,
     marginTop: 2,
-    accentColor: "#14b8a6",
+    accentColor: designTokens.colors.blue,
   },
   metricsGrid: {
     display: "grid",
@@ -2537,23 +3074,27 @@ const styles = {
     gap: 14,
   },
   metricCard: {
-    background: "rgba(15, 23, 42, 0.86)",
-    border: "1px solid rgba(148, 163, 184, 0.15)",
+    background:
+      "linear-gradient(145deg, rgba(12, 15, 31, 0.86), rgba(4, 6, 14, 0.78))",
+    border: `1px solid ${designTokens.colors.border}`,
     borderRadius: 22,
     padding: 18,
+    boxShadow: "inset 0 1px 0 rgba(255, 255, 255, 0.05)",
   },
   metricLabel: {
     margin: 0,
-    color: "#94a3b8",
+    color: designTokens.colors.muted,
     fontSize: 13,
     letterSpacing: "0.05em",
     textTransform: "uppercase",
+    fontWeight: 800,
   },
   metricValue: {
     margin: "12px 0 0",
     fontSize: "2.2rem",
     fontWeight: 900,
     lineHeight: 1,
+    color: designTokens.colors.white,
   },
   metricValueSmall: {
     margin: "12px 0 0",
@@ -2562,7 +3103,7 @@ const styles = {
     lineHeight: 1.5,
   },
   metricHint: {
-    color: "#94a3b8",
+    color: designTokens.colors.muted,
     fontSize: 13,
   },
   resultCard: {
@@ -2570,8 +3111,8 @@ const styles = {
     gap: 18,
     padding: 20,
     borderRadius: 22,
-    background: "rgba(2, 6, 23, 0.72)",
-    border: "1px solid rgba(148, 163, 184, 0.14)",
+    background: "rgba(3, 4, 10, 0.68)",
+    border: `1px solid ${designTokens.colors.border}`,
   },
   resultTopRow: {
     display: "flex",
@@ -2585,10 +3126,10 @@ const styles = {
     fontSize: 12,
     letterSpacing: "0.08em",
     textTransform: "uppercase",
-    color: "#94a3b8",
+    color: designTokens.colors.muted,
   },
   link: {
-    color: "#7dd3fc",
+    color: designTokens.colors.cyan,
     fontWeight: 700,
     textDecoration: "none",
     wordBreak: "break-all",
@@ -2629,23 +3170,24 @@ const styles = {
     gap: 10,
   },
   linkListItem: {
-    border: "1px solid rgba(148, 163, 184, 0.14)",
+    border: `1px solid ${designTokens.colors.border}`,
     borderRadius: 18,
-    background: "rgba(2, 6, 23, 0.62)",
-    color: "#f8fafc",
+    background: "rgba(3, 4, 10, 0.62)",
+    color: designTokens.colors.ink,
     padding: 16,
     textAlign: "left",
     cursor: "pointer",
+    transition: "transform 180ms ease, border-color 180ms ease, background 180ms ease",
   },
   linkListItemActive: {
-    border: "1px solid rgba(56, 189, 248, 0.42)",
+    border: `1px solid ${designTokens.colors.borderBright}`,
     borderRadius: 18,
-    background: "rgba(8, 47, 73, 0.72)",
-    color: "#f8fafc",
+    background: "linear-gradient(135deg, rgba(76, 85, 255, 0.22), rgba(3, 4, 10, 0.82))",
+    color: designTokens.colors.ink,
     padding: 16,
     textAlign: "left",
     cursor: "pointer",
-    boxShadow: "0 10px 30px rgba(14, 165, 233, 0.12)",
+    boxShadow: designTokens.shadows.blueGlow,
   },
   linkListTopRow: {
     display: "flex",
@@ -2674,12 +3216,14 @@ const styles = {
     flexWrap: "wrap",
   },
   panelCard: {
-    background: "rgba(15, 23, 42, 0.86)",
-    border: "1px solid rgba(148, 163, 184, 0.15)",
-    borderRadius: 24,
+    background:
+      "linear-gradient(150deg, rgba(12, 15, 31, 0.82), rgba(4, 6, 14, 0.76))",
+    border: `1px solid ${designTokens.colors.border}`,
+    borderRadius: 26,
     padding: 20,
     display: "grid",
     gap: 16,
+    boxShadow: "inset 0 1px 0 rgba(255, 255, 255, 0.05)",
   },
   billingStatsGrid: {
     display: "grid",
@@ -2689,12 +3233,12 @@ const styles = {
   billingStatCard: {
     padding: 16,
     borderRadius: 18,
-    background: "rgba(2, 6, 23, 0.64)",
-    border: "1px solid rgba(148, 163, 184, 0.12)",
+    background: "rgba(3, 4, 10, 0.58)",
+    border: `1px solid ${designTokens.colors.border}`,
   },
   billingStatLabel: {
     margin: 0,
-    color: "#94a3b8",
+    color: designTokens.colors.muted,
     fontSize: 12,
     letterSpacing: "0.05em",
     textTransform: "uppercase",
@@ -2719,9 +3263,15 @@ const styles = {
     display: "grid",
     gap: 14,
     padding: 18,
-    borderRadius: 20,
-    background: "rgba(2, 6, 23, 0.64)",
-    border: "1px solid rgba(148, 163, 184, 0.12)",
+    borderRadius: 24,
+    background:
+      "linear-gradient(150deg, rgba(10, 13, 28, 0.82), rgba(3, 4, 10, 0.74))",
+    border: `1px solid ${designTokens.colors.border}`,
+    boxShadow: "inset 0 1px 0 rgba(255, 255, 255, 0.05)",
+  },
+  planCardFeatured: {
+    border: `1px solid ${designTokens.colors.borderBright}`,
+    boxShadow: "0 22px 70px rgba(76, 85, 255, 0.22), inset 0 1px 0 rgba(255, 255, 255, 0.08)",
   },
   planHeader: {
     display: "flex",
@@ -2738,6 +3288,7 @@ const styles = {
     fontSize: "1.7rem",
     fontWeight: 900,
     lineHeight: 1,
+    color: designTokens.colors.white,
   },
   planFeatureList: {
     display: "grid",
@@ -2745,7 +3296,7 @@ const styles = {
   },
   planFeatureItem: {
     margin: 0,
-    color: "#cbd5e1",
+    color: designTokens.colors.text,
     lineHeight: 1.5,
   },
   paymentCard: {
@@ -2753,8 +3304,8 @@ const styles = {
     gap: 8,
     padding: 16,
     borderRadius: 18,
-    background: "rgba(2, 6, 23, 0.64)",
-    border: "1px solid rgba(148, 163, 184, 0.12)",
+    background: "rgba(3, 4, 10, 0.58)",
+    border: `1px solid ${designTokens.colors.border}`,
   },
   domainList: {
     display: "grid",
@@ -2765,8 +3316,8 @@ const styles = {
     gap: 12,
     padding: 16,
     borderRadius: 18,
-    background: "rgba(2, 6, 23, 0.64)",
-    border: "1px solid rgba(148, 163, 184, 0.12)",
+    background: "rgba(3, 4, 10, 0.58)",
+    border: `1px solid ${designTokens.colors.border}`,
   },
   dnsGrid: {
     display: "grid",
@@ -2776,8 +3327,8 @@ const styles = {
     margin: "4px 0 0",
     padding: "8px 10px",
     borderRadius: 10,
-    background: "rgba(15, 23, 42, 0.92)",
-    color: "#e0f2fe",
+    background: "rgba(0, 0, 0, 0.42)",
+    color: designTokens.colors.ice,
     fontFamily: "ui-monospace, SFMono-Regular, Consolas, monospace",
     fontSize: 12,
     lineHeight: 1.5,
@@ -2795,8 +3346,8 @@ const styles = {
     flexWrap: "wrap",
     padding: 16,
     borderRadius: 18,
-    background: "rgba(2, 6, 23, 0.64)",
-    border: "1px solid rgba(148, 163, 184, 0.12)",
+    background: "rgba(3, 4, 10, 0.58)",
+    border: `1px solid ${designTokens.colors.border}`,
   },
   routeLabel: {
     margin: "0 0 6px",
@@ -2839,13 +3390,14 @@ const styles = {
   deviceBarTrack: {
     height: 10,
     borderRadius: 999,
-    background: "rgba(30, 41, 59, 1)",
+    background: "rgba(255, 255, 255, 0.07)",
     overflow: "hidden",
   },
   deviceBarFill: {
     height: "100%",
     borderRadius: 999,
-    background: "linear-gradient(135deg, #38bdf8 0%, #22c55e 100%)",
+    background: "linear-gradient(90deg, #ffffff 0%, #4c55ff 70%, #79e6ff 100%)",
+    boxShadow: "0 0 18px rgba(76, 85, 255, 0.35)",
   },
   eventList: {
     display: "grid",
@@ -2854,8 +3406,8 @@ const styles = {
   eventCard: {
     padding: 16,
     borderRadius: 18,
-    background: "rgba(2, 6, 23, 0.64)",
-    border: "1px solid rgba(148, 163, 184, 0.12)",
+    background: "rgba(3, 4, 10, 0.58)",
+    border: `1px solid ${designTokens.colors.border}`,
   },
   eventTopRow: {
     display: "flex",
