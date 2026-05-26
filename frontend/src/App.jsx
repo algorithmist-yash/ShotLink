@@ -8,6 +8,59 @@ const API_BASE = (import.meta.env.VITE_API_BASE_URL || "http://localhost:5000").
 const STORAGE_KEY = "url-shortener-session-token";
 const ACCOUNT_POLICY_VERSION = "2026-05-19";
 const LINK_POLICY_VERSION = "2026-05-19";
+const BRAND_LOGO_SRC = "/shotlink-logo.png";
+const BRAND_SYMBOL_SRC = "/shotlink-symbol.png";
+
+const PUBLIC_NAV_ITEMS = [
+  { id: "home", label: "Home", href: "#" },
+  { id: "pricing", label: "Pricing", href: "#pricing" },
+  { id: "docs", label: "Docs", href: "#docs" },
+  { id: "legal", label: "Legal", href: "#legal" },
+];
+
+const HOME_FEATURES = [
+  "Branded short links",
+  "Click analytics",
+  "Fallback routing",
+];
+
+const DOC_SECTIONS = [
+  {
+    title: "Create links",
+    body: "Sign in, paste a destination URL, choose expiry, then create a Shotlink.",
+  },
+  {
+    title: "Track results",
+    body: "Open the analytics panel to monitor clicks, devices, referrers, and route health.",
+  },
+  {
+    title: "Use domains",
+    body: "Connect a branded domain with CNAME and TXT records, then verify it in the dashboard.",
+  },
+  {
+    title: "Handle billing",
+    body: "Upgrade from the billing panel and wait for the payment webhook to update your plan.",
+  },
+];
+
+const LEGAL_SECTIONS = [
+  {
+    title: "Terms",
+    body: "Use Shotlink only for destinations you own or are authorized to share.",
+  },
+  {
+    title: "Privacy",
+    body: "We process account, billing, and link analytics data to operate the service.",
+  },
+  {
+    title: "Abuse",
+    body: "Phishing, malware, spam, impersonation, and illegal content are not allowed.",
+  },
+  {
+    title: "Support",
+    body: "For help, takedowns, or privacy requests, contact support@shotlink.in.",
+  },
+];
 
 const REQUIRED_AUTH_CONSENTS = [
   {
@@ -32,12 +85,6 @@ const REQUIRED_AUTH_CONSENTS = [
     label:
       "I agree not to use this service for spam, phishing, malware, impersonation, illegal content, or misleading links.",
   },
-];
-
-const LEGAL_NOTICES = [
-  "Privacy: account data, billing records, support messages, and link analytics are used to run the service, prevent abuse, and provide reports.",
-  "Acceptable use: no phishing, malware, spam, unlawful content, impersonation, deceptive redirects, or links you do not have authority to share.",
-  "Grievance: publish a real support/grievance email before launch and respond to serious abuse/privacy complaints quickly.",
 ];
 
 function createDefaultConsents() {
@@ -215,6 +262,31 @@ function ConsentCheckbox({ checked, onChange, children }) {
   );
 }
 
+function BrandLogo({ compact = false, style }) {
+  return (
+    <img
+      src={compact ? BRAND_SYMBOL_SRC : BRAND_LOGO_SRC}
+      alt="Shotlink"
+      style={{
+        display: "block",
+        objectFit: "contain",
+        width: compact ? 58 : 220,
+        height: compact ? 58 : 54,
+        ...style,
+      }}
+    />
+  );
+}
+
+function getPublicPageFromHash() {
+  const pageId = String(window.location.hash || "")
+    .replace("#", "")
+    .trim()
+    .toLowerCase();
+
+  return PUBLIC_NAV_ITEMS.some((item) => item.id === pageId) ? pageId : "home";
+}
+
 function getHealthTone(status) {
   if (status === "healthy") return "healthy";
   if (status === "unhealthy") return "danger";
@@ -241,6 +313,7 @@ function getBillingTone(status) {
 
 export default function App() {
   const [authMode, setAuthMode] = useState("register");
+  const [publicPage, setPublicPage] = useState(() => getPublicPageFromHash());
   const [token, setToken] = useState(() => localStorage.getItem(STORAGE_KEY) || "");
   const [session, setSession] = useState(null);
   const [authForm, setAuthForm] = useState({
@@ -277,6 +350,17 @@ export default function App() {
   const [selectedDomainHost, setSelectedDomainHost] = useState("");
   const [linkComplianceAccepted, setLinkComplianceAccepted] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
+
+  useEffect(() => {
+    const updatePublicPage = () => setPublicPage(getPublicPageFromHash());
+    updatePublicPage();
+    window.addEventListener("hashchange", updatePublicPage);
+    return () => window.removeEventListener("hashchange", updatePublicPage);
+  }, []);
+
+  useEffect(() => {
+    document.title = publicPage === "home" ? "Shotlink" : `Shotlink | ${formatLabel(publicPage)}`;
+  }, [publicPage]);
 
   useEffect(() => {
     const updateLayout = () => setIsMobile(window.innerWidth < 1080);
@@ -645,6 +729,120 @@ export default function App() {
     });
   };
 
+  const renderPublicPricing = ({ compact = false } = {}) => (
+    <div
+      style={{
+        ...styles.planGrid,
+        gridTemplateColumns: isMobile || compact ? "1fr" : "repeat(3, minmax(0, 1fr))",
+      }}
+    >
+      {publicPlans.map((plan) => (
+        <div key={plan.id} style={styles.planCard}>
+          <div style={styles.planHeader}>
+            <strong style={styles.planName}>{plan.name}</strong>
+            <StatusPill label={`${plan.linkLimit} links`} tone={getPlanTone(plan.id)} />
+          </div>
+          <p style={styles.planPrice}>{formatPlanPrice(plan)}</p>
+          <div style={styles.planFeatureList}>
+            {plan.features.slice(0, compact ? 3 : plan.features.length).map((feature) => (
+              <p key={feature} style={styles.planFeatureItem}>
+                {feature}
+              </p>
+            ))}
+          </div>
+          {!compact ? (
+            <button
+              style={styles.primaryButton}
+              onClick={() => {
+                setPublicPage("home");
+                window.location.hash = "";
+                setAuthMode("register");
+              }}
+            >
+              Start with {plan.name}
+            </button>
+          ) : null}
+        </div>
+      ))}
+    </div>
+  );
+
+  const renderPublicContent = () => {
+    if (publicPage === "pricing") {
+      return (
+        <section style={styles.publicPageCard}>
+          <p style={styles.sectionEyebrow}>Pricing</p>
+          <h1 style={styles.publicTitle}>Simple plans for growing teams</h1>
+          {renderPublicPricing()}
+        </section>
+      );
+    }
+
+    if (publicPage === "docs") {
+      return (
+        <section style={styles.publicPageCard}>
+          <p style={styles.sectionEyebrow}>Documentation</p>
+          <h1 style={styles.publicTitle}>Shotlink setup guide</h1>
+          <div style={styles.docGrid}>
+            {DOC_SECTIONS.map((section) => (
+              <article key={section.title} style={styles.docCard}>
+                <h2 style={styles.docTitle}>{section.title}</h2>
+                <p style={styles.helperText}>{section.body}</p>
+              </article>
+            ))}
+          </div>
+        </section>
+      );
+    }
+
+    if (publicPage === "legal") {
+      return (
+        <section style={styles.publicPageCard}>
+          <p style={styles.sectionEyebrow}>Legal</p>
+          <h1 style={styles.publicTitle}>Terms, privacy, and abuse policy</h1>
+          <div style={styles.docGrid}>
+            {LEGAL_SECTIONS.map((section) => (
+              <article key={section.title} style={styles.docCard}>
+                <h2 style={styles.docTitle}>{section.title}</h2>
+                <p style={styles.helperText}>{section.body}</p>
+              </article>
+            ))}
+          </div>
+          <p style={styles.legalFinePrint}>
+            Policy version {ACCOUNT_POLICY_VERSION}. Replace this short summary with lawyer-reviewed
+            public documents before accepting large paid customers.
+          </p>
+        </section>
+      );
+    }
+
+    return (
+      <section style={styles.heroPanel}>
+        <BrandLogo style={styles.heroLogo} />
+        <StatusPill label="Shotlink for India" tone="accent" />
+        <h1 style={styles.title}>Shorter links. Smarter routes.</h1>
+        <p style={styles.subtitle}>
+          Branded short links with analytics, QR codes, and fallback destinations for campaigns.
+        </p>
+        <div style={styles.heroActions}>
+          <button style={styles.primaryButton} onClick={() => setAuthMode("register")}>
+            Start free
+          </button>
+          <a href="#pricing" style={styles.secondaryLinkButton}>
+            See pricing
+          </a>
+        </div>
+        <div style={styles.compactFeatureGrid}>
+          {HOME_FEATURES.map((feature) => (
+            <div key={feature} style={styles.compactFeatureCard}>
+              {feature}
+            </div>
+          ))}
+        </div>
+      </section>
+    );
+  };
+
   const updateAuthConsent = (field, checked) => {
     setAuthForm((current) => ({
       ...current,
@@ -1007,6 +1205,7 @@ export default function App() {
         <div style={styles.backgroundGlowTop} />
         <div style={styles.backgroundGlowBottom} />
         <div style={styles.loadingShell}>
+          <BrandLogo compact style={styles.loadingLogo} />
           <h1 style={styles.loadingTitle}>Loading workspace...</h1>
           <p style={styles.loadingText}>Restoring your session and link inventory.</p>
         </div>
@@ -1020,114 +1219,39 @@ export default function App() {
         <div style={styles.backgroundGlowTop} />
         <div style={styles.backgroundGlowBottom} />
 
-        <div
-          style={{
-            ...styles.authShell,
-            gridTemplateColumns: isMobile ? "1fr" : "minmax(380px, 540px) minmax(320px, 420px)",
-          }}
-        >
-          <section style={styles.heroPanel}>
-            <StatusPill label="Shotlink for India" tone="accent" />
-            <h1 style={styles.title}>Shotlink turns every campaign URL into a resilient business link.</h1>
-            <p style={styles.subtitle}>
-              Teams get branded short links on shotlink.in, protected analytics, session-based
-              auth, and health-aware failover routing for campaigns that cannot afford dead URLs.
-            </p>
-
-            <div style={styles.featureGrid}>
-              <div style={styles.featureCard}>
-                <h3 style={styles.featureTitle}>Workspace-owned links</h3>
-                <p style={styles.featureText}>
-                  Every short URL now belongs to an account and workspace instead of floating
-                  anonymously.
-                </p>
-              </div>
-              <div style={styles.featureCard}>
-                <h3 style={styles.featureTitle}>Protected analytics</h3>
-                <p style={styles.featureText}>
-                  Event telemetry stays behind auth while redirects remain public and fast.
-                </p>
-              </div>
-              <div style={styles.featureCard}>
-                <h3 style={styles.featureTitle}>Failover routing</h3>
-                <p style={styles.featureText}>
-                  Primary links can fall back to healthy alternates when campaign pages fail.
-                </p>
-              </div>
-              <div style={styles.featureCard}>
-                <h3 style={styles.featureTitle}>Scale-friendly direction</h3>
-                <p style={styles.featureText}>
-                  This lays the groundwork for teams, billing, API keys, and async ingestion.
-                </p>
-              </div>
-            </div>
-
-            <div style={styles.pricingPreview}>
-              <div style={styles.panelTitleRow}>
-                <div>
-                  <p style={styles.sectionEyebrow}>Pricing</p>
-                  <h2 style={styles.panelTitle}>Plans you can start selling right away</h2>
-                </div>
-                <a href={`mailto:${supportEmail}`} style={styles.link}>
-                  Need launch help?
+        <div style={styles.publicShell}>
+          <header style={styles.publicNav}>
+            <a href="#" style={styles.brandLink} aria-label="Shotlink home">
+              <BrandLogo style={styles.navLogo} />
+            </a>
+            <nav style={styles.publicNavLinks} aria-label="Public pages">
+              {PUBLIC_NAV_ITEMS.map((item) => (
+                <a
+                  key={item.id}
+                  href={item.href}
+                  style={
+                    publicPage === item.id
+                      ? { ...styles.publicNavLink, ...styles.publicNavLinkActive }
+                      : styles.publicNavLink
+                  }
+                >
+                  {item.label}
                 </a>
-              </div>
+              ))}
+            </nav>
+          </header>
 
-              <div
-                style={{
-                  ...styles.planGrid,
-                  gridTemplateColumns: isMobile ? "1fr" : "repeat(3, minmax(0, 1fr))",
-                }}
-              >
-                {publicPlans.map((plan) => (
-                  <div key={plan.id} style={styles.planCard}>
-                    <div style={styles.planHeader}>
-                      <strong style={styles.planName}>{plan.name}</strong>
-                      <StatusPill
-                        label={`${plan.linkLimit} active links`}
-                        tone={getPlanTone(plan.id)}
-                      />
-                    </div>
-                    <p style={styles.planPrice}>{formatPlanPrice(plan)}</p>
-                    <div style={styles.planFeatureList}>
-                      {plan.features.map((feature) => (
-                        <p key={feature} style={styles.planFeatureItem}>
-                          {feature}
-                        </p>
-                      ))}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            <div style={styles.legalCard}>
-              <div>
-                <p style={styles.sectionEyebrow}>Legal basics</p>
-                <h2 style={styles.panelTitle}>Consent and abuse controls are built in</h2>
-              </div>
-              <div style={styles.legalList}>
-                {LEGAL_NOTICES.map((notice) => (
-                  <p key={notice} style={styles.legalNoticeItem}>
-                    {notice}
-                  </p>
-                ))}
-              </div>
-              <p style={styles.legalFinePrint}>
-                Policy version {ACCOUNT_POLICY_VERSION}. Replace placeholder brand/contact details
-                with your real business name, address, grievance email, refund policy, and lawyer
-                reviewed Terms before accepting paid customers.
-              </p>
-              <div style={styles.legalLinkRow}>
-                <a href={`mailto:${supportEmail}`} style={styles.link}>
-                  Contact support
-                </a>
-                <a href={`mailto:${supportEmail}?subject=Abuse%20report`} style={styles.link}>
-                  Report abuse
-                </a>
-              </div>
-            </div>
-          </section>
+          <div
+            style={{
+              ...styles.publicContentGrid,
+              gridTemplateColumns: isMobile
+                ? "1fr"
+                : publicPage === "home"
+                  ? "minmax(0, 1fr) minmax(320px, 420px)"
+                  : "minmax(0, 1fr) minmax(300px, 380px)",
+            }}
+          >
+            {renderPublicContent()}
 
           <section style={styles.authCard}>
             <div style={styles.authTabs}>
@@ -1146,13 +1270,14 @@ export default function App() {
             </div>
 
             <div style={styles.authBody}>
+              <BrandLogo compact style={styles.authLogo} />
               <h2 style={styles.authTitle}>
-                {authMode === "register" ? "Launch your workspace" : "Welcome back"}
+                {authMode === "register" ? "Create account" : "Sign in"}
               </h2>
               <p style={styles.authSubtitle}>
                 {authMode === "register"
-                  ? "Create the first owner account and a default workspace."
-                  : "Open your workspace dashboard and manage live short links."}
+                  ? "Start using Shotlink in under a minute."
+                  : "Continue to your Shotlink dashboard."}
               </p>
 
               {authMode === "register" ? (
@@ -1177,7 +1302,7 @@ export default function App() {
                   onChange={(event) =>
                     setAuthForm((current) => ({ ...current, email: event.target.value }))
                   }
-                    placeholder="Enter your email address"
+                  placeholder="Enter your email address"
                 />
               </label>
 
@@ -1216,8 +1341,7 @@ export default function App() {
                   <div>
                     <p style={styles.sectionEyebrow}>Required consent</p>
                     <p style={styles.consentIntro}>
-                      We store this consent record with a hashed IP, user agent, and timestamp so
-                      the business has evidence of what the user accepted.
+                      We keep a timestamped consent record for security and compliance.
                     </p>
                   </div>
 
@@ -1259,6 +1383,7 @@ export default function App() {
               </button>
             </div>
           </section>
+          </div>
         </div>
       </div>
     );
@@ -1271,12 +1396,15 @@ export default function App() {
 
       <div style={styles.dashboardShell}>
         <header style={styles.headerBar}>
-          <div>
-            <p style={styles.sectionEyebrow}>Workspace</p>
-            <h1 style={styles.dashboardTitle}>{session.workspace.name}</h1>
-            <p style={styles.workspaceMeta}>
-              {session.user.name} - {currentPlan.effectivePlanName} plan - {session.workspace.slug}
-            </p>
+          <div style={styles.dashboardBrandBlock}>
+            <BrandLogo compact style={styles.dashboardLogo} />
+            <div>
+              <p style={styles.sectionEyebrow}>Workspace</p>
+              <h1 style={styles.dashboardTitle}>{session.workspace.name}</h1>
+              <p style={styles.workspaceMeta}>
+                {session.user.name} - {currentPlan.effectivePlanName} plan - {session.workspace.slug}
+              </p>
+            </div>
           </div>
           <div style={styles.headerActions}>
             <StatusPill label={`${activeLinkCount}/${activeLinkLimit} active links`} tone="accent" />
@@ -1900,7 +2028,7 @@ const styles = {
   page: {
     minHeight: "100vh",
     position: "relative",
-    overflow: "hidden",
+    overflowX: "hidden",
     background:
       "radial-gradient(circle at top left, rgba(34,197,94,0.12), transparent 32%), radial-gradient(circle at bottom right, rgba(56,189,248,0.12), transparent 30%), linear-gradient(180deg, #020617 0%, #07111f 50%, #0f172a 100%)",
     color: "#f8fafc",
@@ -1925,6 +2053,58 @@ const styles = {
     background: "rgba(14, 165, 233, 0.18)",
     filter: "blur(80px)",
     pointerEvents: "none",
+  },
+  publicShell: {
+    position: "relative",
+    zIndex: 1,
+    maxWidth: 1180,
+    margin: "0 auto",
+    display: "grid",
+    gap: 28,
+  },
+  publicNav: {
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "center",
+    gap: 18,
+    flexWrap: "wrap",
+    padding: "4px 2px 10px",
+  },
+  brandLink: {
+    display: "inline-flex",
+    alignItems: "center",
+    textDecoration: "none",
+  },
+  navLogo: {
+    width: 218,
+    height: 54,
+  },
+  publicNavLinks: {
+    display: "flex",
+    gap: 8,
+    alignItems: "center",
+    flexWrap: "wrap",
+    padding: 6,
+    borderRadius: 999,
+    background: "rgba(15, 23, 42, 0.72)",
+    border: "1px solid rgba(148, 163, 184, 0.14)",
+  },
+  publicNavLink: {
+    padding: "9px 13px",
+    borderRadius: 999,
+    color: "#cbd5e1",
+    textDecoration: "none",
+    fontSize: 14,
+    fontWeight: 700,
+  },
+  publicNavLinkActive: {
+    color: "#f8fafc",
+    background: "rgba(67, 56, 202, 0.42)",
+  },
+  publicContentGrid: {
+    display: "grid",
+    gap: 24,
+    alignItems: "start",
   },
   authShell: {
     position: "relative",
@@ -1954,6 +2134,9 @@ const styles = {
     border: "1px solid rgba(148, 163, 184, 0.15)",
     textAlign: "center",
   },
+  loadingLogo: {
+    margin: "0 auto 16px",
+  },
   loadingTitle: {
     margin: 0,
     fontSize: "2.2rem",
@@ -1964,11 +2147,15 @@ const styles = {
   },
   heroPanel: {
     display: "grid",
-    gap: 24,
+    gap: 18,
     paddingTop: 18,
   },
+  heroLogo: {
+    width: "min(420px, 92vw)",
+    height: "auto",
+  },
   title: {
-    margin: "18px 0 14px",
+    margin: "8px 0 4px",
     fontSize: "clamp(2.5rem, 4vw, 4.8rem)",
     lineHeight: 0.97,
     letterSpacing: "-0.05em",
@@ -1976,10 +2163,72 @@ const styles = {
   },
   subtitle: {
     margin: 0,
-    maxWidth: 620,
+    maxWidth: 560,
     fontSize: "1.05rem",
-    lineHeight: 1.75,
+    lineHeight: 1.6,
     color: "#cbd5e1",
+  },
+  heroActions: {
+    display: "flex",
+    gap: 12,
+    flexWrap: "wrap",
+    alignItems: "center",
+  },
+  secondaryLinkButton: {
+    border: "1px solid rgba(125, 211, 252, 0.24)",
+    borderRadius: 18,
+    padding: "15px 18px",
+    fontSize: 15,
+    fontWeight: 800,
+    background: "rgba(15, 23, 42, 0.92)",
+    color: "#e0f2fe",
+    cursor: "pointer",
+    textDecoration: "none",
+  },
+  compactFeatureGrid: {
+    display: "grid",
+    gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))",
+    gap: 12,
+  },
+  compactFeatureCard: {
+    padding: "14px 16px",
+    borderRadius: 18,
+    background: "rgba(15, 23, 42, 0.76)",
+    border: "1px solid rgba(148, 163, 184, 0.12)",
+    color: "#e2e8f0",
+    fontWeight: 800,
+  },
+  publicPageCard: {
+    display: "grid",
+    gap: 20,
+    padding: 24,
+    borderRadius: 28,
+    background: "rgba(15, 23, 42, 0.82)",
+    border: "1px solid rgba(148, 163, 184, 0.15)",
+    boxShadow: "0 20px 60px rgba(2, 6, 23, 0.32)",
+  },
+  publicTitle: {
+    margin: 0,
+    fontSize: "clamp(2rem, 4vw, 3.8rem)",
+    lineHeight: 1,
+    letterSpacing: "-0.04em",
+  },
+  docGrid: {
+    display: "grid",
+    gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
+    gap: 14,
+  },
+  docCard: {
+    display: "grid",
+    gap: 8,
+    padding: 18,
+    borderRadius: 20,
+    background: "rgba(2, 6, 23, 0.58)",
+    border: "1px solid rgba(148, 163, 184, 0.12)",
+  },
+  docTitle: {
+    margin: 0,
+    fontSize: "1rem",
   },
   featureGrid: {
     display: "grid",
@@ -2042,6 +2291,10 @@ const styles = {
     gap: 16,
     padding: 24,
   },
+  authLogo: {
+    width: 62,
+    height: 62,
+  },
   authTitle: {
     margin: 0,
     fontSize: "1.7rem",
@@ -2058,6 +2311,17 @@ const styles = {
     alignItems: "flex-start",
     flexWrap: "wrap",
     padding: "4px 4px 0",
+  },
+  dashboardBrandBlock: {
+    display: "flex",
+    gap: 14,
+    alignItems: "center",
+    minWidth: 0,
+  },
+  dashboardLogo: {
+    width: 58,
+    height: 58,
+    flex: "0 0 auto",
   },
   dashboardTitle: {
     margin: "8px 0 0",
