@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { QRCodeCanvas } from "qrcode.react";
 
 const API_BASE = (import.meta.env.VITE_API_BASE_URL || "http://localhost:5000").replace(
@@ -447,6 +447,95 @@ export default function App() {
   const [linkComplianceAccepted, setLinkComplianceAccepted] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
 
+  const clearSession = useCallback(() => {
+    localStorage.removeItem(STORAGE_KEY);
+    setToken("");
+    setSession(null);
+    setLinks([]);
+    setSelectedShortCode("");
+    setAnalytics(null);
+    setBillingSummary(null);
+    setBillingMessage("");
+    setBillingLoading(false);
+    setBillingSubmittingPlan("");
+    setCustomDomainInput("");
+    setDomainMessage("");
+    setDomainSaving(false);
+    setDomainVerifying("");
+    setSelectedDomainHost("");
+    setLinkComplianceAccepted(false);
+  }, []);
+
+  const authorizedFetch = useCallback(
+    async (path, options = {}) => {
+      const response = await fetch(`${API_BASE}${path}`, {
+        ...options,
+        headers: {
+          "Content-Type": "application/json",
+          ...(options.headers || {}),
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      if (response.status === 401) {
+        clearSession();
+        throw new Error("Your session has expired. Please sign in again.");
+      }
+
+      return response;
+    },
+    [clearSession, token]
+  );
+
+  const fetchBillingSummary = useCallback(async () => {
+    const response = await authorizedFetch("/api/v1/billing/summary");
+    const data = await response.json();
+
+    if (!response.ok) {
+      throw new Error(data.error || "Could not load billing");
+    }
+
+    return data;
+  }, [authorizedFetch]);
+
+  const applyBillingSummary = useCallback((data) => {
+    setBillingSummary(data);
+    if (data.supportEmail) {
+      setSupportEmail(data.supportEmail);
+    }
+    if (data.plans?.length) {
+      setPublicPlans(data.plans);
+    }
+    setSession((currentSession) =>
+      currentSession
+        ? {
+            ...currentSession,
+            workspace: {
+              ...currentSession.workspace,
+              plan: data.currentPlan?.configuredPlanId || currentSession.workspace.plan,
+              billing: data.currentPlan || currentSession.workspace.billing,
+            },
+          }
+        : currentSession
+    );
+  }, []);
+
+  const applyWorkspaceSettings = useCallback((data) => {
+    if (!data.workspace) return;
+
+    setSession((currentSession) =>
+      currentSession
+        ? {
+            ...currentSession,
+            workspace: {
+              ...currentSession.workspace,
+              ...data.workspace,
+            },
+          }
+        : currentSession
+    );
+  }, []);
+
   useEffect(() => {
     const updatePublicPage = () => setPublicPage(getPublicPageFromHash());
     updatePublicPage();
@@ -575,7 +664,7 @@ export default function App() {
     return () => {
       cancelled = true;
     };
-  }, [token]);
+  }, [clearSession, token]);
 
   useEffect(() => {
     if (!session || !token) {
@@ -624,7 +713,7 @@ export default function App() {
     return () => {
       cancelled = true;
     };
-  }, [session, token]);
+  }, [authorizedFetch, session, token]);
 
   useEffect(() => {
     if (!selectedShortCode || !token) {
@@ -653,7 +742,7 @@ export default function App() {
     return () => {
       cancelled = true;
     };
-  }, [selectedShortCode, token]);
+  }, [authorizedFetch, selectedShortCode, token]);
 
   useEffect(() => {
     const verifiedDomains = (session?.workspace?.customDomains || []).filter(
@@ -668,92 +757,6 @@ export default function App() {
       return verifiedDomains.find((domain) => domain.isPrimary)?.hostname || "";
     });
   }, [session?.workspace?.customDomains]);
-
-  const clearSession = () => {
-    localStorage.removeItem(STORAGE_KEY);
-    setToken("");
-    setSession(null);
-    setLinks([]);
-    setSelectedShortCode("");
-    setAnalytics(null);
-    setBillingSummary(null);
-    setBillingMessage("");
-    setBillingLoading(false);
-    setBillingSubmittingPlan("");
-    setCustomDomainInput("");
-    setDomainMessage("");
-    setDomainSaving(false);
-    setDomainVerifying("");
-    setSelectedDomainHost("");
-    setLinkComplianceAccepted(false);
-  };
-
-  const authorizedFetch = async (path, options = {}) => {
-    const response = await fetch(`${API_BASE}${path}`, {
-      ...options,
-      headers: {
-        "Content-Type": "application/json",
-        ...(options.headers || {}),
-        Authorization: `Bearer ${token}`,
-      },
-    });
-
-    if (response.status === 401) {
-      clearSession();
-      throw new Error("Your session has expired. Please sign in again.");
-    }
-
-    return response;
-  };
-
-  const fetchBillingSummary = async () => {
-    const response = await authorizedFetch("/api/v1/billing/summary");
-    const data = await response.json();
-
-    if (!response.ok) {
-      throw new Error(data.error || "Could not load billing");
-    }
-
-    return data;
-  };
-
-  const applyBillingSummary = (data) => {
-    setBillingSummary(data);
-    if (data.supportEmail) {
-      setSupportEmail(data.supportEmail);
-    }
-    if (data.plans?.length) {
-      setPublicPlans(data.plans);
-    }
-    setSession((currentSession) =>
-      currentSession
-        ? {
-            ...currentSession,
-            workspace: {
-              ...currentSession.workspace,
-              plan: data.currentPlan?.configuredPlanId || currentSession.workspace.plan,
-              billing: data.currentPlan || currentSession.workspace.billing,
-            },
-          }
-        : currentSession
-    );
-  };
-
-  const applyWorkspaceSettings = (data) => {
-    if (!data.workspace) return;
-
-    setSession((currentSession) =>
-      currentSession
-        ? {
-            ...currentSession,
-            workspace: {
-              ...currentSession.workspace,
-              ...data.workspace,
-            },
-          }
-        : currentSession
-    );
-  };
 
   const refreshBillingSummary = async (message = "") => {
     setBillingLoading(true);
@@ -810,7 +813,7 @@ export default function App() {
     return () => {
       cancelled = true;
     };
-  }, [token]);
+  }, [applyBillingSummary, fetchBillingSummary, token]);
 
   const parseFallbackUrls = () =>
     fallbackInput

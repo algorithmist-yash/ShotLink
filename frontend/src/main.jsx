@@ -8,3 +8,7 @@ ReactDOM.createRoot(document.getElementById("root")).render(
     <App />
   </React.StrictMode>
 );
+
+requestAnimationFrame(() => {
+  document.documentElement.classList.add("sl-js-ready");
+});

@@ -3,21 +3,334 @@
   <head>
     <meta charset="UTF-8" />
     <link rel="icon" type="image/png" href="/shotlink-symbol.png" />
+    <link rel="apple-touch-icon" href="/shotlink-symbol.png" />
+    <link rel="preload" href="/shotlink-logo.png" as="image" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#03040a" />
     <meta
       name="description"
-      content="Shotlink creates branded short links with analytics, QR codes, and fallback routing for businesses and creators."
+      content="Shotlink creates branded short links with analytics, QR codes, and intelligent fallback routing for businesses and creators."
     />
-    <meta property="og:title" content="Shotlink" />
+    <meta name="robots" content="index, follow" />
+    <meta property="og:title" content="Shotlink | Branded short links with fallback routing" />
     <meta
       property="og:description"
-      content="Shorter links. Smarter routes. Branded short links for campaigns."
+      content="Create measurable short URLs, QR codes, branded domains, and health-aware fallback routes from one workspace."
     />
     <meta property="og:image" content="/shotlink-logo.png" />
+    <meta property="og:site_name" content="Shotlink" />
     <meta property="og:type" content="website" />
-    <title>Shotlink</title>
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="Shotlink | Branded short links with fallback routing" />
+    <meta
+      name="twitter:description"
+      content="Short links, QR codes, analytics, branded domains, and fallback routing for campaign teams."
+    />
+    <meta name="twitter:image" content="/shotlink-logo.png" />
+    <title>Shotlink | Branded short links with analytics and fallback routing</title>
+    <style>
+      :root {
+        color-scheme: dark;
+        background: #03040a;
+      }
+
+      body {
+        margin: 0;
+        background: #03040a;
+      }
+
+      .sl-static-shell {
+        min-height: 100vh;
+        color: #eef3ff;
+        font-family:
+          Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
+          sans-serif;
+        background:
+          linear-gradient(180deg, rgba(255, 255, 255, 0.04), transparent 34%),
+          radial-gradient(circle at 85% 15%, rgba(76, 85, 255, 0.24), transparent 34%),
+          #03040a;
+      }
+
+      .sl-static-inner {
+        width: min(1120px, calc(100% - 32px));
+        margin: 0 auto;
+        padding: 28px 0 54px;
+      }
+
+      .sl-static-nav,
+      .sl-static-hero,
+      .sl-static-features,
+      .sl-static-proof {
+        display: grid;
+        gap: 18px;
+      }
+
+      .sl-static-nav {
+        grid-template-columns: 1fr auto;
+        align-items: center;
+        margin-bottom: 52px;
+      }
+
+      .sl-static-logo {
+        width: 192px;
+        max-width: 58vw;
+        height: auto;
+      }
+
+      .sl-static-nav a,
+      .sl-static-cta {
+        color: #eef3ff;
+        text-decoration: none;
+        font-weight: 800;
+      }
+
+      .sl-static-nav-links {
+        display: flex;
+        gap: 18px;
+        flex-wrap: wrap;
+      }
+
+      .sl-static-hero {
+        grid-template-columns: minmax(0, 1.12fr) minmax(280px, 0.88fr);
+        align-items: center;
+      }
+
+      .sl-static-kicker,
+      .sl-static-card-label {
+        margin: 0;
+        color: #79e6ff;
+        font-size: 0.78rem;
+        font-weight: 900;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+      }
+
+      .sl-static-title {
+        max-width: 780px;
+        margin: 0;
+        color: #ffffff;
+        font-size: clamp(2.45rem, 8vw, 5.9rem);
+        line-height: 0.94;
+        letter-spacing: 0;
+      }
+
+      .sl-static-lead {
+        max-width: 660px;
+        margin: 0;
+        color: #cbd5e1;
+        font-size: 1.18rem;
+        line-height: 1.72;
+      }
+
+      .sl-static-actions,
+      .sl-static-proof {
+        display: flex;
+        gap: 12px;
+        flex-wrap: wrap;
+      }
+
+      .sl-static-cta {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 48px;
+        padding: 0 18px;
+        border-radius: 14px;
+        background: #eef3ff;
+        color: #060714;
+      }
+
+      .sl-static-cta-secondary {
+        background: rgba(255, 255, 255, 0.08);
+        color: #eef3ff;
+        border: 1px solid rgba(146, 163, 255, 0.2);
+      }
+
+      .sl-static-panel,
+      .sl-static-feature {
+        border: 1px solid rgba(146, 163, 255, 0.18);
+        background: rgba(7, 9, 20, 0.78);
+        box-shadow: 0 24px 90px rgba(0, 0, 0, 0.34);
+      }
+
+      .sl-static-panel {
+        display: grid;
+        gap: 18px;
+        padding: 22px;
+        border-radius: 8px;
+      }
+
+      .sl-static-route {
+        display: grid;
+        grid-template-columns: 1fr auto 1fr auto 1fr;
+        gap: 8px;
+        align-items: center;
+        min-height: 128px;
+      }
+
+      .sl-static-node {
+        display: grid;
+        place-items: center;
+        min-height: 74px;
+        border-radius: 8px;
+        color: #ffffff;
+        background: rgba(76, 85, 255, 0.2);
+        border: 1px solid rgba(121, 230, 255, 0.2);
+        font-weight: 900;
+      }
+
+      .sl-static-arrow {
+        color: #79e6ff;
+        font-weight: 900;
+      }
+
+      .sl-static-metrics {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 10px;
+      }
+
+      .sl-static-metric {
+        padding: 14px;
+        border-radius: 8px;
+        background: rgba(0, 0, 0, 0.28);
+      }
+
+      .sl-static-metric strong {
+        display: block;
+        color: #ffffff;
+        font-size: 1.55rem;
+      }
+
+      .sl-static-metric span,
+      .sl-static-proof span {
+        color: #cbd5e1;
+      }
+
+      .sl-static-features {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        margin-top: 44px;
+      }
+
+      .sl-static-feature {
+        min-height: 150px;
+        padding: 18px;
+        border-radius: 8px;
+      }
+
+      .sl-static-feature h2 {
+        margin: 10px 0 8px;
+        color: #ffffff;
+        font-size: 1.16rem;
+      }
+
+      .sl-static-feature p {
+        margin: 0;
+        color: #cbd5e1;
+        line-height: 1.62;
+      }
+
+      .sl-js-ready .sl-static-shell {
+        display: none;
+      }
+
+      @media (max-width: 760px) {
+        .sl-static-nav,
+        .sl-static-hero,
+        .sl-static-features,
+        .sl-static-metrics {
+          grid-template-columns: 1fr;
+        }
+
+        .sl-static-nav-links {
+          display: none;
+        }
+
+        .sl-static-inner {
+          padding-top: 22px;
+        }
+      }
+    </style>
   </head>
   <body>
+    <main class="sl-static-shell" aria-label="Shotlink landing page">
+      <div class="sl-static-inner">
+        <header class="sl-static-nav">
+          <img class="sl-static-logo" src="/shotlink-logo.png" alt="Shotlink" width="440" height="108" />
+          <nav class="sl-static-nav-links" aria-label="Primary navigation">
+            <a href="#pricing">Pricing</a>
+            <a href="#docs">Docs</a>
+            <a href="#legal">Legal</a>
+          </nav>
+        </header>
+
+        <section class="sl-static-hero">
+          <div class="sl-static-copy">
+            <p class="sl-static-kicker">Intelligent routing infrastructure</p>
+            <h1 class="sl-static-title">High-speed links for serious internet teams.</h1>
+            <p class="sl-static-lead">
+              Shotlink turns every short URL into a measurable, branded, fallback-aware route with
+              QR codes, domain controls, and analytics built for campaigns.
+            </p>
+            <div class="sl-static-actions">
+              <a class="sl-static-cta" href="#app">Start routing</a>
+              <a class="sl-static-cta sl-static-cta-secondary" href="#docs">View docs</a>
+            </div>
+            <div class="sl-static-proof" aria-label="Trust signals">
+              <span>Encrypted sessions</span>
+              <span>Abuse policy</span>
+              <span>Consent-backed analytics</span>
+            </div>
+          </div>
+
+          <aside class="sl-static-panel" aria-label="Routing preview">
+            <p class="sl-static-card-label">Live routing fabric</p>
+            <div class="sl-static-route" aria-hidden="true">
+              <span class="sl-static-node">IN</span>
+              <span class="sl-static-arrow">/</span>
+              <span class="sl-static-node">EDGE</span>
+              <span class="sl-static-arrow">/</span>
+              <span class="sl-static-node">APP</span>
+            </div>
+            <div class="sl-static-metrics">
+              <div class="sl-static-metric">
+                <strong>&lt;50ms</strong>
+                <span>average redirect target</span>
+              </div>
+              <div class="sl-static-metric">
+                <strong>24/7</strong>
+                <span>route health checks</span>
+              </div>
+            </div>
+          </aside>
+        </section>
+
+        <section class="sl-static-features" aria-label="Product features">
+          <article class="sl-static-feature">
+            <p class="sl-static-card-label">Route mesh</p>
+            <h2>Smart fallback routing</h2>
+            <p>Send visitors to the healthiest available destination when a primary page is slow or down.</p>
+          </article>
+          <article class="sl-static-feature">
+            <p class="sl-static-card-label">Domain layer</p>
+            <h2>Branded links and QR codes</h2>
+            <p>Run campaign URLs and scannable QR paths under your own short domain.</p>
+          </article>
+          <article class="sl-static-feature">
+            <p class="sl-static-card-label">Telemetry</p>
+            <h2>Analytics with route context</h2>
+            <p>Track clicks, devices, referrers, expiry, fallback usage, and route health from one workspace.</p>
+          </article>
+        </section>
+      </div>
+    </main>
+    <noscript>
+      <style>
+        #root {
+          display: none;
+        }
+      </style>
+    </noscript>
     <div id="root"></div>
     <script type="module" src="/src/main.jsx"></script>
   </body>
