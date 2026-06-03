@@ -250,11 +250,11 @@ function formatDate(value) {
 
 function StatusPill({ label, tone = "neutral" }) {
   const tones = {
-    healthy: { background: "rgba(143, 255, 210, 0.14)", color: "#c9ffec" },
-    warning: { background: "rgba(255, 214, 102, 0.16)", color: "#ffe9a8" },
-    danger: { background: "rgba(255, 107, 122, 0.16)", color: "#ffd3d8" },
-    neutral: { background: "rgba(255, 255, 255, 0.08)", color: "#e7ecff" },
-    accent: { background: "rgba(76, 85, 255, 0.18)", color: "#f3f5ff" },
+    healthy: { background: "rgba(16, 185, 129, 0.16)", color: "#bbf7d0" },
+    warning: { background: "rgba(245, 158, 11, 0.18)", color: "#fde68a" },
+    danger: { background: "rgba(239, 68, 68, 0.16)", color: "#fecaca" },
+    neutral: { background: "rgba(255, 255, 255, 0.08)", color: "#f8fafc" },
+    accent: { background: "rgba(37, 99, 235, 0.18)", color: "#dbeafe" },
   };
 
   const palette = tones[tone] || tones.neutral;
@@ -407,6 +407,13 @@ function getBillingTone(status) {
   return "neutral";
 }
 
+function scrollToDashboardSection(sectionId) {
+  document.getElementById(sectionId)?.scrollIntoView({
+    behavior: "smooth",
+    block: "start",
+  });
+}
+
 function isUsableLink(link) {
   if (!link?.isActive) return false;
   if (!link.expiresAt) return true;
@@ -452,6 +459,7 @@ export default function App() {
   const [selectedDomainHost, setSelectedDomainHost] = useState("");
   const [linkComplianceAccepted, setLinkComplianceAccepted] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
+  const [colorMode, setColorMode] = useState(() => localStorage.getItem("shotlink-color-mode") || "dark");
 
   const clearSession = useCallback(() => {
     localStorage.removeItem(STORAGE_KEY);
@@ -559,6 +567,11 @@ export default function App() {
     window.addEventListener("resize", updateLayout);
     return () => window.removeEventListener("resize", updateLayout);
   }, []);
+
+  useEffect(() => {
+    localStorage.setItem("shotlink-color-mode", colorMode);
+    document.documentElement.dataset.shotlinkTheme = colorMode;
+  }, [colorMode]);
 
   useEffect(() => {
     let cancelled = false;
@@ -1420,6 +1433,7 @@ export default function App() {
   const authSubmitDisabled =
     authSubmitting || (authMode === "register" && !requiredAccountConsentsAccepted);
   const linkSubmitDisabled = loading || remainingLinkSlots <= 0 || !linkComplianceAccepted;
+  const modeStyles = colorMode === "light" ? lightModeStyles : darkModeStyles;
 
   if (authLoading) {
     return (
@@ -1614,13 +1628,13 @@ export default function App() {
   }
 
   return (
-    <div className="sl-page" style={styles.page}>
-      <div className="sl-grid-overlay" style={styles.backgroundGrid} />
-      <div className="sl-glow sl-glow-top" style={styles.backgroundGlowTop} />
-      <div className="sl-glow sl-glow-bottom" style={styles.backgroundGlowBottom} />
+    <div className="sl-page" style={{ ...styles.page, ...modeStyles.page }}>
+      <div className="sl-grid-overlay" style={{ ...styles.backgroundGrid, ...modeStyles.backgroundGrid }} />
+      <div className="sl-glow sl-glow-top" style={{ ...styles.backgroundGlowTop, ...modeStyles.backgroundGlowTop }} />
+      <div className="sl-glow sl-glow-bottom" style={{ ...styles.backgroundGlowBottom, ...modeStyles.backgroundGlowBottom }} />
 
       <div style={styles.dashboardShell}>
-        <header style={styles.headerBar}>
+        <header style={{ ...styles.headerBar, ...modeStyles.headerBar }}>
           <div style={styles.dashboardBrandBlock}>
             <BrandLogo compact style={styles.dashboardLogo} />
             <div>
@@ -1637,6 +1651,24 @@ export default function App() {
               label={formatLabel(currentPlan.billingStatus)}
               tone={getBillingTone(currentPlan.billingStatus)}
             />
+            <button
+              style={{ ...styles.navActionButton, ...modeStyles.billingButton }}
+              onClick={() => scrollToDashboardSection("billing-panel")}
+            >
+              Billing
+            </button>
+            <button
+              style={{ ...styles.navActionButton, ...modeStyles.docsButton }}
+              onClick={() => scrollToDashboardSection("docs-panel")}
+            >
+              Docs
+            </button>
+            <button
+              style={{ ...styles.navActionButton, ...modeStyles.themeButton }}
+              onClick={() => setColorMode((currentMode) => (currentMode === "dark" ? "light" : "dark"))}
+            >
+              {colorMode === "dark" ? "Light mode" : "Dark mode"}
+            </button>
             <button style={styles.secondaryButton} onClick={logout}>
               Sign out
             </button>
@@ -1644,17 +1676,17 @@ export default function App() {
         </header>
 
         <section style={styles.commandStrip}>
-          <article className="sl-lift" style={styles.commandCard}>
+          <article className="sl-lift" style={{ ...styles.commandCard, ...modeStyles.commandCard }}>
             <p style={styles.metricLabel}>Routing layer</p>
             <strong style={styles.commandValue}>Active</strong>
             <span style={styles.metricHint}>Mongo-backed route registry</span>
           </article>
-          <article className="sl-lift" style={styles.commandCard}>
+          <article className="sl-lift" style={{ ...styles.commandCard, ...modeStyles.commandCard }}>
             <p style={styles.metricLabel}>Tracked clicks</p>
             <strong style={styles.commandValue}>{analytics?.clicks ?? 0}</strong>
             <span style={styles.metricHint}>selected link telemetry</span>
           </article>
-          <article className="sl-lift" style={styles.commandCard}>
+          <article className="sl-lift" style={{ ...styles.commandCard, ...modeStyles.commandCard }}>
             <p style={styles.metricLabel}>Domains</p>
             <strong style={styles.commandValue}>{customDomains.length}/{domainLimit}</strong>
             <span style={styles.metricHint}>branded link surfaces</span>
@@ -1667,8 +1699,8 @@ export default function App() {
             gridTemplateColumns: isMobile ? "1fr" : "minmax(230px, 300px) minmax(460px, 600px) minmax(300px, 1fr)",
           }}
         >
-          <aside style={styles.sidebarCard}>
-            <div style={styles.panelCard}>
+          <aside style={{ ...styles.sidebarCard, ...modeStyles.sidebarCard }}>
+            <div id="billing-panel" style={{ ...styles.panelCard, ...modeStyles.panelCard }}>
               <div style={styles.panelTitleRow}>
                 <div>
                   <p style={styles.sectionEyebrow}>Billing</p>
@@ -1765,7 +1797,7 @@ export default function App() {
                   }
 
                   return (
-                    <div key={plan.id} style={styles.compactPlanCard}>
+                    <div key={plan.id} style={{ ...styles.compactPlanCard, ...modeStyles.compactPlanCard }}>
                       <div style={styles.planHeader}>
                         <strong style={styles.planName}>{plan.name}</strong>
                         <StatusPill
@@ -1802,7 +1834,7 @@ export default function App() {
               </p>
             </div>
 
-            <div style={styles.panelCard}>
+            <div style={{ ...styles.panelCard, ...modeStyles.panelCard }}>
               <div style={styles.panelTitleRow}>
                 <div>
                   <p style={styles.sectionEyebrow}>Domains</p>
@@ -1954,9 +1986,22 @@ export default function App() {
                 No links yet. Create your first resilient short link from the builder.
               </p>
             )}
+
+            <div id="docs-panel" style={{ ...styles.docsQuickPanel, ...modeStyles.docsQuickPanel }}>
+              <p style={styles.sectionEyebrow}>Docs</p>
+              <h2 style={styles.panelTitle}>Quick operator guide</h2>
+              <div style={styles.docsQuickList}>
+                {DOC_SECTIONS.slice(0, 3).map((section) => (
+                  <div key={section.title} style={styles.docsQuickItem}>
+                    <strong>{section.title}</strong>
+                    <span>{section.body}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
           </aside>
 
-          <section style={styles.builderCard}>
+          <section style={{ ...styles.builderCard, ...modeStyles.builderCard }}>
             <div style={styles.panelTitleRow}>
               <div>
                 <p style={styles.sectionEyebrow}>Builder</p>
@@ -2059,7 +2104,7 @@ export default function App() {
             {copied ? <p style={styles.success}>{copied}</p> : null}
 
             {analytics?.shortUrl && analytics.isActive ? (
-              <div style={styles.resultCard}>
+              <div style={{ ...styles.resultCard, ...modeStyles.panelCard }}>
                 <div style={styles.resultTopRow}>
                   <div>
                     <p style={styles.mutedLabel}>Selected short URL</p>
@@ -2115,19 +2160,19 @@ export default function App() {
             </div>
 
             <div style={styles.metricsGrid}>
-              <div style={styles.metricCard}>
+              <div style={{ ...styles.metricCard, ...modeStyles.metricCard }}>
                 <p style={styles.metricLabel}>Total clicks</p>
                 <p style={styles.metricValue}>{analytics?.clicks ?? 0}</p>
               </div>
-              <div style={styles.metricCard}>
+              <div style={{ ...styles.metricCard, ...modeStyles.metricCard }}>
                 <p style={styles.metricLabel}>Last click</p>
                 <p style={styles.metricValueSmall}>{formatDate(analytics?.lastClickedAt)}</p>
               </div>
-              <div style={styles.metricCard}>
+              <div style={{ ...styles.metricCard, ...modeStyles.metricCard }}>
                 <p style={styles.metricLabel}>Expires in</p>
                 <p style={styles.metricValueSmall}>{countdown || "Not started"}</p>
               </div>
-              <div style={styles.metricCard}>
+              <div style={{ ...styles.metricCard, ...modeStyles.metricCard }}>
                 <p style={styles.metricLabel}>Current target</p>
                 <p style={styles.metricValueSmall}>
                   {analytics?.currentTarget?.kind === "fallback"
@@ -2139,7 +2184,7 @@ export default function App() {
               </div>
             </div>
 
-            <div style={styles.panelCard}>
+            <div style={{ ...styles.panelCard, ...modeStyles.panelCard }}>
               <div style={styles.panelTitleRow}>
                 <h3 style={styles.panelTitle}>Destination health</h3>
                 {analytics?.primaryHealth ? (
@@ -2193,7 +2238,7 @@ export default function App() {
               </div>
             </div>
 
-            <div style={styles.panelCard}>
+            <div style={{ ...styles.panelCard, ...modeStyles.panelCard }}>
               <div style={styles.panelTitleRow}>
                 <h3 style={styles.panelTitle}>Device mix</h3>
                 <span style={styles.metricHint}>{totalDeviceClicks} tracked events</span>
@@ -2210,7 +2255,7 @@ export default function App() {
               )}
             </div>
 
-            <div style={styles.panelCard}>
+            <div style={{ ...styles.panelCard, ...modeStyles.panelCard }}>
               <div style={styles.panelTitleRow}>
                 <h3 style={styles.panelTitle}>Recent click events</h3>
                 {selectedShortCode ? (
@@ -2271,26 +2316,168 @@ export default function App() {
 const designTokens = {
   colors: {
     ink: "#f8fbff",
-    text: "#d7def0",
-    muted: "#8e99b7",
-    black: "#03040a",
-    night: "#070914",
-    panel: "rgba(8, 10, 22, 0.84)",
-    panelStrong: "rgba(10, 13, 28, 0.94)",
-    border: "rgba(146, 163, 255, 0.16)",
-    borderBright: "rgba(88, 97, 255, 0.42)",
-    blue: "#4c55ff",
-    blueHot: "#3038ff",
+    text: "#dbe4f0",
+    muted: "#91a0b8",
+    black: "#05070b",
+    night: "#0a0f18",
+    panel: "rgba(8, 13, 22, 0.86)",
+    panelStrong: "rgba(9, 14, 24, 0.95)",
+    border: "rgba(148, 163, 184, 0.18)",
+    borderBright: "rgba(37, 99, 235, 0.46)",
+    blue: "#2563eb",
+    blueHot: "#1d4ed8",
+    green: "#10b981",
+    yellow: "#f5c542",
     white: "#ffffff",
-    ice: "#eef3ff",
-    cyan: "#79e6ff",
-    success: "#8fffd2",
+    ice: "#f8fafc",
+    cyan: "#38bdf8",
+    success: "#86efac",
     danger: "#ff6b7a",
   },
   shadows: {
-    blueGlow: "0 0 42px rgba(76, 85, 255, 0.28)",
+    blueGlow: "0 0 42px rgba(37, 99, 235, 0.22)",
     panel: "0 30px 100px rgba(0, 0, 0, 0.42)",
     lift: "0 24px 70px rgba(3, 4, 10, 0.48)",
+  },
+};
+
+const darkModeStyles = {
+  page: {
+    background:
+      "radial-gradient(circle at 10% 8%, rgba(37, 99, 235, 0.30), transparent 30%), radial-gradient(circle at 88% 16%, rgba(16, 185, 129, 0.18), transparent 28%), radial-gradient(circle at 72% 86%, rgba(245, 197, 66, 0.10), transparent 30%), linear-gradient(155deg, #05070b 0%, #101827 48%, #05070b 100%)",
+  },
+  backgroundGrid: {
+    opacity: 0.52,
+  },
+  backgroundGlowTop: {
+    background: "rgba(37, 99, 235, 0.22)",
+  },
+  backgroundGlowBottom: {
+    background: "rgba(16, 185, 129, 0.14)",
+  },
+  headerBar: {
+    background:
+      "linear-gradient(135deg, rgba(8, 13, 22, 0.94), rgba(5, 7, 11, 0.88))",
+    border: "1px solid rgba(148, 163, 184, 0.22)",
+  },
+  commandCard: {
+    background:
+      "linear-gradient(145deg, rgba(8, 13, 22, 0.88), rgba(5, 7, 11, 0.80))",
+    border: "1px solid rgba(148, 163, 184, 0.18)",
+  },
+  sidebarCard: {
+    background: "rgba(5, 7, 11, 0.26)",
+    border: "1px solid rgba(148, 163, 184, 0.14)",
+  },
+  builderCard: {
+    background:
+      "linear-gradient(155deg, rgba(8, 13, 22, 0.94), rgba(5, 7, 11, 0.90))",
+    border: "1px solid rgba(37, 99, 235, 0.48)",
+  },
+  panelCard: {
+    background:
+      "linear-gradient(150deg, rgba(8, 13, 22, 0.88), rgba(5, 7, 11, 0.80))",
+    border: "1px solid rgba(148, 163, 184, 0.16)",
+  },
+  metricCard: {
+    background:
+      "linear-gradient(145deg, rgba(8, 13, 22, 0.88), rgba(5, 7, 11, 0.82))",
+    border: "1px solid rgba(148, 163, 184, 0.16)",
+  },
+  compactPlanCard: {
+    borderLeft: "4px solid #f5c542",
+  },
+  docsQuickPanel: {
+    borderLeft: "4px solid #10b981",
+  },
+  billingButton: {
+    background: "#f5c542",
+    color: "#05070b",
+    borderColor: "rgba(245, 197, 66, 0.55)",
+  },
+  docsButton: {
+    background: "#10b981",
+    color: "#03120d",
+    borderColor: "rgba(16, 185, 129, 0.55)",
+  },
+  themeButton: {
+    background: "rgba(37, 99, 235, 0.18)",
+    color: "#dbeafe",
+    borderColor: "rgba(37, 99, 235, 0.42)",
+  },
+};
+
+const lightModeStyles = {
+  page: {
+    background:
+      "radial-gradient(circle at 8% 8%, rgba(37, 99, 235, 0.18), transparent 30%), radial-gradient(circle at 88% 14%, rgba(16, 185, 129, 0.16), transparent 28%), radial-gradient(circle at 72% 86%, rgba(245, 197, 66, 0.20), transparent 28%), linear-gradient(155deg, #f8fafc 0%, #eef7f2 44%, #ffffff 100%)",
+    color: "#05070b",
+  },
+  backgroundGrid: {
+    opacity: 0.26,
+  },
+  backgroundGlowTop: {
+    background: "rgba(37, 99, 235, 0.16)",
+  },
+  backgroundGlowBottom: {
+    background: "rgba(16, 185, 129, 0.18)",
+  },
+  headerBar: {
+    background:
+      "linear-gradient(135deg, rgba(255, 255, 255, 0.94), rgba(240, 253, 244, 0.88))",
+    border: "1px solid rgba(15, 23, 42, 0.10)",
+    boxShadow: "0 24px 70px rgba(15, 23, 42, 0.12)",
+  },
+  commandCard: {
+    background: "rgba(255, 255, 255, 0.86)",
+    border: "1px solid rgba(15, 23, 42, 0.10)",
+    color: "#05070b",
+  },
+  sidebarCard: {
+    background: "rgba(255, 255, 255, 0.58)",
+    border: "1px solid rgba(15, 23, 42, 0.10)",
+  },
+  builderCard: {
+    background: "rgba(255, 255, 255, 0.90)",
+    border: "1px solid rgba(37, 99, 235, 0.28)",
+    boxShadow: "0 28px 80px rgba(37, 99, 235, 0.14)",
+  },
+  panelCard: {
+    background: "rgba(255, 255, 255, 0.88)",
+    border: "1px solid rgba(15, 23, 42, 0.10)",
+    color: "#05070b",
+  },
+  metricCard: {
+    background: "rgba(255, 255, 255, 0.88)",
+    border: "1px solid rgba(15, 23, 42, 0.10)",
+    color: "#05070b",
+  },
+  compactPlanCard: {
+    background: "rgba(255, 255, 255, 0.82)",
+    border: "1px solid rgba(15, 23, 42, 0.10)",
+    borderLeft: "4px solid #f5c542",
+    color: "#05070b",
+  },
+  docsQuickPanel: {
+    background: "rgba(255, 255, 255, 0.86)",
+    border: "1px solid rgba(15, 23, 42, 0.10)",
+    borderLeft: "4px solid #10b981",
+    color: "#05070b",
+  },
+  billingButton: {
+    background: "#f5c542",
+    color: "#05070b",
+    borderColor: "rgba(245, 197, 66, 0.75)",
+  },
+  docsButton: {
+    background: "#10b981",
+    color: "#03120d",
+    borderColor: "rgba(16, 185, 129, 0.75)",
+  },
+  themeButton: {
+    background: "#2563eb",
+    color: "#ffffff",
+    borderColor: "rgba(37, 99, 235, 0.65)",
   },
 };
 
@@ -2890,6 +3077,17 @@ const styles = {
     alignItems: "center",
     flexWrap: "wrap",
   },
+  navActionButton: {
+    border: "1px solid transparent",
+    borderRadius: 14,
+    padding: "10px 14px",
+    minHeight: 42,
+    fontSize: 14,
+    fontWeight: 900,
+    cursor: "pointer",
+    boxShadow: "inset 0 1px 0 rgba(255, 255, 255, 0.35)",
+    transition: "transform 180ms ease, filter 180ms ease, box-shadow 180ms ease",
+  },
   dashboardGrid: {
     display: "grid",
     gap: 20,
@@ -3277,6 +3475,30 @@ const styles = {
     display: "grid",
     gap: 16,
     boxShadow: "inset 0 1px 0 rgba(255, 255, 255, 0.05)",
+  },
+  docsQuickPanel: {
+    display: "grid",
+    gap: 14,
+    padding: 18,
+    borderRadius: 22,
+    background:
+      "linear-gradient(150deg, rgba(6, 78, 59, 0.24), rgba(8, 13, 22, 0.76))",
+    border: `1px solid ${designTokens.colors.border}`,
+  },
+  docsQuickList: {
+    display: "grid",
+    gap: 10,
+  },
+  docsQuickItem: {
+    display: "grid",
+    gap: 5,
+    padding: 12,
+    borderRadius: 14,
+    background: "rgba(255, 255, 255, 0.045)",
+    border: "1px solid rgba(148, 163, 184, 0.12)",
+    color: designTokens.colors.text,
+    fontSize: 13,
+    lineHeight: 1.45,
   },
   billingStatsGrid: {
     display: "grid",

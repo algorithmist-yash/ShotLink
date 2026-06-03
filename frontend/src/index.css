@@ -12,10 +12,12 @@
   -moz-osx-font-smoothing: grayscale;
   --sl-black: #03040a;
   --sl-night: #070914;
-  --sl-blue: #4c55ff;
-  --sl-blue-hot: #3038ff;
-  --sl-ice: #eef3ff;
-  --sl-cyan: #79e6ff;
+  --sl-blue: #2563eb;
+  --sl-blue-hot: #1d4ed8;
+  --sl-green: #10b981;
+  --sl-yellow: #f5c542;
+  --sl-ice: #f8fafc;
+  --sl-cyan: #38bdf8;
   --sl-border: rgba(146, 163, 255, 0.16);
   --sl-border-bright: rgba(88, 97, 255, 0.42);
 }
@@ -68,8 +70,8 @@ textarea:focus-visible {
 input:focus,
 select:focus,
 textarea:focus {
-  border-color: rgba(121, 230, 255, 0.62) !important;
-  box-shadow: 0 0 0 4px rgba(76, 85, 255, 0.16);
+  border-color: rgba(16, 185, 129, 0.62) !important;
+  box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.16);
   background: rgba(0, 0, 0, 0.48) !important;
 }
 
@@ -93,7 +95,7 @@ button:hover,
   border-color: rgba(121, 230, 255, 0.36) !important;
   box-shadow:
     0 26px 80px rgba(0, 0, 0, 0.34),
-    0 0 42px rgba(76, 85, 255, 0.12);
+    0 0 42px rgba(16, 185, 129, 0.14);
 }
 
 .sl-page::before {
@@ -273,6 +275,57 @@ button:hover,
     scroll-behavior: auto !important;
     transition-duration: 0.001ms !important;
   }
+}
+
+html[data-shotlink-theme="light"],
+html[data-shotlink-theme="light"] body {
+  background: #f8fafc;
+}
+
+[data-shotlink-theme="light"] .sl-page::before {
+  background:
+    linear-gradient(110deg, transparent 0%, rgba(255, 255, 255, 0.55) 40%, transparent 68%),
+    linear-gradient(180deg, rgba(16, 185, 129, 0.08), transparent 34%);
+  mix-blend-mode: normal;
+  opacity: 0.7;
+}
+
+[data-shotlink-theme="light"] .sl-grid-overlay {
+  background-image:
+    linear-gradient(rgba(15, 23, 42, 0.055) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(15, 23, 42, 0.055) 1px, transparent 1px);
+}
+
+[data-shotlink-theme="light"] .sl-page :where(h1, h2, h3, strong, label) {
+  color: #05070b !important;
+}
+
+[data-shotlink-theme="light"] .sl-page :where(p, span) {
+  color: #334155;
+}
+
+[data-shotlink-theme="light"] .sl-page a {
+  color: #1d4ed8 !important;
+}
+
+[data-shotlink-theme="light"] .sl-page input,
+[data-shotlink-theme="light"] .sl-page select,
+[data-shotlink-theme="light"] .sl-page textarea {
+  background: rgba(255, 255, 255, 0.94) !important;
+  border-color: rgba(15, 23, 42, 0.14) !important;
+  color: #05070b !important;
+}
+
+[data-shotlink-theme="light"] .sl-page input::placeholder,
+[data-shotlink-theme="light"] .sl-page textarea::placeholder {
+  color: #64748b;
+}
+
+[data-shotlink-theme="light"] .sl-lift:hover {
+  border-color: rgba(16, 185, 129, 0.42) !important;
+  box-shadow:
+    0 24px 70px rgba(15, 23, 42, 0.14),
+    0 0 36px rgba(37, 99, 235, 0.12);
 }
 
 @media (max-width: 720px) {
