@@ -407,6 +407,12 @@ function getBillingTone(status) {
   return "neutral";
 }
 
+function isUsableLink(link) {
+  if (!link?.isActive) return false;
+  if (!link.expiresAt) return true;
+  return new Date(link.expiresAt).getTime() > Date.now();
+}
+
 export default function App() {
   const [authMode, setAuthMode] = useState("register");
   const [publicPage, setPublicPage] = useState(() => getPublicPageFromHash());
@@ -607,6 +613,16 @@ export default function App() {
       const diff = new Date(analytics.expiresAt).getTime() - Date.now();
       if (diff <= 0) {
         setCountdown("Expired");
+        setAnalytics((currentAnalytics) =>
+          currentAnalytics?.isActive ? { ...currentAnalytics, isActive: false } : currentAnalytics
+        );
+        setLinks((currentLinks) =>
+          currentLinks.map((link) =>
+            link.shortCode === selectedShortCode && link.isActive
+              ? { ...link, isActive: false }
+              : link
+          )
+        );
         clearInterval(interval);
         return;
       }
@@ -618,7 +634,7 @@ export default function App() {
     }, 1000);
 
     return () => clearInterval(interval);
-  }, [analytics]);
+  }, [analytics, selectedShortCode]);
 
   useEffect(() => {
     if (!token) {
@@ -684,17 +700,20 @@ export default function App() {
         const data = await response.json();
 
         if (!cancelled) {
-          setLinks(data.links || []);
+          const incomingLinks = data.links || [];
+          const firstActiveShortCode = incomingLinks.find(isUsableLink)?.shortCode || "";
+
+          setLinks(incomingLinks);
           setSelectedShortCode((currentSelected) => {
-            if (!currentSelected && data.links?.length) {
-              return data.links[0].shortCode;
+            if (!currentSelected) {
+              return firstActiveShortCode;
             }
 
-            if (currentSelected && data.links?.some((link) => link.shortCode === currentSelected)) {
+            if (currentSelected && incomingLinks.some((link) => link.shortCode === currentSelected && isUsableLink(link))) {
               return currentSelected;
             }
 
-            return data.links?.[0]?.shortCode || "";
+            return firstActiveShortCode;
           });
         }
       } catch (requestError) {
@@ -714,6 +733,22 @@ export default function App() {
       cancelled = true;
     };
   }, [authorizedFetch, session, token]);
+
+  useEffect(() => {
+    if (!links.length) return;
+
+    const activeLinks = links.filter(isUsableLink);
+    if (selectedShortCode && activeLinks.some((link) => link.shortCode === selectedShortCode)) {
+      return;
+    }
+
+    const nextShortCode = activeLinks[0]?.shortCode || "";
+    setSelectedShortCode(nextShortCode);
+
+    if (!nextShortCode) {
+      setAnalytics(null);
+    }
+  }, [links, selectedShortCode]);
 
   useEffect(() => {
     if (!selectedShortCode || !token) {
@@ -1289,17 +1324,23 @@ export default function App() {
   const expireCurrentLink = async () => {
     if (!selectedShortCode) return;
 
+    const shortCodeToExpire = selectedShortCode;
+
     await authorizedFetch(`/api/v1/links/${selectedShortCode}/expire`, {
       method: "PATCH",
     });
 
-    await refreshAnalytics(selectedShortCode);
     await refreshBillingSummary();
-    setLinks((currentLinks) =>
-      currentLinks.map((link) =>
-        link.shortCode === selectedShortCode ? { ...link, isActive: false } : link
-      )
+    const updatedLinks = links.map((link) =>
+      link.shortCode === shortCodeToExpire ? { ...link, isActive: false } : link
     );
+    const nextShortCode = updatedLinks.find(isUsableLink)?.shortCode || "";
+
+    setLinks(updatedLinks);
+    setSelectedShortCode(nextShortCode);
+    if (!nextShortCode) {
+      setAnalytics(null);
+    }
   };
 
   const refreshHealth = async () => {
@@ -1363,8 +1404,10 @@ export default function App() {
   const verifiedDomains = customDomains.filter((domain) => domain.status === "verified");
   const domainLimit = currentPlan.domainLimit ?? 0;
   const cnameTarget = session?.workspace?.domainSetup?.cnameTarget || "go.shotlink.in";
+  const activeLinks = links.filter(isUsableLink);
+  const expiredLinkCount = Math.max(links.length - activeLinks.length, 0);
   const activeLinkCount =
-    billingSummary?.currentPlan?.linkCountUsed ?? links.filter((link) => link.isActive).length;
+    billingSummary?.currentPlan?.linkCountUsed ?? activeLinks.length;
   const activeLinkLimit = currentPlan.linkLimit || 20;
   const remainingLinkSlots =
     billingSummary?.currentPlan?.linkCountRemaining ??
@@ -1621,7 +1664,7 @@ export default function App() {
         <div
           style={{
             ...styles.dashboardGrid,
-            gridTemplateColumns: isMobile ? "1fr" : "minmax(280px, 340px) minmax(360px, 520px) minmax(320px, 460px)",
+            gridTemplateColumns: isMobile ? "1fr" : "minmax(230px, 300px) minmax(460px, 600px) minmax(300px, 1fr)",
           }}
         >
           <aside style={styles.sidebarCard}>
@@ -1695,7 +1738,7 @@ export default function App() {
                 </div>
               ) : null}
 
-              <div style={styles.planGrid}>
+              <div style={styles.compactPlanGrid}>
                 {publicPlans.map((plan) => {
                   const isCurrentPlan = plan.id === currentPlan.effectivePlanId;
                   const isLowerTier = (PLAN_ORDER[plan.id] ?? 0) < currentPlanRank;
@@ -1722,7 +1765,7 @@ export default function App() {
                   }
 
                   return (
-                    <div key={plan.id} style={styles.planCard}>
+                    <div key={plan.id} style={styles.compactPlanCard}>
                       <div style={styles.planHeader}>
                         <strong style={styles.planName}>{plan.name}</strong>
                         <StatusPill
@@ -1730,14 +1773,10 @@ export default function App() {
                           tone={getPlanTone(plan.id)}
                         />
                       </div>
-                      <p style={styles.planPrice}>{formatPlanPrice(plan)}</p>
-                      <div style={styles.planFeatureList}>
-                        {plan.features.map((feature) => (
-                          <p key={feature} style={styles.planFeatureItem}>
-                            {feature}
-                          </p>
-                        ))}
-                      </div>
+                      <p style={styles.compactPlanPrice}>{formatPlanPrice(plan)}</p>
+                      <p style={styles.planFeatureItem}>
+                        {plan.features.slice(0, 2).join(" + ")}
+                      </p>
                       <button
                         style={
                           isDisabled
@@ -1871,13 +1910,18 @@ export default function App() {
             </div>
 
             <div style={styles.panelTitleRow}>
-              <h2 style={styles.panelTitle}>Your links</h2>
+              <div>
+                <h2 style={styles.panelTitle}>Active links</h2>
+                {expiredLinkCount ? (
+                  <p style={styles.miniHelperText}>{expiredLinkCount} expired link{expiredLinkCount === 1 ? "" : "s"} hidden</p>
+                ) : null}
+              </div>
               <StatusPill label={workspaceLoading ? "syncing" : "live"} tone="accent" />
             </div>
 
-            {links.length ? (
+            {activeLinks.length ? (
               <div style={styles.linkList}>
-                {links.map((link) => (
+                {activeLinks.map((link) => (
                   <button
                     key={link.shortCode}
                     style={
@@ -2014,7 +2058,7 @@ export default function App() {
             {error ? <p style={styles.error}>{error}</p> : null}
             {copied ? <p style={styles.success}>{copied}</p> : null}
 
-            {analytics?.shortUrl ? (
+            {analytics?.shortUrl && analytics.isActive ? (
               <div style={styles.resultCard}>
                 <div style={styles.resultTopRow}>
                   <div>
@@ -3013,6 +3057,12 @@ const styles = {
     color: designTokens.colors.text,
     lineHeight: 1.6,
   },
+  miniHelperText: {
+    margin: "6px 0 0",
+    color: designTokens.colors.muted,
+    fontSize: 12,
+    lineHeight: 1.4,
+  },
   legalCard: {
     display: "grid",
     gap: 16,
@@ -3262,6 +3312,10 @@ const styles = {
     display: "grid",
     gap: 12,
   },
+  compactPlanGrid: {
+    display: "grid",
+    gap: 10,
+  },
   planCard: {
     display: "grid",
     gap: 14,
@@ -3269,6 +3323,16 @@ const styles = {
     borderRadius: 24,
     background:
       "linear-gradient(150deg, rgba(10, 13, 28, 0.82), rgba(3, 4, 10, 0.74))",
+    border: `1px solid ${designTokens.colors.border}`,
+    boxShadow: "inset 0 1px 0 rgba(255, 255, 255, 0.05)",
+  },
+  compactPlanCard: {
+    display: "grid",
+    gap: 10,
+    padding: 14,
+    borderRadius: 18,
+    background:
+      "linear-gradient(150deg, rgba(10, 13, 28, 0.80), rgba(3, 4, 10, 0.70))",
     border: `1px solid ${designTokens.colors.border}`,
     boxShadow: "inset 0 1px 0 rgba(255, 255, 255, 0.05)",
   },
@@ -3291,6 +3355,13 @@ const styles = {
     fontSize: "1.7rem",
     fontWeight: 900,
     lineHeight: 1,
+    color: designTokens.colors.white,
+  },
+  compactPlanPrice: {
+    margin: 0,
+    fontSize: "1.25rem",
+    fontWeight: 900,
+    lineHeight: 1.1,
     color: designTokens.colors.white,
   },
   planFeatureList: {
