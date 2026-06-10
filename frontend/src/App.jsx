@@ -153,13 +153,6 @@ const EXPIRY_OPTIONS = [
   { label: "7 days", value: 10080 },
 ];
 
-const PLAN_ORDER = {
-  free: 0,
-  pro: 1,
-  business: 2,
-  enterprise: 3,
-};
-
 const DEFAULT_PUBLIC_PLANS = [
   {
     id: "free",
@@ -447,10 +440,8 @@ export default function App() {
   const [error, setError] = useState("");
   const [copied, setCopied] = useState("");
   const [publicPlans, setPublicPlans] = useState(DEFAULT_PUBLIC_PLANS);
-  const [supportEmail, setSupportEmail] = useState("support@shotlink.in");
   const [billingSummary, setBillingSummary] = useState(null);
   const [billingLoading, setBillingLoading] = useState(false);
-  const [billingSubmittingPlan, setBillingSubmittingPlan] = useState("");
   const [billingMessage, setBillingMessage] = useState("");
   const [customDomainInput, setCustomDomainInput] = useState("");
   const [domainMessage, setDomainMessage] = useState("");
@@ -460,6 +451,7 @@ export default function App() {
   const [linkComplianceAccepted, setLinkComplianceAccepted] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
   const [colorMode, setColorMode] = useState(() => localStorage.getItem("shotlink-color-mode") || "dark");
+  const [showDocsPanel, setShowDocsPanel] = useState(false);
 
   const clearSession = useCallback(() => {
     localStorage.removeItem(STORAGE_KEY);
@@ -471,7 +463,6 @@ export default function App() {
     setBillingSummary(null);
     setBillingMessage("");
     setBillingLoading(false);
-    setBillingSubmittingPlan("");
     setCustomDomainInput("");
     setDomainMessage("");
     setDomainSaving(false);
@@ -514,9 +505,6 @@ export default function App() {
 
   const applyBillingSummary = useCallback((data) => {
     setBillingSummary(data);
-    if (data.supportEmail) {
-      setSupportEmail(data.supportEmail);
-    }
     if (data.plans?.length) {
       setPublicPlans(data.plans);
     }
@@ -584,7 +572,6 @@ export default function App() {
         const data = await response.json();
         if (!cancelled) {
           setPublicPlans(data.plans?.length ? data.plans : DEFAULT_PUBLIC_PLANS);
-          setSupportEmail(data.supportEmail || "support@shotlink.in");
         }
       } catch {
         // The default catalog is enough if billing is not reachable yet.
@@ -1131,35 +1118,6 @@ export default function App() {
     }
   };
 
-  const startPlanCheckout = async (planId) => {
-    setBillingSubmittingPlan(planId);
-    setError("");
-
-    try {
-      const response = await authorizedFetch("/api/v1/billing/payment-links", {
-        method: "POST",
-        body: JSON.stringify({ planId }),
-      });
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.error || "Could not open checkout");
-      }
-
-      setBillingMessage(`Opening Razorpay checkout for the ${data.plan.name} plan.`);
-
-      if (!data.paymentLinkUrl) {
-        throw new Error("Razorpay did not return a payment link");
-      }
-
-      window.location.href = data.paymentLinkUrl;
-    } catch (requestError) {
-      setError(requestError.message || "Could not open checkout");
-    } finally {
-      setBillingSubmittingPlan("");
-    }
-  };
-
   const addCustomDomain = async () => {
     if (!customDomainInput.trim()) {
       setError("Enter a domain before adding it.");
@@ -1425,8 +1383,6 @@ export default function App() {
   const remainingLinkSlots =
     billingSummary?.currentPlan?.linkCountRemaining ??
     Math.max(activeLinkLimit - activeLinkCount, 0);
-  const currentPlanRank = PLAN_ORDER[currentPlan.effectivePlanId] ?? 0;
-  const latestPayment = billingSummary?.recentPayments?.[0] || null;
   const requiredAccountConsentsAccepted = REQUIRED_AUTH_CONSENTS.every(
     (item) => authForm.consents[item.id]
   );
@@ -1659,7 +1615,10 @@ export default function App() {
             </button>
             <button
               style={{ ...styles.navActionButton, ...modeStyles.docsButton }}
-              onClick={() => scrollToDashboardSection("docs-panel")}
+              onClick={() => {
+                setShowDocsPanel(true);
+                window.setTimeout(() => scrollToDashboardSection("docs-panel"), 50);
+              }}
             >
               Docs
             </button>
@@ -1704,7 +1663,7 @@ export default function App() {
               <div style={styles.panelTitleRow}>
                 <div>
                   <p style={styles.sectionEyebrow}>Billing</p>
-                  <h2 style={styles.panelTitle}>Plan, usage, and upgrades</h2>
+                  <h2 style={styles.panelTitle}>Active subscription</h2>
                 </div>
                 <button
                   style={{
@@ -1717,6 +1676,26 @@ export default function App() {
                 >
                   {billingLoading ? "Refreshing..." : "Refresh billing"}
                 </button>
+              </div>
+
+              <div style={{ ...styles.subscriptionCard, ...modeStyles.subscriptionCard }}>
+                <div>
+                  <p style={styles.mutedLabel}>Current subscription</p>
+                  <h3 style={styles.subscriptionTitle}>{currentPlan.effectivePlanName}</h3>
+                </div>
+                <StatusPill
+                  label={formatLabel(currentPlan.billingStatus)}
+                  tone={getBillingTone(currentPlan.billingStatus)}
+                />
+                <p style={styles.helperText}>
+                  {activeLinkCount}/{activeLinkLimit} active links used. {remainingLinkSlots} slots
+                  still available.
+                </p>
+                <p style={styles.miniHelperText}>
+                  {currentPlan.currentPeriodEndsAt
+                    ? `Renews or ends ${formatDate(currentPlan.currentPeriodEndsAt)}`
+                    : "Free tier subscription"}
+                </p>
               </div>
 
               <div style={styles.billingStatsGrid}>
@@ -1743,95 +1722,6 @@ export default function App() {
               </div>
 
               {billingMessage ? <p style={styles.success}>{billingMessage}</p> : null}
-
-              {latestPayment ? (
-                <div style={styles.paymentCard}>
-                  <div style={styles.planHeader}>
-                    <strong style={styles.planName}>Latest payment</strong>
-                    <StatusPill
-                      label={formatLabel(latestPayment.status)}
-                      tone={getBillingTone(latestPayment.status)}
-                    />
-                  </div>
-                  <p style={styles.helperText}>
-                    {latestPayment.planName} - {formatPriceInInr(latestPayment.amountInPaise)}
-                  </p>
-                  <p style={styles.helperText}>
-                    {latestPayment.paidAt
-                      ? `Paid on ${formatDate(latestPayment.paidAt)}`
-                      : `Created on ${formatDate(latestPayment.createdAt)}`}
-                  </p>
-                  <p style={styles.helperText}>Reference: {latestPayment.referenceId}</p>
-                  {latestPayment.paymentLinkUrl && latestPayment.status !== "paid" ? (
-                    <a href={latestPayment.paymentLinkUrl} target="_blank" rel="noreferrer" style={styles.link}>
-                      Reopen pending checkout
-                    </a>
-                  ) : null}
-                </div>
-              ) : null}
-
-              <div style={styles.compactPlanGrid}>
-                {publicPlans.map((plan) => {
-                  const isCurrentPlan = plan.id === currentPlan.effectivePlanId;
-                  const isLowerTier = (PLAN_ORDER[plan.id] ?? 0) < currentPlanRank;
-                  const isRenewal =
-                    currentPlan.effectivePlanId === "free" &&
-                    currentPlan.configuredPlanId === plan.id;
-                  const isDisabled =
-                    plan.id === "free" ||
-                    isCurrentPlan ||
-                    isLowerTier ||
-                    billingSubmittingPlan === plan.id;
-
-                  let actionLabel = "Included";
-                  if (plan.id !== "free") {
-                    if (isCurrentPlan) {
-                      actionLabel = "Current plan";
-                    } else if (isRenewal) {
-                      actionLabel = `Renew ${plan.name}`;
-                    } else if (isLowerTier) {
-                      actionLabel = "Downgrade later";
-                    } else {
-                      actionLabel = `Choose ${plan.name}`;
-                    }
-                  }
-
-                  return (
-                    <div key={plan.id} style={{ ...styles.compactPlanCard, ...modeStyles.compactPlanCard }}>
-                      <div style={styles.planHeader}>
-                        <strong style={styles.planName}>{plan.name}</strong>
-                        <StatusPill
-                          label={`${plan.linkLimit} active links`}
-                          tone={getPlanTone(plan.id)}
-                        />
-                      </div>
-                      <p style={styles.compactPlanPrice}>{formatPlanPrice(plan)}</p>
-                      <p style={styles.planFeatureItem}>
-                        {plan.features.slice(0, 2).join(" + ")}
-                      </p>
-                      <button
-                        style={
-                          isDisabled
-                            ? { ...styles.secondaryButton, width: "100%", opacity: 0.6, cursor: "not-allowed" }
-                            : { ...styles.primaryButton, width: "100%" }
-                        }
-                        onClick={() => !isDisabled && startPlanCheckout(plan.id)}
-                        disabled={isDisabled}
-                      >
-                        {billingSubmittingPlan === plan.id ? "Opening checkout..." : actionLabel}
-                      </button>
-                    </div>
-                  );
-                })}
-              </div>
-
-              <p style={styles.helperText}>
-                Need branded domains or customer onboarding help? Write to{" "}
-                <a href={`mailto:${supportEmail}`} style={styles.link}>
-                  {supportEmail}
-                </a>
-                .
-              </p>
             </div>
 
             <div style={{ ...styles.panelCard, ...modeStyles.panelCard }}>
@@ -1987,18 +1877,27 @@ export default function App() {
               </p>
             )}
 
-            <div id="docs-panel" style={{ ...styles.docsQuickPanel, ...modeStyles.docsQuickPanel }}>
-              <p style={styles.sectionEyebrow}>Docs</p>
-              <h2 style={styles.panelTitle}>Quick operator guide</h2>
-              <div style={styles.docsQuickList}>
-                {DOC_SECTIONS.slice(0, 3).map((section) => (
-                  <div key={section.title} style={styles.docsQuickItem}>
-                    <strong>{section.title}</strong>
-                    <span>{section.body}</span>
+            {showDocsPanel ? (
+              <div id="docs-panel" style={{ ...styles.docsQuickPanel, ...modeStyles.docsQuickPanel }}>
+                <div style={styles.panelTitleRow}>
+                  <div>
+                    <p style={styles.sectionEyebrow}>Docs</p>
+                    <h2 style={styles.panelTitle}>Quick operator guide</h2>
                   </div>
-                ))}
+                  <button style={styles.secondaryButton} onClick={() => setShowDocsPanel(false)}>
+                    Hide
+                  </button>
+                </div>
+                <div style={styles.docsQuickList}>
+                  {DOC_SECTIONS.slice(0, 3).map((section) => (
+                    <div key={section.title} style={styles.docsQuickItem}>
+                      <strong>{section.title}</strong>
+                      <span>{section.body}</span>
+                    </div>
+                  ))}
+                </div>
               </div>
-            </div>
+            ) : null}
           </aside>
 
           <section style={{ ...styles.builderCard, ...modeStyles.builderCard }}>
@@ -2379,6 +2278,9 @@ const darkModeStyles = {
       "linear-gradient(150deg, rgba(8, 13, 22, 0.88), rgba(5, 7, 11, 0.80))",
     border: "1px solid rgba(148, 163, 184, 0.16)",
   },
+  subscriptionCard: {
+    borderLeft: "4px solid #2563eb",
+  },
   metricCard: {
     background:
       "linear-gradient(145deg, rgba(8, 13, 22, 0.88), rgba(5, 7, 11, 0.82))",
@@ -2445,6 +2347,12 @@ const lightModeStyles = {
   panelCard: {
     background: "rgba(255, 255, 255, 0.88)",
     border: "1px solid rgba(15, 23, 42, 0.10)",
+    color: "#05070b",
+  },
+  subscriptionCard: {
+    background: "rgba(255, 255, 255, 0.88)",
+    border: "1px solid rgba(15, 23, 42, 0.10)",
+    borderLeft: "4px solid #2563eb",
     color: "#05070b",
   },
   metricCard: {
@@ -3499,6 +3407,22 @@ const styles = {
     color: designTokens.colors.text,
     fontSize: 13,
     lineHeight: 1.45,
+  },
+  subscriptionCard: {
+    display: "grid",
+    gap: 10,
+    padding: 16,
+    borderRadius: 18,
+    background:
+      "linear-gradient(145deg, rgba(37, 99, 235, 0.16), rgba(16, 185, 129, 0.08))",
+    border: `1px solid ${designTokens.colors.border}`,
+  },
+  subscriptionTitle: {
+    margin: 0,
+    color: designTokens.colors.white,
+    fontSize: "1.65rem",
+    lineHeight: 1,
+    fontWeight: 950,
   },
   billingStatsGrid: {
     display: "grid",
