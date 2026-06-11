@@ -45,7 +45,7 @@ test("serializeBillingSnapshot exposes link limits for the effective plan", () =
   });
 
   assert.equal(snapshot.effectivePlanId, "pro");
-  assert.equal(snapshot.linkLimit, 200);
+  assert.equal(snapshot.linkLimit, 500);
   assert.equal(snapshot.domainLimit, 1);
   assert.equal(snapshot.lastPaymentReference, "BILL-123");
 });

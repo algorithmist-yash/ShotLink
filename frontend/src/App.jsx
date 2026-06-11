@@ -160,27 +160,27 @@ const DEFAULT_PUBLIC_PLANS = [
     priceInPaise: 0,
     currency: "INR",
     intervalMonths: 0,
-    linkLimit: 20,
+    linkLimit: 10,
     domainLimit: 0,
     features: [
-      "Up to 20 active links",
-      "Basic analytics",
-      "QR codes",
+      "Up to 10 active links",
+      "Basic click analytics",
+      "Shotlink-branded QR codes",
       "No branded domain",
     ],
   },
   {
     id: "pro",
     name: "Pro",
-    priceInPaise: 49900,
+    priceInPaise: 119900,
     currency: "INR",
     intervalMonths: 1,
-    linkLimit: 200,
+    linkLimit: 500,
     domainLimit: 1,
     features: [
-      "Up to 200 active links",
+      "Up to 500 active links",
       "1 branded domain",
-      "Fallback routing",
+      "Editable destinations and fallback routing",
       "Advanced analytics",
       "Priority email support",
     ],
@@ -188,17 +188,32 @@ const DEFAULT_PUBLIC_PLANS = [
   {
     id: "business",
     name: "Business",
-    priceInPaise: 299900,
+    priceInPaise: 999900,
     currency: "INR",
     intervalMonths: 1,
-    linkLimit: 5000,
-    domainLimit: 5,
+    linkLimit: 10000,
+    domainLimit: 10,
     features: [
-      "Up to 5000 active links",
-      "Up to 5 branded domains",
-      "Team-ready workspace",
-      "Campaign-friendly analytics",
+      "Up to 10000 active links",
+      "Up to 10 branded domains",
+      "Team workspaces",
+      "Campaign analytics and exports",
       "Priority onboarding support",
+    ],
+  },
+  {
+    id: "enterprise",
+    name: "Enterprise",
+    priceInPaise: 0,
+    currency: "INR",
+    intervalMonths: 0,
+    linkLimit: 1000000,
+    domainLimit: 100,
+    features: [
+      "Custom link and click volume",
+      "SSO, SCIM, RBAC, and audit logs",
+      "Dedicated success and security review",
+      "Custom SLA and procurement support",
     ],
   },
 ];
@@ -212,6 +227,7 @@ function formatPriceInInr(amountInPaise) {
 }
 
 function formatPlanPrice(plan) {
+  if (plan?.id === "enterprise") return "Custom";
   if (!plan?.priceInPaise) return "Free";
 
   const suffix =
@@ -878,7 +894,10 @@ export default function App() {
         >
           <div style={styles.planHeader}>
             <strong style={styles.planName}>{plan.name}</strong>
-            <StatusPill label={`${plan.linkLimit} links`} tone={getPlanTone(plan.id)} />
+            <StatusPill
+              label={plan.id === "enterprise" ? "Custom volume" : `${plan.linkLimit} links`}
+              tone={getPlanTone(plan.id)}
+            />
           </div>
           <p style={styles.planPrice}>{formatPlanPrice(plan)}</p>
           <div style={styles.planFeatureList}>
