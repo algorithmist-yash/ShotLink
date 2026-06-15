@@ -161,7 +161,11 @@ const DEFAULT_PUBLIC_PLANS = [
     currency: "INR",
     intervalMonths: 0,
     linkLimit: 10,
+    clickLimit: 500,
     domainLimit: 0,
+    teamMemberLimit: 1,
+    apiCallLimit: 0,
+    qrCodeLimit: 5,
     features: [
       "Up to 10 active links",
       "Basic click analytics",
@@ -176,7 +180,11 @@ const DEFAULT_PUBLIC_PLANS = [
     currency: "INR",
     intervalMonths: 1,
     linkLimit: 500,
+    clickLimit: 25000,
     domainLimit: 1,
+    teamMemberLimit: 3,
+    apiCallLimit: 10000,
+    qrCodeLimit: 250,
     features: [
       "Up to 500 active links",
       "1 branded domain",
@@ -192,7 +200,11 @@ const DEFAULT_PUBLIC_PLANS = [
     currency: "INR",
     intervalMonths: 1,
     linkLimit: 10000,
+    clickLimit: 500000,
     domainLimit: 10,
+    teamMemberLimit: 25,
+    apiCallLimit: 250000,
+    qrCodeLimit: 5000,
     features: [
       "Up to 10000 active links",
       "Up to 10 branded domains",
@@ -208,7 +220,11 @@ const DEFAULT_PUBLIC_PLANS = [
     currency: "INR",
     intervalMonths: 0,
     linkLimit: 1000000,
+    clickLimit: 100000000,
     domainLimit: 100,
+    teamMemberLimit: 1000,
+    apiCallLimit: 10000000,
+    qrCodeLimit: 100000,
     features: [
       "Custom link and click volume",
       "SSO, SCIM, RBAC, and audit logs",
@@ -238,6 +254,25 @@ function formatPlanPrice(plan) {
         : "";
 
   return `${formatPriceInInr(plan.priceInPaise)}${suffix}`;
+}
+
+function formatUsageNumber(value) {
+  return new Intl.NumberFormat("en-IN", {
+    maximumFractionDigits: 0,
+  }).format(Number(value) || 0);
+}
+
+function getUsageLabel(key) {
+  const labels = {
+    links: "Links",
+    clicks: "Clicks",
+    domains: "Domains",
+    teamMembers: "Team members",
+    apiRequests: "API requests",
+    qrCodes: "QR codes",
+  };
+
+  return labels[key] || formatLabel(key);
 }
 
 function formatLabel(value) {
@@ -300,6 +335,36 @@ function DeviceBar({ item, total }) {
       <div style={styles.deviceBarTrack}>
         <div style={{ ...styles.deviceBarFill, width }} />
       </div>
+    </div>
+  );
+}
+
+function UsageBar({ metric }) {
+  if (!metric) return null;
+
+  return (
+    <div style={styles.usageBar}>
+      <div style={styles.usageBarHeader}>
+        <span style={styles.usageBarLabel}>{getUsageLabel(metric.key)}</span>
+        <span style={styles.usageBarCount}>
+          {formatUsageNumber(metric.used)} / {formatUsageNumber(metric.limit)}
+        </span>
+      </div>
+      <div style={styles.usageBarTrack}>
+        <div
+          style={{
+            ...styles.usageBarFill,
+            width: `${metric.percentUsed || 0}%`,
+            background:
+            metric.percentUsed >= 90
+                ? designTokens.colors.danger
+                : metric.percentUsed >= 70
+                  ? designTokens.colors.yellow
+                  : designTokens.colors.blue,
+          }}
+        />
+      </div>
+      <p style={styles.miniHelperText}>{formatUsageNumber(metric.remaining)} remaining</p>
     </div>
   );
 }
@@ -458,6 +523,7 @@ export default function App() {
   const [publicPlans, setPublicPlans] = useState(DEFAULT_PUBLIC_PLANS);
   const [billingSummary, setBillingSummary] = useState(null);
   const [billingLoading, setBillingLoading] = useState(false);
+  const [checkoutLoadingPlanId, setCheckoutLoadingPlanId] = useState("");
   const [billingMessage, setBillingMessage] = useState("");
   const [customDomainInput, setCustomDomainInput] = useState("");
   const [domainMessage, setDomainMessage] = useState("");
@@ -479,6 +545,7 @@ export default function App() {
     setBillingSummary(null);
     setBillingMessage("");
     setBillingLoading(false);
+    setCheckoutLoadingPlanId("");
     setCustomDomainInput("");
     setDomainMessage("");
     setDomainSaving(false);
@@ -825,6 +892,72 @@ export default function App() {
     } catch (requestError) {
       setError(requestError.message || "Could not load billing");
       return null;
+    } finally {
+      setBillingLoading(false);
+    }
+  };
+
+  const startPlanCheckout = async (plan) => {
+    if (!plan) return;
+
+    if (plan.id === "enterprise") {
+      const supportEmail = billingSummary?.supportEmail || "support@shotlink.in";
+      window.location.href = `mailto:${supportEmail}?subject=Shotlink Enterprise plan`;
+      return;
+    }
+
+    if (!plan.priceInPaise) {
+      setBillingMessage("You are already on the free plan. Choose Pro or Business to upgrade.");
+      return;
+    }
+
+    setCheckoutLoadingPlanId(plan.id);
+    setBillingMessage("");
+    setError("");
+
+    try {
+      const response = await authorizedFetch("/api/v1/billing/subscriptions", {
+        method: "POST",
+        body: JSON.stringify({ planId: plan.id }),
+      });
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || "Could not start checkout");
+      }
+
+      if (!data.subscriptionShortUrl) {
+        throw new Error("Subscription checkout link was not returned by billing");
+      }
+
+      setBillingMessage(`Opening ${data.plan?.name || plan.name} subscription for ${data.amountLabel}.`);
+      window.location.href = data.subscriptionShortUrl;
+    } catch (requestError) {
+      setError(requestError.message || "Could not start checkout");
+    } finally {
+      setCheckoutLoadingPlanId("");
+    }
+  };
+
+  const cancelCurrentSubscription = async () => {
+    setBillingLoading(true);
+    setBillingMessage("");
+    setError("");
+
+    try {
+      const response = await authorizedFetch("/api/v1/billing/subscriptions/cancel", {
+        method: "POST",
+        body: JSON.stringify({ cancelAtCycleEnd: true }),
+      });
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || "Could not cancel subscription");
+      }
+
+      await refreshBillingSummary(data.message || "Subscription cancellation scheduled.");
+    } catch (requestError) {
+      setError(requestError.message || "Could not cancel subscription");
     } finally {
       setBillingLoading(false);
     }
@@ -1387,9 +1520,15 @@ export default function App() {
     billingStatus: "inactive",
     lastPaymentAt: null,
     lastPaymentReference: "",
-    linkLimit: 20,
+    linkLimit: 10,
+    clickLimit: 500,
     domainLimit: 0,
+    teamMemberLimit: 1,
+    apiCallLimit: 0,
+    qrCodeLimit: 5,
+    usage: {},
   };
+  const billingRecords = billingSummary?.recentPayments || [];
   const customDomains = session?.workspace?.customDomains || [];
   const verifiedDomains = customDomains.filter((domain) => domain.status === "verified");
   const domainLimit = currentPlan.domainLimit ?? 0;
@@ -1717,6 +1856,57 @@ export default function App() {
                 </p>
               </div>
 
+              <div style={styles.paymentCard}>
+                <div>
+                  <p style={styles.mutedLabel}>Upgrade subscription</p>
+                  <p style={styles.helperText}>
+                    Choose a paid plan to open Razorpay checkout. Your workspace updates after the
+                    payment webhook confirms the transaction.
+                  </p>
+                </div>
+                <div style={styles.compactPlanGrid}>
+                  {publicPlans
+                    .filter((plan) => plan.id !== "free")
+                    .map((plan) => {
+                      const isCurrentPlan = currentPlan.effectivePlanId === plan.id;
+                      const isCheckoutLoading = checkoutLoadingPlanId === plan.id;
+
+                      return (
+                        <div key={plan.id} style={styles.compactPlanCard}>
+                          <div style={styles.planHeader}>
+                            <strong style={styles.planName}>{plan.name}</strong>
+                            <span style={styles.compactPlanPrice}>{formatPlanPrice(plan)}</span>
+                          </div>
+                          <p style={styles.miniHelperText}>
+                            {plan.id === "enterprise"
+                              ? "Custom security, support, and scale."
+                              : `${plan.linkLimit} links and ${plan.domainLimit} branded ${
+                                  plan.domainLimit === 1 ? "domain" : "domains"
+                                }.`}
+                          </p>
+                          <button
+                            style={
+                              isCurrentPlan || isCheckoutLoading
+                                ? { ...styles.secondaryButton, opacity: 0.65, cursor: "not-allowed" }
+                                : styles.primaryButton
+                            }
+                            onClick={() => startPlanCheckout(plan)}
+                            disabled={isCurrentPlan || Boolean(checkoutLoadingPlanId)}
+                          >
+                            {isCurrentPlan
+                              ? "Current plan"
+                              : isCheckoutLoading
+                                ? "Opening..."
+                                : plan.id === "enterprise"
+                                  ? "Contact sales"
+                                  : `Upgrade to ${plan.name}`}
+                          </button>
+                        </div>
+                      );
+                    })}
+                </div>
+              </div>
+
               <div style={styles.billingStatsGrid}>
                 <div style={styles.billingStatCard}>
                   <p style={styles.billingStatLabel}>Current plan</p>
@@ -1737,6 +1927,76 @@ export default function App() {
                       ? formatDate(currentPlan.currentPeriodEndsAt)
                       : "Free tier"}
                   </p>
+                </div>
+              </div>
+
+              <div style={styles.paymentCard}>
+                <div style={styles.planHeader}>
+                  <div>
+                    <p style={styles.mutedLabel}>Usage</p>
+                    <p style={styles.helperText}>
+                      Monthly quotas reset with your billing cycle.
+                    </p>
+                  </div>
+                  <StatusPill
+                    label={currentPlan.usagePeriodKey || "Current month"}
+                    tone="neutral"
+                  />
+                </div>
+                <div style={styles.usageGrid}>
+                  {Object.values(currentPlan.usage || {}).map((metric) => (
+                    <UsageBar key={metric.key} metric={metric} />
+                  ))}
+                </div>
+              </div>
+
+              <div style={styles.paymentCard}>
+                <div style={styles.planHeader}>
+                  <div>
+                    <p style={styles.mutedLabel}>Invoices</p>
+                    <p style={styles.helperText}>Recent Razorpay subscription and invoice events.</p>
+                  </div>
+                  {currentPlan.effectivePlanId !== "free" ? (
+                    <button
+                      style={{
+                        ...styles.secondaryButton,
+                        opacity: billingLoading ? 0.65 : 1,
+                        cursor: billingLoading ? "not-allowed" : "pointer",
+                      }}
+                      onClick={cancelCurrentSubscription}
+                      disabled={billingLoading}
+                    >
+                      Cancel at renewal
+                    </button>
+                  ) : null}
+                </div>
+                <div style={styles.invoiceList}>
+                  {billingRecords.length ? (
+                    billingRecords.slice(0, 5).map((record) => (
+                      <div key={record.id} style={styles.invoiceRow}>
+                        <div>
+                          <strong style={styles.planName}>{record.planName}</strong>
+                          <p style={styles.miniHelperText}>
+                            {formatLabel(record.status)} - {formatDate(record.createdAt)}
+                          </p>
+                        </div>
+                        {record.invoiceUrl || record.paymentLinkUrl ? (
+                          <a
+                            href={record.invoiceUrl || record.paymentLinkUrl}
+                            target="_blank"
+                            rel="noreferrer"
+                            style={styles.inlineLink}
+                          >
+                            Open
+                          </a>
+                        ) : (
+                          <span style={styles.miniHelperText}>{formatPriceInInr(record.amountInPaise)}</span>
+                        )}
+                      </div>
+                    ))
+                  ) : (
+                    <p style={styles.helperText}>Invoices appear after your first subscription event.</p>
+                  )}
                 </div>
               </div>
 
@@ -3545,6 +3805,62 @@ const styles = {
     borderRadius: 18,
     background: "rgba(3, 4, 10, 0.58)",
     border: `1px solid ${designTokens.colors.border}`,
+  },
+  usageGrid: {
+    display: "grid",
+    gap: 12,
+  },
+  usageBar: {
+    display: "grid",
+    gap: 8,
+  },
+  usageBarHeader: {
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 10,
+  },
+  usageBarLabel: {
+    color: designTokens.colors.text,
+    fontSize: 13,
+    fontWeight: 800,
+  },
+  usageBarCount: {
+    color: designTokens.colors.muted,
+    fontSize: 12,
+    fontWeight: 700,
+    whiteSpace: "nowrap",
+  },
+  usageBarTrack: {
+    height: 8,
+    borderRadius: 999,
+    background: "rgba(148, 163, 184, 0.16)",
+    overflow: "hidden",
+  },
+  usageBarFill: {
+    height: "100%",
+    borderRadius: 999,
+    transition: "width 180ms ease",
+  },
+  invoiceList: {
+    display: "grid",
+    gap: 10,
+  },
+  invoiceRow: {
+    display: "flex",
+    justifyContent: "space-between",
+    gap: 12,
+    alignItems: "center",
+    padding: 12,
+    borderRadius: 14,
+    background: "rgba(255, 255, 255, 0.04)",
+    border: `1px solid ${designTokens.colors.border}`,
+  },
+  inlineLink: {
+    color: designTokens.colors.ice,
+    fontSize: 13,
+    fontWeight: 800,
+    textDecoration: "none",
   },
   domainList: {
     display: "grid",

@@ -7,6 +7,8 @@ const REQUIRED_PRODUCTION_ENV = [
   "RAZORPAY_KEY_ID",
   "RAZORPAY_KEY_SECRET",
   "RAZORPAY_WEBHOOK_SECRET",
+  "RAZORPAY_PLAN_ID_PRO_MONTHLY",
+  "RAZORPAY_PLAN_ID_BUSINESS_MONTHLY",
 ];
 
 function validateProductionEnv(env = process.env) {

@@ -46,6 +46,18 @@ test("serializeBillingSnapshot exposes link limits for the effective plan", () =
 
   assert.equal(snapshot.effectivePlanId, "pro");
   assert.equal(snapshot.linkLimit, 500);
+  assert.equal(snapshot.clickLimit, 25000);
   assert.equal(snapshot.domainLimit, 1);
+  assert.equal(snapshot.teamMemberLimit, 3);
+  assert.equal(snapshot.apiCallLimit, 10000);
+  assert.equal(snapshot.qrCodeLimit, 250);
   assert.equal(snapshot.lastPaymentReference, "BILL-123");
+});
+
+test("listPublicPlans exposes paid usage meters without provider internals", () => {
+  const pro = getPlanDefinition("pro");
+
+  assert.equal(pro.razorpayPlanIdEnvKey, "RAZORPAY_PLAN_ID_PRO_MONTHLY");
+  assert.equal(pro.apiCallLimit, 10000);
+  assert.equal(pro.qrCodeLimit, 250);
 });

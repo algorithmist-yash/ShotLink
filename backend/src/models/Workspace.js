@@ -59,6 +59,10 @@ const workspaceSchema = new mongoose.Schema(
       lastPaymentAt: { type: Date, default: null },
       lastPaymentReference: { type: String, default: "" },
       billingEmail: { type: String, default: "" },
+      provider: { type: String, default: "" },
+      providerCustomerId: { type: String, default: "" },
+      providerSubscriptionId: { type: String, default: "" },
+      cancelAtCycleEnd: { type: Boolean, default: false },
     },
     members: {
       type: [workspaceMemberSchema],

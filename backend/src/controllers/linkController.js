@@ -15,6 +15,7 @@ const {
   refreshUrlHealth,
   selectRedirectTarget,
 } = require("../services/healthService");
+const { incrementUsage } = require("../services/usageService");
 
 async function generateUniqueShortCode() {
   for (let attempt = 0; attempt < 5; attempt += 1) {
@@ -166,6 +167,7 @@ exports.createLink = async (req, res) => {
     });
 
     await refreshUrlHealth(url);
+    await incrementUsage(req.auth.workspace._id, { linksCreated: 1 });
 
     return res.status(201).json({
       link: serializeLinkSummary(req, url),

@@ -6,7 +6,11 @@ const BILLING_PLANS = {
     currency: "INR",
     intervalMonths: 0,
     linkLimit: 10,
+    clickLimit: 500,
     domainLimit: 0,
+    teamMemberLimit: 1,
+    apiCallLimit: 0,
+    qrCodeLimit: 5,
     features: [
       "Up to 10 active links",
       "Basic click analytics",
@@ -21,7 +25,12 @@ const BILLING_PLANS = {
     currency: "INR",
     intervalMonths: 1,
     linkLimit: 500,
+    clickLimit: 25000,
     domainLimit: 1,
+    teamMemberLimit: 3,
+    apiCallLimit: 10000,
+    qrCodeLimit: 250,
+    razorpayPlanIdEnvKey: "RAZORPAY_PLAN_ID_PRO_MONTHLY",
     features: [
       "Up to 500 active links",
       "1 branded domain",
@@ -37,7 +46,12 @@ const BILLING_PLANS = {
     currency: "INR",
     intervalMonths: 1,
     linkLimit: 10000,
+    clickLimit: 500000,
     domainLimit: 10,
+    teamMemberLimit: 25,
+    apiCallLimit: 250000,
+    qrCodeLimit: 5000,
+    razorpayPlanIdEnvKey: "RAZORPAY_PLAN_ID_BUSINESS_MONTHLY",
     features: [
       "Up to 10000 active links",
       "Up to 10 branded domains",
@@ -53,7 +67,11 @@ const BILLING_PLANS = {
     currency: "INR",
     intervalMonths: 0,
     linkLimit: 1000000,
+    clickLimit: 100000000,
     domainLimit: 100,
+    teamMemberLimit: 1000,
+    apiCallLimit: 10000000,
+    qrCodeLimit: 100000,
     features: [
       "Custom link and click volume",
       "SSO, SCIM, RBAC, and audit logs",
@@ -75,7 +93,11 @@ function listPublicPlans() {
     currency: plan.currency,
     intervalMonths: plan.intervalMonths,
     linkLimit: plan.linkLimit,
+    clickLimit: plan.clickLimit,
     domainLimit: plan.domainLimit,
+    teamMemberLimit: plan.teamMemberLimit,
+    apiCallLimit: plan.apiCallLimit,
+    qrCodeLimit: plan.qrCodeLimit,
     features: plan.features,
   }));
 }
@@ -112,7 +134,11 @@ function serializeBillingSnapshot(workspace) {
     lastPaymentAt: workspace?.billing?.lastPaymentAt || null,
     lastPaymentReference: workspace?.billing?.lastPaymentReference || "",
     linkLimit: effectivePlan.linkLimit,
+    clickLimit: effectivePlan.clickLimit,
     domainLimit: effectivePlan.domainLimit,
+    teamMemberLimit: effectivePlan.teamMemberLimit,
+    apiCallLimit: effectivePlan.apiCallLimit,
+    qrCodeLimit: effectivePlan.qrCodeLimit,
   };
 }
 

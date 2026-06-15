@@ -1,6 +1,8 @@
 const ClickEvent = require("../models/ClickEvent");
 const Url = require("../models/Url");
 const Workspace = require("../models/Workspace");
+const { resolveEffectivePlan } = require("../config/billingPlans");
+const { getCurrentUsageCounter, incrementUsage } = require("../services/usageService");
 const { buildClickContext } = require("../utils/deviceInfo");
 const {
   getHostnameFromUrl,
@@ -60,6 +62,19 @@ exports.redirectToOriginal = async (req, res) => {
       return res.status(410).send("This link has expired");
     }
 
+    if (url.workspaceId) {
+      const workspace = await Workspace.findById(url.workspaceId);
+      if (workspace) {
+        const effectivePlan = resolveEffectivePlan(workspace);
+        const usageCounter = await getCurrentUsageCounter(workspace._id);
+        if ((usageCounter?.clicks || 0) >= effectivePlan.clickLimit) {
+          return res
+            .status(402)
+            .send(`This workspace has reached the ${effectivePlan.name} monthly click limit`);
+        }
+      }
+    }
+
     if (needsHealthRefresh(url)) {
       await refreshUrlHealth(url);
     }
@@ -76,6 +91,9 @@ exports.redirectToOriginal = async (req, res) => {
         redirectTargetKind: "none",
         redirectStatus: 502,
       });
+      if (url.workspaceId) {
+        await incrementUsage(url.workspaceId, { clicks: 1 });
+      }
 
       return res
         .status(502)
@@ -104,6 +122,9 @@ exports.redirectToOriginal = async (req, res) => {
           $set: { lastClickedAt: new Date() },
         }
       ),
+      url.workspaceId
+        ? incrementUsage(url.workspaceId, { clicks: 1 })
+        : Promise.resolve(),
     ]);
 
     return res.redirect(302, selectedTarget.url);

@@ -2,6 +2,8 @@ const express = require("express");
 
 const {
   createPaymentLink,
+  createSubscription,
+  cancelSubscription,
   getBillingSummary,
   getPublicPlans,
   handleRazorpayWebhook,
@@ -16,5 +18,7 @@ router.post("/webhooks/razorpay", handleRazorpayWebhook);
 router.use(requireAuth);
 router.get("/summary", getBillingSummary);
 router.post("/payment-links", writeRateLimit, createPaymentLink);
+router.post("/subscriptions", writeRateLimit, createSubscription);
+router.post("/subscriptions/cancel", writeRateLimit, cancelSubscription);
 
 module.exports = router;

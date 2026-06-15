@@ -4,6 +4,10 @@ const BillingRecord = require("../models/BillingRecord");
 const Url = require("../models/Url");
 const Workspace = require("../models/Workspace");
 const {
+  buildUsageMetric,
+  getCurrentUsageCounter,
+} = require("../services/usageService");
+const {
   addMonths,
   getPlanDefinition,
   listPublicPlans,
@@ -27,6 +31,22 @@ function formatAmountInInr(amountInPaise) {
   return `INR ${(amountInPaise / 100).toFixed(0)}`;
 }
 
+function unixToDate(value) {
+  return value ? new Date(value * 1000) : null;
+}
+
+function getRazorpayPlanId(plan) {
+  const envKey = plan?.razorpayPlanIdEnvKey;
+  return envKey ? String(process.env[envKey] || "").trim() : "";
+}
+
+function compactLookupClauses(clauses) {
+  return clauses.filter((clause) => {
+    const value = Object.values(clause)[0];
+    return value !== null && value !== undefined && String(value).trim() !== "";
+  });
+}
+
 async function countWorkspaceLinks(workspaceId) {
   return Url.countDocuments({
     workspaceId,
@@ -35,10 +55,29 @@ async function countWorkspaceLinks(workspaceId) {
   });
 }
 
-function buildBillingSummary(workspace, linkCount) {
+function countWorkspaceDomains(workspace) {
+  return (workspace?.customDomains || []).filter((domain) => domain.status !== "disabled").length;
+}
+
+function countWorkspaceMembers(workspace) {
+  return (workspace?.members || []).length || 1;
+}
+
+function buildBillingSummary(workspace, linkCount, usageCounter) {
   const billing = serializeBillingSnapshot(workspace);
+  const usage = {
+    links: buildUsageMetric("links", linkCount, billing.linkLimit),
+    clicks: buildUsageMetric("clicks", usageCounter?.clicks, billing.clickLimit),
+    domains: buildUsageMetric("domains", countWorkspaceDomains(workspace), billing.domainLimit),
+    teamMembers: buildUsageMetric("teamMembers", countWorkspaceMembers(workspace), billing.teamMemberLimit),
+    apiRequests: buildUsageMetric("apiRequests", usageCounter?.apiRequests, billing.apiCallLimit),
+    qrCodes: buildUsageMetric("qrCodes", usageCounter?.qrCodesCreated, billing.qrCodeLimit),
+  };
+
   return {
     ...billing,
+    usagePeriodKey: usageCounter?.periodKey || "",
+    usage,
     linkCountUsed: linkCount,
     linkCountRemaining: Math.max(billing.linkLimit - linkCount, 0),
   };
@@ -53,8 +92,9 @@ exports.getPublicPlans = async (req, res) => {
 
 exports.getBillingSummary = async (req, res) => {
   try {
-    const [linkCount, recentRecords] = await Promise.all([
+    const [linkCount, usageCounter, recentRecords] = await Promise.all([
       countWorkspaceLinks(req.auth.workspace._id),
+      getCurrentUsageCounter(req.auth.workspace._id),
       BillingRecord.find({ workspaceId: req.auth.workspace._id })
         .sort({ createdAt: -1 })
         .limit(10)
@@ -64,7 +104,7 @@ exports.getBillingSummary = async (req, res) => {
     return res.json({
       plans: listPublicPlans(),
       supportEmail: getSupportEmail(),
-      currentPlan: buildBillingSummary(req.auth.workspace, linkCount),
+      currentPlan: buildBillingSummary(req.auth.workspace, linkCount, usageCounter),
       recentPayments: recentRecords.map((record) => ({
         id: record._id,
         planId: record.planId,
@@ -73,7 +113,12 @@ exports.getBillingSummary = async (req, res) => {
         currency: record.currency,
         status: record.status,
         referenceId: record.referenceId,
+        subscriptionId: record.subscriptionId,
+        subscriptionShortUrl: record.subscriptionShortUrl,
         paymentLinkUrl: record.paymentLinkUrl,
+        invoiceId: record.invoiceId,
+        invoiceUrl: record.invoiceUrl,
+        currentPeriodEndsAt: record.currentPeriodEndsAt,
         createdAt: record.createdAt,
         paidAt: record.paidAt,
       })),
@@ -180,15 +225,222 @@ exports.createPaymentLink = async (req, res) => {
   }
 };
 
+exports.createSubscription = async (req, res) => {
+  try {
+    const planId = String(req.body.planId || "").trim().toLowerCase();
+    const plan = getPlanDefinition(planId);
+
+    if (!plan || plan.id === "free" || plan.id === "enterprise") {
+      return res.status(400).json({ error: "Choose Pro or Business to start a subscription" });
+    }
+
+    const razorpayPlanId = getRazorpayPlanId(plan);
+    if (!razorpayPlanId) {
+      return res.status(500).json({
+        error: `${plan.razorpayPlanIdEnvKey} must be configured with the Razorpay monthly plan id`,
+      });
+    }
+
+    const referenceId = `SUB-${nanoid(10).toUpperCase()}`;
+    const record = await BillingRecord.create({
+      workspaceId: req.auth.workspace._id,
+      userId: req.auth.user._id,
+      planId: plan.id,
+      planName: plan.name,
+      amountInPaise: plan.priceInPaise,
+      currency: plan.currency,
+      providerPlanId: razorpayPlanId,
+      referenceId,
+      expiresAt: new Date(Date.now() + 30 * 60 * 1000),
+    });
+
+    const response = await fetch("https://api.razorpay.com/v1/subscriptions", {
+      method: "POST",
+      headers: {
+        Authorization: getRazorpayBasicAuthHeader(),
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        plan_id: razorpayPlanId,
+        total_count: 120,
+        quantity: 1,
+        customer_notify: true,
+        expire_by: Math.floor((Date.now() + 30 * 60 * 1000) / 1000),
+        notes: {
+          workspace_id: String(req.auth.workspace._id),
+          user_id: String(req.auth.user._id),
+          plan_id: plan.id,
+          billing_record_id: String(record._id),
+          reference_id: referenceId,
+        },
+      }),
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      record.status = "failed";
+      record.rawLastEvent = "subscription_create_failed";
+      await record.save();
+
+      return res.status(502).json({
+        error: data?.error?.description || data?.error?.reason || "Could not create subscription",
+      });
+    }
+
+    record.subscriptionId = data.id || "";
+    record.subscriptionShortUrl = data.short_url || "";
+    record.status = data.status || "created";
+    record.currentPeriodStartsAt = unixToDate(data.current_start);
+    record.currentPeriodEndsAt = unixToDate(data.current_end);
+    record.nextChargeAt = unixToDate(data.charge_at);
+    await record.save();
+
+    req.auth.workspace.billing = {
+      ...req.auth.workspace.billing,
+      status: "pending",
+      provider: "razorpay",
+      providerSubscriptionId: record.subscriptionId,
+      lastPaymentReference: referenceId,
+      billingEmail: req.auth.user.email,
+      cancelAtCycleEnd: false,
+    };
+    await req.auth.workspace.save();
+
+    return res.status(201).json({
+      subscriptionId: record.subscriptionId,
+      subscriptionShortUrl: record.subscriptionShortUrl,
+      amountLabel: formatAmountInInr(plan.priceInPaise),
+      referenceId,
+      plan: {
+        id: plan.id,
+        name: plan.name,
+      },
+    });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ error: "Server error" });
+  }
+};
+
+exports.cancelSubscription = async (req, res) => {
+  try {
+    const subscriptionId = req.auth.workspace.billing?.providerSubscriptionId;
+    if (!subscriptionId) {
+      return res.status(400).json({ error: "No active Razorpay subscription found" });
+    }
+
+    const response = await fetch(
+      `https://api.razorpay.com/v1/subscriptions/${subscriptionId}/cancel`,
+      {
+        method: "POST",
+        headers: {
+          Authorization: getRazorpayBasicAuthHeader(),
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ cancel_at_cycle_end: 1 }),
+      }
+    );
+    const data = await response.json();
+
+    if (!response.ok) {
+      return res.status(502).json({
+        error: data?.error?.description || data?.error?.reason || "Could not cancel subscription",
+      });
+    }
+
+    req.auth.workspace.billing = {
+      ...req.auth.workspace.billing,
+      cancelAtCycleEnd: true,
+    };
+    await req.auth.workspace.save();
+
+    await BillingRecord.updateOne(
+      { workspaceId: req.auth.workspace._id, subscriptionId },
+      {
+        $set: {
+          rawLastEvent: "subscription.cancel_requested",
+          status: data.status || "cancelled",
+        },
+      }
+    );
+
+    return res.json({
+      message: "Subscription cancellation scheduled for the end of the current billing cycle",
+      subscriptionId,
+    });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ error: "Server error" });
+  }
+};
+
 function mapWebhookStatus(eventName) {
   const statuses = {
     "payment_link.paid": "paid",
     "payment_link.cancelled": "cancelled",
     "payment_link.expired": "expired",
     "payment_link.partially_paid": "partially_paid",
+    "subscription.authenticated": "authenticated",
+    "subscription.activated": "active",
+    "subscription.charged": "active",
+    "subscription.pending": "pending",
+    "subscription.halted": "halted",
+    "subscription.cancelled": "cancelled",
+    "subscription.completed": "completed",
+    "subscription.expired": "expired",
+    "invoice.paid": "paid",
   };
 
   return statuses[eventName] || "created";
+}
+
+async function applySubscriptionState(record, subscription, payment, invoice, payload) {
+  const plan = getPlanDefinition(record.planId);
+  const workspace = await Workspace.findById(record.workspaceId);
+
+  record.subscriptionId = subscription?.id || record.subscriptionId;
+  record.subscriptionShortUrl = subscription?.short_url || record.subscriptionShortUrl;
+  record.invoiceId = invoice?.id || record.invoiceId;
+  record.invoiceUrl = invoice?.short_url || invoice?.invoice_url || record.invoiceUrl;
+  record.paymentId = payment?.id || record.paymentId;
+  record.currentPeriodStartsAt = unixToDate(subscription?.current_start) || record.currentPeriodStartsAt;
+  record.currentPeriodEndsAt = unixToDate(subscription?.current_end) || record.currentPeriodEndsAt;
+  record.nextChargeAt = unixToDate(subscription?.charge_at) || record.nextChargeAt;
+
+  if (["active", "authenticated", "paid"].includes(record.status) && !record.paidAt) {
+    record.paidAt = unixToDate(payment?.created_at || invoice?.paid_at || payload.created_at) || new Date();
+  }
+
+  if (!workspace) return;
+
+  if (["active", "authenticated", "paid"].includes(record.status)) {
+    workspace.plan = plan?.id || workspace.plan;
+    workspace.billing = {
+      ...workspace.billing,
+      status: "active",
+      currentPeriodEndsAt:
+        record.currentPeriodEndsAt || (plan ? addMonths(record.paidAt || new Date(), plan.intervalMonths) : null),
+      lastPaymentAt: record.paidAt || workspace.billing?.lastPaymentAt || null,
+      lastPaymentReference: record.referenceId,
+      billingEmail: payment?.email || workspace.billing?.billingEmail || "",
+      provider: "razorpay",
+      providerCustomerId: subscription?.customer_id || workspace.billing?.providerCustomerId || "",
+      providerSubscriptionId: record.subscriptionId,
+      cancelAtCycleEnd: false,
+    };
+  }
+
+  if (["cancelled", "completed", "expired", "halted"].includes(record.status)) {
+    workspace.billing = {
+      ...workspace.billing,
+      status: record.status === "halted" ? "past_due" : "inactive",
+      provider: "razorpay",
+      providerSubscriptionId: record.subscriptionId,
+    };
+  }
+
+  await workspace.save();
 }
 
 exports.handleRazorpayWebhook = async (req, res) => {
@@ -200,15 +452,33 @@ exports.handleRazorpayWebhook = async (req, res) => {
 
     const payload = JSON.parse(req.body.toString("utf8"));
     const paymentLink = payload?.payload?.payment_link?.entity;
+    const subscription = payload?.payload?.subscription?.entity;
+    const invoice = payload?.payload?.invoice?.entity;
     const payment = payload?.payload?.payment?.entity;
     const order = payload?.payload?.order?.entity;
     const webhookEventId = req.get("x-razorpay-event-id") || payload.id || "";
-    const referenceId = paymentLink?.reference_id || "";
+    const referenceId =
+      paymentLink?.reference_id ||
+      subscription?.notes?.reference_id ||
+      invoice?.notes?.reference_id ||
+      "";
     const paymentLinkId = paymentLink?.id || "";
+    const subscriptionId = subscription?.id || invoice?.subscription_id || payment?.subscription_id || "";
+    const billingRecordId =
+      subscription?.notes?.billing_record_id ||
+      invoice?.notes?.billing_record_id ||
+      payment?.notes?.billing_record_id ||
+      "";
 
-    const record = await BillingRecord.findOne({
-      $or: [{ paymentLinkId }, { referenceId }],
-    });
+    const lookupClauses = compactLookupClauses([
+      { _id: billingRecordId },
+      { subscriptionId },
+      { paymentLinkId },
+      { referenceId },
+    ]);
+    const record = lookupClauses.length
+      ? await BillingRecord.findOne({ $or: lookupClauses })
+      : null;
 
     if (!record) {
       return res.json({ received: true, ignored: true });
@@ -224,8 +494,12 @@ exports.handleRazorpayWebhook = async (req, res) => {
     record.paymentLinkUrl = paymentLink?.short_url || record.paymentLinkUrl;
     record.paymentId = payment?.id || record.paymentId;
     record.orderId = order?.id || record.orderId;
+    record.invoiceId = invoice?.id || record.invoiceId;
+    record.invoiceUrl = invoice?.short_url || invoice?.invoice_url || record.invoiceUrl;
 
-    if (record.status === "paid" && !record.paidAt) {
+    if (subscription || invoice?.subscription_id || payment?.subscription_id) {
+      await applySubscriptionState(record, subscription, payment, invoice, payload);
+    } else if (record.status === "paid" && !record.paidAt) {
       const paidAtUnix = paymentLink?.paid_at || payment?.created_at || payload.created_at;
       record.paidAt = paidAtUnix ? new Date(paidAtUnix * 1000) : new Date();
 
@@ -234,6 +508,7 @@ exports.handleRazorpayWebhook = async (req, res) => {
         const plan = getPlanDefinition(record.planId);
         workspace.plan = plan?.id || workspace.plan;
         workspace.billing = {
+          ...workspace.billing,
           status: "active",
           currentPeriodEndsAt: plan ? addMonths(record.paidAt, plan.intervalMonths) : null,
           lastPaymentAt: record.paidAt,
