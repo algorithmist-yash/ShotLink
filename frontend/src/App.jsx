@@ -12,16 +12,24 @@ const BRAND_LOGO_SRC = "/shotlink-logo.png";
 const BRAND_SYMBOL_SRC = "/shotlink-symbol.png";
 
 const PUBLIC_NAV_ITEMS = [
-  { id: "home", label: "Home", href: "#" },
+  { id: "home", label: "Products", href: "#" },
   { id: "pricing", label: "Pricing", href: "#pricing" },
-  { id: "docs", label: "Docs", href: "#docs" },
-  { id: "legal", label: "Legal", href: "#legal" },
+  { id: "docs", label: "Resources", href: "#docs" },
+  { id: "legal", label: "Trust", href: "#legal" },
+];
+
+const DASHBOARD_NAV_ITEMS = [
+  { id: "builder-panel", label: "Create" },
+  { id: "analytics-panel", label: "Analytics" },
+  { id: "billing-panel", label: "Billing" },
+  { id: "domains-panel", label: "Domains" },
+  { id: "docs-panel", label: "Docs" },
 ];
 
 const HOME_FEATURES = [
-  "Edge-ready redirects",
-  "Signal-rich analytics",
-  "Fallback routing",
+  "Short Links",
+  "QR Codes",
+  "Analytics",
 ];
 
 const DOC_SECTIONS = [
@@ -72,23 +80,23 @@ const LANDING_METRICS = [
 const PRODUCT_FEATURES = [
   {
     title: "Smart routing",
-    body: "Send every visitor through the healthiest available destination.",
-    signal: "Route mesh",
+    body: "Shorten, brand, and manage every link your team shares.",
+    signal: "Links",
   },
   {
     title: "Branded infrastructure",
-    body: "Operate short links, QR paths, and campaign links under your brand.",
-    signal: "Domain layer",
+    body: "Connect custom domains and build trust into every customer touchpoint.",
+    signal: "Domains",
   },
   {
     title: "Analytics console",
-    body: "Understand clicks by time, device, browser, referrer, and route health.",
-    signal: "Live telemetry",
+    body: "Track clicks, scans, devices, referrers, and campaign performance.",
+    signal: "Insights",
   },
   {
     title: "Developer API",
-    body: "Prepare your workspace for programmatic link creation and reporting.",
-    signal: "API-ready",
+    body: "Automate links for campaigns, CRM, WhatsApp, and internal tools.",
+    signal: "API",
   },
 ];
 
@@ -532,7 +540,7 @@ export default function App() {
   const [selectedDomainHost, setSelectedDomainHost] = useState("");
   const [linkComplianceAccepted, setLinkComplianceAccepted] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
-  const [colorMode, setColorMode] = useState(() => localStorage.getItem("shotlink-color-mode") || "dark");
+  const [colorMode, setColorMode] = useState(() => localStorage.getItem("shotlink-color-mode") || "light");
   const [showDocsPanel, setShowDocsPanel] = useState(false);
 
   const clearSession = useCallback(() => {
@@ -1817,6 +1825,26 @@ export default function App() {
           }}
         >
           <aside style={{ ...styles.sidebarCard, ...modeStyles.sidebarCard }}>
+            <nav style={styles.dashboardNavCard} aria-label="Workspace navigation">
+              <p style={styles.mutedLabel}>Workspace menu</p>
+              {DASHBOARD_NAV_ITEMS.map((item) => (
+                <button
+                  key={item.id}
+                  style={styles.dashboardNavItem}
+                  onClick={() => {
+                    if (item.id === "docs-panel") {
+                      setShowDocsPanel(true);
+                      window.setTimeout(() => scrollToDashboardSection(item.id), 50);
+                      return;
+                    }
+                    scrollToDashboardSection(item.id);
+                  }}
+                >
+                  {item.label}
+                </button>
+              ))}
+            </nav>
+
             <div id="billing-panel" style={{ ...styles.panelCard, ...modeStyles.panelCard }}>
               <div style={styles.panelTitleRow}>
                 <div>
@@ -2003,7 +2031,7 @@ export default function App() {
               {billingMessage ? <p style={styles.success}>{billingMessage}</p> : null}
             </div>
 
-            <div style={{ ...styles.panelCard, ...modeStyles.panelCard }}>
+            <div id="domains-panel" style={{ ...styles.panelCard, ...modeStyles.panelCard }}>
               <div style={styles.panelTitleRow}>
                 <div>
                   <p style={styles.sectionEyebrow}>Domains</p>
@@ -2179,7 +2207,7 @@ export default function App() {
             ) : null}
           </aside>
 
-          <section style={{ ...styles.builderCard, ...modeStyles.builderCard }}>
+          <section id="builder-panel" style={{ ...styles.builderCard, ...modeStyles.builderCard }}>
             <div style={styles.panelTitleRow}>
               <div>
                 <p style={styles.sectionEyebrow}>Builder</p>
@@ -2325,7 +2353,7 @@ export default function App() {
             ) : null}
           </section>
 
-          <section style={styles.analyticsPanel}>
+          <section id="analytics-panel" style={styles.analyticsPanel}>
             <div style={styles.analyticsHeader}>
               <div>
                 <p style={styles.sectionEyebrow}>Analytics console</p>
@@ -2493,29 +2521,31 @@ export default function App() {
 
 const designTokens = {
   colors: {
-    ink: "#f8fbff",
-    text: "#dbe4f0",
-    muted: "#91a0b8",
-    black: "#05070b",
-    night: "#0a0f18",
-    panel: "rgba(8, 13, 22, 0.86)",
-    panelStrong: "rgba(9, 14, 24, 0.95)",
-    border: "rgba(148, 163, 184, 0.18)",
-    borderBright: "rgba(37, 99, 235, 0.46)",
-    blue: "#2563eb",
-    blueHot: "#1d4ed8",
-    green: "#10b981",
-    yellow: "#f5c542",
+    ink: "#17233c",
+    text: "#34405c",
+    muted: "#667085",
+    black: "#0b1736",
+    night: "#17233c",
+    panel: "#ffffff",
+    panelStrong: "#ffffff",
+    border: "#d9dee8",
+    borderBright: "#2a5bd7",
+    blue: "#2a5bd7",
+    blueHot: "#1741a6",
+    green: "#008a5b",
+    yellow: "#f5b700",
+    orange: "#ff5b22",
+    orangeHot: "#e54810",
     white: "#ffffff",
-    ice: "#f8fafc",
-    cyan: "#38bdf8",
-    success: "#86efac",
-    danger: "#ff6b7a",
+    ice: "#f7f9fc",
+    cyan: "#2a5bd7",
+    success: "#008a5b",
+    danger: "#d92d20",
   },
   shadows: {
-    blueGlow: "0 0 42px rgba(37, 99, 235, 0.22)",
-    panel: "0 30px 100px rgba(0, 0, 0, 0.42)",
-    lift: "0 24px 70px rgba(3, 4, 10, 0.48)",
+    blueGlow: "0 12px 28px rgba(42, 91, 215, 0.16)",
+    panel: "0 18px 50px rgba(23, 35, 60, 0.10)",
+    lift: "0 16px 42px rgba(23, 35, 60, 0.12)",
   },
 };
 
@@ -2590,81 +2620,79 @@ const darkModeStyles = {
 
 const lightModeStyles = {
   page: {
-    background:
-      "radial-gradient(circle at 8% 8%, rgba(37, 99, 235, 0.18), transparent 30%), radial-gradient(circle at 88% 14%, rgba(16, 185, 129, 0.16), transparent 28%), radial-gradient(circle at 72% 86%, rgba(245, 197, 66, 0.20), transparent 28%), linear-gradient(155deg, #f8fafc 0%, #eef7f2 44%, #ffffff 100%)",
-    color: "#05070b",
+    background: "#f7f9fc",
+    color: designTokens.colors.ink,
   },
   backgroundGrid: {
-    opacity: 0.26,
+    opacity: 0,
   },
   backgroundGlowTop: {
-    background: "rgba(37, 99, 235, 0.16)",
+    background: "transparent",
   },
   backgroundGlowBottom: {
-    background: "rgba(16, 185, 129, 0.18)",
+    background: "transparent",
   },
   headerBar: {
-    background:
-      "linear-gradient(135deg, rgba(255, 255, 255, 0.94), rgba(240, 253, 244, 0.88))",
-    border: "1px solid rgba(15, 23, 42, 0.10)",
-    boxShadow: "0 24px 70px rgba(15, 23, 42, 0.12)",
+    background: "#ffffff",
+    border: `1px solid ${designTokens.colors.border}`,
+    boxShadow: designTokens.shadows.panel,
   },
   commandCard: {
-    background: "rgba(255, 255, 255, 0.86)",
-    border: "1px solid rgba(15, 23, 42, 0.10)",
-    color: "#05070b",
+    background: "#ffffff",
+    border: `1px solid ${designTokens.colors.border}`,
+    color: designTokens.colors.ink,
   },
   sidebarCard: {
-    background: "rgba(255, 255, 255, 0.58)",
-    border: "1px solid rgba(15, 23, 42, 0.10)",
+    background: "#ffffff",
+    border: `1px solid ${designTokens.colors.border}`,
   },
   builderCard: {
-    background: "rgba(255, 255, 255, 0.90)",
-    border: "1px solid rgba(37, 99, 235, 0.28)",
-    boxShadow: "0 28px 80px rgba(37, 99, 235, 0.14)",
+    background: "#ffffff",
+    border: `1px solid ${designTokens.colors.border}`,
+    boxShadow: designTokens.shadows.panel,
   },
   panelCard: {
-    background: "rgba(255, 255, 255, 0.88)",
-    border: "1px solid rgba(15, 23, 42, 0.10)",
-    color: "#05070b",
+    background: "#ffffff",
+    border: `1px solid ${designTokens.colors.border}`,
+    color: designTokens.colors.ink,
   },
   subscriptionCard: {
-    background: "rgba(255, 255, 255, 0.88)",
-    border: "1px solid rgba(15, 23, 42, 0.10)",
-    borderLeft: "4px solid #2563eb",
-    color: "#05070b",
+    background: "#fff5ef",
+    border: "1px solid #ffd4c2",
+    borderLeft: `4px solid ${designTokens.colors.orange}`,
+    color: designTokens.colors.ink,
   },
   metricCard: {
-    background: "rgba(255, 255, 255, 0.88)",
-    border: "1px solid rgba(15, 23, 42, 0.10)",
-    color: "#05070b",
+    background: "#ffffff",
+    border: `1px solid ${designTokens.colors.border}`,
+    color: designTokens.colors.ink,
   },
   compactPlanCard: {
-    background: "rgba(255, 255, 255, 0.82)",
-    border: "1px solid rgba(15, 23, 42, 0.10)",
-    borderLeft: "4px solid #f5c542",
-    color: "#05070b",
+    background: "#ffffff",
+    border: `1px solid ${designTokens.colors.border}`,
+    borderLeft: `4px solid ${designTokens.colors.blue}`,
+    color: designTokens.colors.ink,
   },
   docsQuickPanel: {
-    background: "rgba(255, 255, 255, 0.86)",
-    border: "1px solid rgba(15, 23, 42, 0.10)",
-    borderLeft: "4px solid #10b981",
-    color: "#05070b",
+    background: "#ffffff",
+    border: `1px solid ${designTokens.colors.border}`,
+    borderLeft: `4px solid ${designTokens.colors.green}`,
+    color: designTokens.colors.ink,
   },
   billingButton: {
-    background: "#f5c542",
-    color: "#05070b",
-    borderColor: "rgba(245, 197, 66, 0.75)",
+    background: "#ffffff",
+    color: designTokens.colors.blue,
+    borderColor: designTokens.colors.border,
   },
   docsButton: {
-    background: "#10b981",
-    color: "#03120d",
-    borderColor: "rgba(16, 185, 129, 0.75)",
+    background: "#ffffff",
+    color: designTokens.colors.blue,
+    borderColor: designTokens.colors.border,
   },
   themeButton: {
-    background: "#2563eb",
+    background: designTokens.colors.blue,
     color: "#ffffff",
-    borderColor: "rgba(37, 99, 235, 0.65)",
+    borderColor: designTokens.colors.blue,
   },
 };
 
@@ -2673,10 +2701,9 @@ const styles = {
     minHeight: "100vh",
     position: "relative",
     overflowX: "hidden",
-    background:
-      "radial-gradient(circle at 16% 8%, rgba(76, 85, 255, 0.30), transparent 32%), radial-gradient(circle at 86% 18%, rgba(255, 255, 255, 0.12), transparent 25%), radial-gradient(circle at 72% 82%, rgba(121, 230, 255, 0.10), transparent 30%), linear-gradient(155deg, #03040a 0%, #080b18 46%, #02030a 100%)",
+    background: "#f7f9fc",
     color: designTokens.colors.ink,
-    padding: "26px 18px 44px",
+    padding: "20px 18px 44px",
     fontFamily:
       "'Inter Tight', Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
   },
@@ -2684,7 +2711,7 @@ const styles = {
     position: "absolute",
     inset: 0,
     pointerEvents: "none",
-    opacity: 0.7,
+    opacity: 0,
   },
   backgroundGlowTop: {
     position: "absolute",
@@ -2692,7 +2719,7 @@ const styles = {
     left: "8%",
     width: 420,
     height: 420,
-    background: "rgba(76, 85, 255, 0.22)",
+    background: "transparent",
     filter: "blur(86px)",
     pointerEvents: "none",
   },
@@ -2702,7 +2729,7 @@ const styles = {
     bottom: "-12%",
     width: 520,
     height: 520,
-    background: "rgba(121, 230, 255, 0.12)",
+    background: "transparent",
     filter: "blur(104px)",
     pointerEvents: "none",
   },
@@ -2720,7 +2747,7 @@ const styles = {
     alignItems: "center",
     gap: 18,
     flexWrap: "wrap",
-    padding: "8px 4px 12px",
+    padding: "10px 0 18px",
   },
   brandLink: {
     display: "inline-flex",
@@ -2728,25 +2755,24 @@ const styles = {
     textDecoration: "none",
   },
   navLogo: {
-    width: 218,
-    height: 54,
+    width: 184,
+    height: 46,
   },
   publicNavLinks: {
     display: "flex",
     gap: 8,
     alignItems: "center",
     flexWrap: "wrap",
-    padding: 6,
-    borderRadius: 999,
-    background: "rgba(5, 7, 16, 0.72)",
+    padding: 4,
+    borderRadius: 8,
+    background: "#ffffff",
     border: `1px solid ${designTokens.colors.border}`,
-    boxShadow: "inset 0 1px 0 rgba(255, 255, 255, 0.05)",
-    backdropFilter: "blur(18px)",
+    boxShadow: "0 10px 28px rgba(23, 35, 60, 0.06)",
   },
   publicNavLink: {
     padding: "9px 13px",
-    borderRadius: 999,
-    color: designTokens.colors.text,
+    borderRadius: 6,
+    color: designTokens.colors.ink,
     textDecoration: "none",
     fontSize: 14,
     fontWeight: 700,
@@ -2754,8 +2780,8 @@ const styles = {
   },
   publicNavLinkActive: {
     color: designTokens.colors.white,
-    background: "linear-gradient(135deg, rgba(76, 85, 255, 0.72), rgba(255, 255, 255, 0.08))",
-    boxShadow: designTokens.shadows.blueGlow,
+    background: designTokens.colors.blue,
+    boxShadow: "none",
   },
   publicContentGrid: {
     display: "grid",
@@ -2825,12 +2851,12 @@ const styles = {
   },
   title: {
     margin: "4px 0",
-    fontSize: "clamp(3rem, 6vw, 6.8rem)",
-    lineHeight: 0.88,
-    letterSpacing: "-0.075em",
+    fontSize: "clamp(2.8rem, 5vw, 5.6rem)",
+    lineHeight: 0.94,
+    letterSpacing: 0,
     maxWidth: 760,
-    color: designTokens.colors.white,
-    textShadow: "0 0 42px rgba(76, 85, 255, 0.18)",
+    color: designTokens.colors.ink,
+    textShadow: "none",
   },
   subtitle: {
     margin: 0,
@@ -2847,15 +2873,15 @@ const styles = {
   },
   secondaryLinkButton: {
     border: `1px solid ${designTokens.colors.border}`,
-    borderRadius: 18,
+    borderRadius: 8,
     padding: "15px 18px",
     fontSize: 15,
     fontWeight: 800,
-    background: "rgba(8, 10, 22, 0.78)",
-    color: designTokens.colors.ice,
+    background: "#ffffff",
+    color: designTokens.colors.blue,
     cursor: "pointer",
     textDecoration: "none",
-    boxShadow: "inset 0 1px 0 rgba(255, 255, 255, 0.06)",
+    boxShadow: "0 10px 24px rgba(23, 35, 60, 0.06)",
   },
   compactFeatureGrid: {
     display: "grid",
@@ -2864,11 +2890,10 @@ const styles = {
   },
   compactFeatureCard: {
     padding: "14px 16px",
-    borderRadius: 16,
-    background:
-      "linear-gradient(145deg, rgba(12, 15, 31, 0.84), rgba(5, 7, 16, 0.72))",
+    borderRadius: 8,
+    background: "#ffffff",
     border: `1px solid ${designTokens.colors.border}`,
-    color: designTokens.colors.ice,
+    color: designTokens.colors.ink,
     fontWeight: 800,
     boxShadow: "inset 0 1px 0 rgba(255, 255, 255, 0.05)",
   },
@@ -2876,19 +2901,17 @@ const styles = {
     display: "grid",
     gap: 20,
     padding: "clamp(22px, 4vw, 42px)",
-    borderRadius: 34,
-    background:
-      "linear-gradient(150deg, rgba(12, 15, 31, 0.90), rgba(4, 6, 14, 0.86))",
+    borderRadius: 12,
+    background: "#ffffff",
     border: `1px solid ${designTokens.colors.border}`,
     boxShadow: designTokens.shadows.panel,
-    backdropFilter: "blur(24px)",
   },
   publicTitle: {
     margin: 0,
     fontSize: "clamp(2.35rem, 5vw, 5rem)",
     lineHeight: 0.94,
-    letterSpacing: "-0.065em",
-    color: designTokens.colors.white,
+    letterSpacing: 0,
+    color: designTokens.colors.ink,
   },
   publicLead: {
     margin: 0,
@@ -2927,11 +2950,10 @@ const styles = {
     overflow: "hidden",
     minHeight: 372,
     padding: 22,
-    borderRadius: 34,
-    background:
-      "linear-gradient(150deg, rgba(12, 15, 31, 0.92), rgba(3, 4, 10, 0.92))",
-    border: `1px solid ${designTokens.colors.borderBright}`,
-    boxShadow: "0 28px 90px rgba(0, 0, 0, 0.42), 0 0 80px rgba(76, 85, 255, 0.12)",
+    borderRadius: 12,
+    background: "#ffffff",
+    border: `1px solid ${designTokens.colors.border}`,
+    boxShadow: designTokens.shadows.panel,
   },
   visualHeader: {
     display: "flex",
@@ -2960,11 +2982,11 @@ const styles = {
     position: "relative",
     height: 220,
     margin: "28px 0 22px",
-    borderRadius: 28,
+    borderRadius: 12,
     background:
-      "linear-gradient(180deg, rgba(76, 85, 255, 0.10), rgba(255, 255, 255, 0.02)), linear-gradient(90deg, rgba(255,255,255,0.04) 1px, transparent 1px), linear-gradient(0deg, rgba(255,255,255,0.04) 1px, transparent 1px)",
+      "linear-gradient(180deg, #f7f9fc, #ffffff), linear-gradient(90deg, rgba(42,91,215,0.08) 1px, transparent 1px), linear-gradient(0deg, rgba(42,91,215,0.08) 1px, transparent 1px)",
     backgroundSize: "auto, 34px 34px, 34px 34px",
-    border: "1px solid rgba(255, 255, 255, 0.08)",
+    border: `1px solid ${designTokens.colors.border}`,
     overflow: "hidden",
   },
   routeNode: {
@@ -2974,13 +2996,13 @@ const styles = {
     height: 68,
     display: "grid",
     placeItems: "center",
-    borderRadius: 18,
+    borderRadius: 8,
     fontSize: 12,
     fontWeight: 900,
     letterSpacing: "0.08em",
     color: designTokens.colors.white,
-    background: "rgba(8, 10, 22, 0.92)",
-    border: "1px solid rgba(255, 255, 255, 0.14)",
+    background: designTokens.colors.blue,
+    border: `1px solid ${designTokens.colors.blue}`,
     boxShadow: designTokens.shadows.blueGlow,
   },
   routeNodeSource: {
@@ -3174,13 +3196,11 @@ const styles = {
   authCard: {
     position: "sticky",
     top: 22,
-    background:
-      "linear-gradient(160deg, rgba(13, 16, 34, 0.96), rgba(4, 6, 14, 0.94))",
+    background: "#ffffff",
     border: `1px solid ${designTokens.colors.border}`,
-    borderRadius: 30,
+    borderRadius: 12,
     overflow: "hidden",
     boxShadow: designTokens.shadows.panel,
-    backdropFilter: "blur(22px)",
   },
   authTabs: {
     display: "grid",
@@ -3190,16 +3210,15 @@ const styles = {
   authTab: {
     border: "none",
     background: "transparent",
-    color: designTokens.colors.muted,
+    color: designTokens.colors.text,
     padding: "16px 18px",
     fontWeight: 700,
     cursor: "pointer",
   },
   authTabActive: {
     border: "none",
-    background:
-      "linear-gradient(135deg, rgba(76, 85, 255, 0.18), rgba(255, 255, 255, 0.04))",
-    color: designTokens.colors.white,
+    background: "#eef3ff",
+    color: designTokens.colors.blue,
     padding: "16px 18px",
     fontWeight: 800,
     cursor: "pointer",
@@ -3230,9 +3249,8 @@ const styles = {
     alignItems: "flex-start",
     flexWrap: "wrap",
     padding: 18,
-    borderRadius: 30,
-    background:
-      "linear-gradient(135deg, rgba(12, 15, 31, 0.82), rgba(5, 7, 16, 0.72))",
+    borderRadius: 12,
+    background: "#ffffff",
     border: `1px solid ${designTokens.colors.border}`,
     boxShadow: "inset 0 1px 0 rgba(255, 255, 255, 0.05)",
   },
@@ -3251,8 +3269,8 @@ const styles = {
     margin: "8px 0 0",
     fontSize: "clamp(1.8rem, 3vw, 3.2rem)",
     lineHeight: 0.96,
-    letterSpacing: "-0.055em",
-    color: designTokens.colors.white,
+    letterSpacing: 0,
+    color: designTokens.colors.ink,
   },
   workspaceMeta: {
     margin: "8px 0 0",
@@ -3266,7 +3284,7 @@ const styles = {
   },
   navActionButton: {
     border: "1px solid transparent",
-    borderRadius: 14,
+    borderRadius: 8,
     padding: "10px 14px",
     minHeight: 42,
     fontSize: 14,
@@ -3289,31 +3307,29 @@ const styles = {
     display: "grid",
     gap: 8,
     padding: 18,
-    borderRadius: 24,
-    background:
-      "linear-gradient(145deg, rgba(12, 15, 31, 0.78), rgba(4, 6, 14, 0.74))",
+    borderRadius: 8,
+    background: "#ffffff",
     border: `1px solid ${designTokens.colors.border}`,
     boxShadow: "inset 0 1px 0 rgba(255, 255, 255, 0.05)",
   },
   commandValue: {
-    color: designTokens.colors.white,
+    color: designTokens.colors.ink,
     fontSize: "1.65rem",
     lineHeight: 1,
-    letterSpacing: "-0.05em",
+    letterSpacing: 0,
   },
   sidebarCard: {
-    background: "rgba(5, 7, 16, 0.38)",
+    background: "#ffffff",
     border: `1px solid ${designTokens.colors.border}`,
-    borderRadius: 30,
+    borderRadius: 12,
     padding: 20,
     display: "grid",
     gap: 16,
   },
   builderCard: {
-    background:
-      "linear-gradient(155deg, rgba(12, 15, 31, 0.90), rgba(4, 6, 14, 0.88))",
-    border: `1px solid ${designTokens.colors.borderBright}`,
-    borderRadius: 30,
+    background: "#ffffff",
+    border: `1px solid ${designTokens.colors.border}`,
+    borderRadius: 12,
     padding: 22,
     display: "grid",
     gap: 18,
@@ -3334,16 +3350,16 @@ const styles = {
   sectionEyebrow: {
     margin: 0,
     fontSize: 12,
-    letterSpacing: "0.14em",
+    letterSpacing: 0,
     textTransform: "uppercase",
-    color: designTokens.colors.cyan,
+    color: designTokens.colors.blue,
     fontWeight: 900,
   },
   panelTitle: {
     margin: "6px 0 0",
     fontSize: "1.15rem",
-    letterSpacing: "-0.03em",
-    color: designTokens.colors.white,
+    letterSpacing: 0,
+    color: designTokens.colors.ink,
   },
   panelTitleRow: {
     display: "flex",
@@ -3357,13 +3373,13 @@ const styles = {
     gap: 10,
     fontSize: 14,
     fontWeight: 700,
-    color: designTokens.colors.ice,
+    color: designTokens.colors.ink,
   },
   input: {
     width: "100%",
-    borderRadius: 16,
+    borderRadius: 8,
     border: `1px solid ${designTokens.colors.border}`,
-    background: "rgba(0, 0, 0, 0.34)",
+    background: "#ffffff",
     color: designTokens.colors.ink,
     padding: "15px 16px",
     outline: "none",
@@ -3374,9 +3390,9 @@ const styles = {
     width: "100%",
     minHeight: 110,
     resize: "vertical",
-    borderRadius: 16,
+    borderRadius: 8,
     border: `1px solid ${designTokens.colors.border}`,
-    background: "rgba(0, 0, 0, 0.34)",
+    background: "#ffffff",
     color: designTokens.colors.ink,
     padding: "15px 16px",
     outline: "none",
@@ -3386,9 +3402,9 @@ const styles = {
   },
   select: {
     width: "100%",
-    borderRadius: 16,
+    borderRadius: 8,
     border: `1px solid ${designTokens.colors.border}`,
-    background: "rgba(0, 0, 0, 0.34)",
+    background: "#ffffff",
     color: designTokens.colors.ink,
     padding: "15px 16px",
     outline: "none",
@@ -3396,36 +3412,35 @@ const styles = {
   },
   primaryButton: {
     border: "none",
-    borderRadius: 16,
+    borderRadius: 8,
     padding: "15px 18px",
     fontSize: 15,
     fontWeight: 900,
-    letterSpacing: "0.01em",
-    background:
-      "linear-gradient(135deg, #ffffff 0%, #dfe5ff 34%, #4c55ff 100%)",
-    color: "#060714",
+    letterSpacing: 0,
+    background: designTokens.colors.orange,
+    color: "#ffffff",
     cursor: "pointer",
-    boxShadow: "0 14px 42px rgba(76, 85, 255, 0.34), inset 0 1px 0 rgba(255, 255, 255, 0.65)",
+    boxShadow: "0 12px 24px rgba(255, 91, 34, 0.22)",
     transition: "transform 180ms ease, box-shadow 180ms ease, filter 180ms ease",
   },
   secondaryButton: {
     border: `1px solid ${designTokens.colors.border}`,
-    borderRadius: 14,
+    borderRadius: 8,
     padding: "10px 14px",
     fontSize: 14,
     fontWeight: 800,
-    background: "rgba(8, 10, 22, 0.84)",
-    color: designTokens.colors.ice,
+    background: "#ffffff",
+    color: designTokens.colors.blue,
     cursor: "pointer",
     transition: "transform 180ms ease, border-color 180ms ease, background 180ms ease",
   },
   dangerButton: {
     border: "none",
-    borderRadius: 18,
+    borderRadius: 8,
     padding: "14px 18px",
     fontSize: 15,
     fontWeight: 800,
-    background: "linear-gradient(135deg, #ef4444 0%, #f97316 100%)",
+    background: designTokens.colors.danger,
     color: "#fff7ed",
     cursor: "pointer",
   },
