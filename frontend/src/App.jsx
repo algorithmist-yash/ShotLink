@@ -12,7 +12,7 @@ const BRAND_LOGO_SRC = "/shotlink-logo.png";
 const BRAND_SYMBOL_SRC = "/shotlink-symbol.png";
 
 const PUBLIC_NAV_ITEMS = [
-  { id: "home", label: "Products", href: "#" },
+  { id: "home", label: "Platform", href: "#" },
   { id: "pricing", label: "Pricing", href: "#pricing" },
   { id: "docs", label: "Resources", href: "#docs" },
   { id: "legal", label: "Trust", href: "#legal" },
@@ -27,8 +27,9 @@ const DASHBOARD_NAV_ITEMS = [
 ];
 
 const HOME_FEATURES = [
-  "Short Links",
-  "QR Codes",
+  "Short links",
+  "Custom aliases",
+  "QR codes",
   "Analytics",
 ];
 
@@ -79,24 +80,24 @@ const LANDING_METRICS = [
 
 const PRODUCT_FEATURES = [
   {
-    title: "Smart routing",
-    body: "Shorten, brand, and manage every link your team shares.",
-    signal: "Links",
+    title: "URL shortener",
+    body: "Paste a destination, reserve a readable alias, and publish a short link in seconds.",
+    signal: "Shorten",
   },
   {
-    title: "Branded infrastructure",
-    body: "Connect custom domains and build trust into every customer touchpoint.",
-    signal: "Domains",
+    title: "Branded links",
+    body: "Use verified domains and human-friendly paths that customers can recognize.",
+    signal: "Brand",
   },
   {
-    title: "Analytics console",
-    body: "Track clicks, scans, devices, referrers, and campaign performance.",
+    title: "Analytics",
+    body: "Track clicks, scans, devices, referrers, route health, and campaign performance.",
     signal: "Insights",
   },
   {
-    title: "Developer API",
-    body: "Automate links for campaigns, CRM, WhatsApp, and internal tools.",
-    signal: "API",
+    title: "QR codes",
+    body: "Generate a scannable QR code for every active short link and download it instantly.",
+    signal: "Scan",
   },
 ];
 
@@ -112,6 +113,7 @@ const API_SNIPPET_LINES = [
   "Authorization: Bearer sk_live_...",
   "{",
   '  "originalUrl": "https://example.com/campaign",',
+  '  "customAlias": "summer-sale",',
   '  "fallbackUrls": ["https://backup.example.com"],',
   '  "expiresInMinutes": 10080',
   "}",
@@ -407,33 +409,41 @@ function BrandLogo({ compact = false, style }) {
   );
 }
 
-function TransmissionVisual() {
+function ShortenerPreview() {
   return (
-    <div className="sl-lift sl-transmission" style={styles.transmissionCard}>
-      <div style={styles.visualHeader}>
-        <span style={styles.visualDot} />
-        <span style={styles.visualLabel}>Live routing fabric</span>
-        <StatusPill label="Online" tone="healthy" />
+    <div className="sl-lift" style={styles.shortenerPreviewCard}>
+      <div style={styles.previewHeader}>
+        <StatusPill label="Start now" tone="accent" />
+        <span style={styles.previewDomain}>shot.link/summer-sale</span>
       </div>
 
-      <div style={styles.routeCanvas}>
-        <div style={{ ...styles.routeNode, ...styles.routeNodeSource }}>IN</div>
-        <div style={{ ...styles.routeNode, ...styles.routeNodeEdge }}>EDGE</div>
-        <div style={{ ...styles.routeNode, ...styles.routeNodeTarget }}>APP</div>
-        <span className="sl-route-line sl-route-line-one" />
-        <span className="sl-route-line sl-route-line-two" />
-        <span className="sl-route-packet sl-route-packet-one" />
-        <span className="sl-route-packet sl-route-packet-two" />
+      <div style={styles.previewForm}>
+        <label style={styles.previewLabel}>
+          Destination
+          <div style={styles.previewInput}>https://brand.com/campaign/summer-launch</div>
+        </label>
+        <label style={styles.previewLabel}>
+          Custom alias
+          <div style={styles.previewAliasRow}>
+            <span>shot.link/</span>
+            <strong>summer-sale</strong>
+          </div>
+        </label>
+        <button style={styles.previewButton}>Shorten URL</button>
       </div>
 
-      <div style={styles.latencyGrid}>
-        <div style={styles.latencyCard}>
-          <span style={styles.latencyValue}>31ms</span>
-          <span style={styles.latencyLabel}>Mumbai edge</span>
+      <div style={styles.previewResultGrid}>
+        <div style={styles.previewQr}>
+          <QRCodeCanvas value="https://shot.link/summer-sale" size={92} includeMargin />
         </div>
-        <div style={styles.latencyCard}>
-          <span style={styles.latencyValue}>99.9%</span>
-          <span style={styles.latencyLabel}>route health</span>
+        <div>
+          <p style={styles.mutedLabel}>Ready to share</p>
+          <p style={styles.previewShortLink}>shot.link/summer-sale</p>
+          <div style={styles.inlineActions}>
+            <span style={styles.previewMiniButton}>Copy</span>
+            <span style={styles.previewMiniButton}>QR code</span>
+            <span style={styles.previewMiniButton}>Analytics</span>
+          </div>
         </div>
       </div>
     </div>
@@ -521,6 +531,7 @@ export default function App() {
   const [selectedShortCode, setSelectedShortCode] = useState("");
   const [analytics, setAnalytics] = useState(null);
   const [url, setUrl] = useState("");
+  const [customAlias, setCustomAlias] = useState("");
   const [fallbackInput, setFallbackInput] = useState("");
   const [expiry, setExpiry] = useState(30);
   const [loading, setLoading] = useState(false);
@@ -1158,7 +1169,7 @@ export default function App() {
               ))}
             </div>
           </div>
-          <TransmissionVisual />
+          <ShortenerPreview />
         </section>
 
         <section style={styles.metricStrip}>
@@ -1420,6 +1431,7 @@ export default function App() {
         method: "POST",
         body: JSON.stringify({
           originalUrl: url,
+          customAlias,
           expiresInMinutes: expiry,
           fallbackUrls: parseFallbackUrls(),
           customDomainHost: selectedDomainHost,
@@ -1440,6 +1452,7 @@ export default function App() {
       upsertLink(data.link);
       setSelectedShortCode(data.link.shortCode);
       setUrl("");
+      setCustomAlias("");
       setFallbackInput("");
       setExpiry(30);
       setLinkComplianceAccepted(false);
@@ -2210,8 +2223,8 @@ export default function App() {
           <section id="builder-panel" style={{ ...styles.builderCard, ...modeStyles.builderCard }}>
             <div style={styles.panelTitleRow}>
               <div>
-                <p style={styles.sectionEyebrow}>Builder</p>
-                <h2 style={styles.panelTitle}>Create workspace-owned links</h2>
+                <p style={styles.sectionEyebrow}>Shorten</p>
+                <h2 style={styles.panelTitle}>Create a short link</h2>
               </div>
               <StatusPill label={currentPlan.effectivePlanName} tone={getPlanTone(currentPlan.effectivePlanId)} />
             </div>
@@ -2242,10 +2255,28 @@ export default function App() {
               Primary destination
               <input
                 style={styles.input}
-                placeholder="Paste the destination URL"
+                placeholder="Paste a long URL, e.g. https://example.com/summer-campaign"
                 value={url}
                 onChange={(event) => setUrl(event.target.value)}
               />
+            </label>
+
+            <label style={styles.label}>
+              Custom alias
+              <div style={styles.aliasInputGroup}>
+                <span style={styles.aliasPrefix}>
+                  {selectedDomainHost || "shot.link"}/
+                </span>
+                <input
+                  style={{ ...styles.input, ...styles.aliasInput }}
+                  placeholder="summer-sale"
+                  value={customAlias}
+                  onChange={(event) => setCustomAlias(event.target.value)}
+                />
+              </div>
+              <span style={styles.miniHelperText}>
+                Optional. Use 3-48 letters, numbers, hyphens, or underscores.
+              </span>
             </label>
 
             <label style={styles.label}>
@@ -2299,11 +2330,11 @@ export default function App() {
             >
               {loading
                 ? "Creating link..."
-                : remainingLinkSlots <= 0
-                  ? "Upgrade to create more links"
+                  : remainingLinkSlots <= 0
+                    ? "Upgrade to create more links"
                   : !linkComplianceAccepted
                     ? "Accept link policy to create"
-                  : "Create resilient short link"}
+                  : "Shorten URL"}
             </button>
 
             {error ? <p style={styles.error}>{error}</p> : null}
@@ -2955,6 +2986,104 @@ const styles = {
     border: `1px solid ${designTokens.colors.border}`,
     boxShadow: designTokens.shadows.panel,
   },
+  shortenerPreviewCard: {
+    display: "grid",
+    gap: 18,
+    padding: 22,
+    borderRadius: 12,
+    background: "#ffffff",
+    border: `1px solid ${designTokens.colors.border}`,
+    boxShadow: designTokens.shadows.panel,
+  },
+  previewHeader: {
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 12,
+    flexWrap: "wrap",
+  },
+  previewDomain: {
+    color: designTokens.colors.blue,
+    fontWeight: 900,
+    fontSize: 14,
+  },
+  previewForm: {
+    display: "grid",
+    gap: 12,
+    padding: 16,
+    borderRadius: 8,
+    background: "#f7f9fc",
+    border: `1px solid ${designTokens.colors.border}`,
+  },
+  previewLabel: {
+    display: "grid",
+    gap: 8,
+    color: designTokens.colors.ink,
+    fontSize: 13,
+    fontWeight: 800,
+  },
+  previewInput: {
+    minHeight: 46,
+    display: "flex",
+    alignItems: "center",
+    padding: "12px 14px",
+    borderRadius: 8,
+    background: "#ffffff",
+    border: `1px solid ${designTokens.colors.border}`,
+    color: designTokens.colors.text,
+    wordBreak: "break-all",
+  },
+  previewAliasRow: {
+    minHeight: 46,
+    display: "flex",
+    alignItems: "center",
+    gap: 4,
+    padding: "12px 14px",
+    borderRadius: 8,
+    background: "#ffffff",
+    border: `1px solid ${designTokens.colors.border}`,
+    color: designTokens.colors.text,
+  },
+  previewButton: {
+    border: "none",
+    borderRadius: 8,
+    minHeight: 48,
+    background: designTokens.colors.orange,
+    color: "#ffffff",
+    fontWeight: 900,
+    cursor: "pointer",
+    boxShadow: "0 12px 24px rgba(255, 91, 34, 0.22)",
+  },
+  previewResultGrid: {
+    display: "grid",
+    gridTemplateColumns: "auto minmax(0, 1fr)",
+    gap: 16,
+    alignItems: "center",
+  },
+  previewQr: {
+    padding: 10,
+    borderRadius: 8,
+    background: "#ffffff",
+    border: `1px solid ${designTokens.colors.border}`,
+  },
+  previewShortLink: {
+    margin: "4px 0 12px",
+    color: designTokens.colors.blue,
+    fontSize: "1.25rem",
+    fontWeight: 950,
+    wordBreak: "break-all",
+  },
+  previewMiniButton: {
+    display: "inline-flex",
+    alignItems: "center",
+    minHeight: 32,
+    padding: "7px 10px",
+    borderRadius: 8,
+    background: "#eef3ff",
+    color: designTokens.colors.blue,
+    fontSize: 12,
+    fontWeight: 900,
+  },
   visualHeader: {
     display: "flex",
     alignItems: "center",
@@ -3385,6 +3514,31 @@ const styles = {
     outline: "none",
     fontSize: 15,
     transition: "border-color 180ms ease, box-shadow 180ms ease, background 180ms ease",
+  },
+  aliasInputGroup: {
+    display: "grid",
+    gridTemplateColumns: "auto minmax(0, 1fr)",
+    alignItems: "stretch",
+    border: `1px solid ${designTokens.colors.border}`,
+    borderRadius: 8,
+    overflow: "hidden",
+    background: "#ffffff",
+  },
+  aliasPrefix: {
+    display: "flex",
+    alignItems: "center",
+    padding: "0 14px",
+    background: "#eef3ff",
+    color: designTokens.colors.blue,
+    borderRight: `1px solid ${designTokens.colors.border}`,
+    fontWeight: 900,
+    fontSize: 14,
+    whiteSpace: "nowrap",
+  },
+  aliasInput: {
+    border: "none",
+    borderRadius: 0,
+    boxShadow: "none",
   },
   textarea: {
     width: "100%",

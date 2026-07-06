@@ -117,7 +117,7 @@ exports.createLink = async (req, res) => {
       });
     }
 
-    const { errors, originalUrl, expiryMinutes, fallbackUrls } = validateShortenPayload(
+    const { errors, originalUrl, expiryMinutes, fallbackUrls, customAlias } = validateShortenPayload(
       req.body
     );
 
@@ -125,7 +125,14 @@ exports.createLink = async (req, res) => {
       return res.status(400).json({ error: errors.join(". ") });
     }
 
-    const shortCode = await generateUniqueShortCode();
+    const shortCode = customAlias || await generateUniqueShortCode();
+    if (customAlias) {
+      const existingAlias = await Url.exists({ shortCode: customAlias });
+      if (existingAlias) {
+        return res.status(409).json({ error: "That custom alias is already taken" });
+      }
+    }
+
     const expiresAt = new Date(Date.now() + expiryMinutes * 60 * 1000);
     const customDomainHost = normalizeHostname(req.body.customDomainHost);
     const consentValidation = validateLinkConsents(req.body);

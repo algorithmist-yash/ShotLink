@@ -4,6 +4,24 @@ const VALID_PROTOCOLS = new Set(["http:", "https:"]);
 const MAX_FALLBACK_URLS = 5;
 const DEFAULT_EXPIRY_MINUTES = 30;
 const MAX_EXPIRY_MINUTES = 60 * 24 * 7;
+const MIN_CUSTOM_ALIAS_LENGTH = 3;
+const MAX_CUSTOM_ALIAS_LENGTH = 48;
+const RESERVED_SHORT_CODES = new Set([
+  "api",
+  "admin",
+  "analytics",
+  "auth",
+  "billing",
+  "dashboard",
+  "docs",
+  "health",
+  "login",
+  "pricing",
+  "register",
+  "settings",
+  "support",
+  "workspace",
+]);
 const BLOCKED_HOSTNAMES = new Set(["localhost", "localhost.localdomain"]);
 
 function isPrivateIpv4(hostname) {
@@ -129,13 +147,38 @@ function parseExpiryMinutes(value) {
   return Math.min(Math.floor(numeric), MAX_EXPIRY_MINUTES);
 }
 
+function normalizeCustomAlias(value) {
+  if (value === undefined || value === null || value === "") return "";
+  if (typeof value !== "string") return null;
+
+  const alias = value.trim().toLowerCase();
+  if (!alias) return "";
+
+  const isValid =
+    alias.length >= MIN_CUSTOM_ALIAS_LENGTH &&
+    alias.length <= MAX_CUSTOM_ALIAS_LENGTH &&
+    /^[a-z0-9][a-z0-9_-]*[a-z0-9]$/.test(alias) &&
+    !alias.includes("--") &&
+    !alias.includes("__") &&
+    !RESERVED_SHORT_CODES.has(alias);
+
+  return isValid ? alias : null;
+}
+
 function validateShortenPayload(body = {}) {
   const originalUrl = normalizeUrl(body.originalUrl);
   const expiryMinutes = parseExpiryMinutes(body.expiresInMinutes);
+  const customAlias = normalizeCustomAlias(body.customAlias);
   const errors = [];
 
   if (!originalUrl) {
     errors.push("A valid original URL is required");
+  }
+
+  if (customAlias === null) {
+    errors.push(
+      `Custom alias must be ${MIN_CUSTOM_ALIAS_LENGTH}-${MAX_CUSTOM_ALIAS_LENGTH} characters, use letters, numbers, hyphens, or underscores, and start and end with a letter or number`
+    );
   }
 
   const fallbackUrls = originalUrl
@@ -151,6 +194,7 @@ function validateShortenPayload(body = {}) {
     originalUrl,
     expiryMinutes,
     fallbackUrls,
+    customAlias,
   };
 }
 
@@ -158,7 +202,10 @@ module.exports = {
   DEFAULT_EXPIRY_MINUTES,
   MAX_EXPIRY_MINUTES,
   MAX_FALLBACK_URLS,
+  MAX_CUSTOM_ALIAS_LENGTH,
+  MIN_CUSTOM_ALIAS_LENGTH,
   isBlockedHostname,
+  normalizeCustomAlias,
   normalizeUrl,
   normalizeFallbackUrls,
   parseExpiryMinutes,

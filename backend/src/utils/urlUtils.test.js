@@ -3,6 +3,7 @@ const assert = require("node:assert/strict");
 
 const {
   isBlockedHostname,
+  normalizeCustomAlias,
   normalizeUrl,
   validateShortenPayload,
 } = require("./urlUtils");
@@ -45,4 +46,27 @@ test("validateShortenPayload sanitizes fallback URLs and deduplicates primary UR
     payload.fallbackUrls.map((item) => item.url),
     ["https://backup-1.example.com/", "https://backup-2.example.com/"]
   );
+});
+
+test("normalizeCustomAlias accepts clean memorable aliases", () => {
+  assert.equal(normalizeCustomAlias(" Summer_Sale-2026 "), "summer_sale-2026");
+});
+
+test("normalizeCustomAlias rejects unsafe or reserved aliases", () => {
+  assert.equal(normalizeCustomAlias("ab"), null);
+  assert.equal(normalizeCustomAlias("-campaign"), null);
+  assert.equal(normalizeCustomAlias("campaign-"), null);
+  assert.equal(normalizeCustomAlias("bad/path"), null);
+  assert.equal(normalizeCustomAlias("api"), null);
+});
+
+test("validateShortenPayload returns normalized custom alias", () => {
+  const payload = validateShortenPayload({
+    originalUrl: "https://example.com/launch",
+    expiresInMinutes: 60,
+    customAlias: "Launch-Offer",
+  });
+
+  assert.deepEqual(payload.errors, []);
+  assert.equal(payload.customAlias, "launch-offer");
 });
