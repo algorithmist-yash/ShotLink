@@ -2,6 +2,7 @@ const express = require("express");
 const cors = require("cors");
 
 const app = express();
+const { getTrustProxySetting } = require("./config/proxy");
 const authRoutes = require("./routes/authRoutes");
 const billingRoutes = require("./routes/billingRoutes");
 const linkRoutes = require("./routes/linkRoutes");
@@ -29,7 +30,7 @@ const allowedOrigins = [
 const allowOpenCorsInDevelopment =
   process.env.NODE_ENV !== "production" && allowedOrigins.length === 0;
 
-app.set("trust proxy", true);
+app.set("trust proxy", getTrustProxySetting());
 app.use(
   cors({
     origin(origin, callback) {

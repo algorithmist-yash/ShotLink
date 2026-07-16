@@ -13,13 +13,13 @@
   "license": "ISC",
   "type": "commonjs",
   "engines": {
-    "node": ">=18"
+    "node": ">=20.19.0"
   },
   "dependencies": {
     "cors": "^2.8.5",
     "dotenv": "^17.2.3",
     "express": "^5.2.1",
-    "mongoose": "^9.1.1",
+    "mongoose": "^9.7.4",
     "nanoid": "^3.3.8"
   },
   "devDependencies": {

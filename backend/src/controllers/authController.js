@@ -144,7 +144,7 @@ exports.register = async (req, res) => {
     const user = await User.create({
       name,
       email,
-      passwordHash: hashPassword(password),
+      passwordHash: await hashPassword(password),
       compliance: buildAccountComplianceRecord(req, consentValidation.consents),
     });
 
@@ -177,7 +177,7 @@ exports.login = async (req, res) => {
     }
 
     const user = await User.findOne({ email });
-    if (!user || !verifyPassword(password, user.passwordHash)) {
+    if (!user || !(await verifyPassword(password, user.passwordHash))) {
       return res.status(401).json({ error: "Invalid email or password" });
     }
 

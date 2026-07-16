@@ -16,6 +16,9 @@ const {
 } = require("../config/billingPlans");
 const { getRazorpayBasicAuthHeader, verifyRazorpayWebhookSignature } = require("../utils/razorpayUtils");
 
+const BLOCKING_BILLING_STATUSES = ["pending", "active", "past_due"];
+const REUSABLE_CHECKOUT_STATUSES = ["created"];
+
 function getAppBaseUrl() {
   return (process.env.APP_BASE_URL || process.env.ALLOWED_ORIGINS?.split(",")[0] || "").replace(
     /\/$/,
@@ -38,6 +41,66 @@ function unixToDate(value) {
 function getRazorpayPlanId(plan) {
   const envKey = plan?.razorpayPlanIdEnvKey;
   return envKey ? String(process.env[envKey] || "").trim() : "";
+}
+
+function buildSubscriptionCheckoutResponse(record, plan, reused = false) {
+  return {
+    subscriptionId: record.subscriptionId,
+    subscriptionShortUrl: record.subscriptionShortUrl,
+    amountLabel: formatAmountInInr(plan.priceInPaise),
+    referenceId: record.referenceId,
+    reused,
+    plan: {
+      id: plan.id,
+      name: plan.name,
+    },
+  };
+}
+
+async function releaseSubscriptionCreation(workspaceId, referenceId) {
+  if (!referenceId) return;
+
+  await Workspace.updateOne(
+    {
+      _id: workspaceId,
+      "billing.subscriptionCreationReference": referenceId,
+    },
+    {
+      $set: {
+        "billing.subscriptionCreationReference": "",
+        "billing.subscriptionCreationPlanId": "",
+        "billing.subscriptionCreationStartedAt": null,
+      },
+    }
+  );
+}
+
+async function findExistingSubscriptionRecord(workspace) {
+  const referenceId = workspace?.billing?.subscriptionCreationReference || "";
+  const subscriptionId = workspace?.billing?.providerSubscriptionId || "";
+  const lookupClauses = compactLookupClauses([
+    { referenceId },
+    { subscriptionId },
+  ]);
+
+  if (!lookupClauses.length) return null;
+
+  return BillingRecord.findOne({
+    workspaceId: workspace._id,
+    $or: lookupClauses,
+  });
+}
+
+function isReusableSubscriptionCheckout(record, planId) {
+  if (!record || record.planId !== planId || !record.subscriptionShortUrl) {
+    return false;
+  }
+
+  if (!REUSABLE_CHECKOUT_STATUSES.includes(record.status)) {
+    return false;
+  }
+
+  return !record.expiresAt || new Date(record.expiresAt) > new Date();
 }
 
 function compactLookupClauses(clauses) {
@@ -226,6 +289,11 @@ exports.createPaymentLink = async (req, res) => {
 };
 
 exports.createSubscription = async (req, res) => {
+  let creationClaimed = false;
+  let providerRequestStarted = false;
+  let record = null;
+  let referenceId = "";
+
   try {
     const planId = String(req.body.planId || "").trim().toLowerCase();
     const plan = getPlanDefinition(planId);
@@ -241,8 +309,52 @@ exports.createSubscription = async (req, res) => {
       });
     }
 
-    const referenceId = `SUB-${nanoid(10).toUpperCase()}`;
-    const record = await BillingRecord.create({
+    referenceId = `SUB-${nanoid(10).toUpperCase()}`;
+    const creationStartedAt = new Date();
+    const claimedWorkspace = await Workspace.findOneAndUpdate(
+      {
+        _id: req.auth.workspace._id,
+        "billing.status": { $nin: BLOCKING_BILLING_STATUSES },
+        $or: [
+          { "billing.subscriptionCreationReference": "" },
+          { "billing.subscriptionCreationReference": { $exists: false } },
+        ],
+      },
+      {
+        $set: {
+          "billing.subscriptionCreationReference": referenceId,
+          "billing.subscriptionCreationPlanId": plan.id,
+          "billing.subscriptionCreationStartedAt": creationStartedAt,
+        },
+      },
+      { new: true, runValidators: true }
+    );
+
+    if (!claimedWorkspace) {
+      const currentWorkspace = await Workspace.findById(req.auth.workspace._id);
+      const existingRecord = currentWorkspace
+        ? await findExistingSubscriptionRecord(currentWorkspace)
+        : null;
+
+      if (isReusableSubscriptionCheckout(existingRecord, plan.id)) {
+        return res
+          .status(200)
+          .json(buildSubscriptionCheckoutResponse(existingRecord, plan, true));
+      }
+
+      return res.status(409).json({
+        error:
+          "A subscription is already active or being created for this workspace. Complete or cancel it before starting another.",
+        referenceId:
+          currentWorkspace?.billing?.subscriptionCreationReference ||
+          currentWorkspace?.billing?.lastPaymentReference ||
+          "",
+        retryable: false,
+      });
+    }
+
+    creationClaimed = true;
+    record = await BillingRecord.create({
       workspaceId: req.auth.workspace._id,
       userId: req.auth.user._id,
       planId: plan.id,
@@ -254,10 +366,12 @@ exports.createSubscription = async (req, res) => {
       expiresAt: new Date(Date.now() + 30 * 60 * 1000),
     });
 
+    const authorization = getRazorpayBasicAuthHeader();
+    providerRequestStarted = true;
     const response = await fetch("https://api.razorpay.com/v1/subscriptions", {
       method: "POST",
       headers: {
-        Authorization: getRazorpayBasicAuthHeader(),
+        Authorization: authorization,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
@@ -282,9 +396,13 @@ exports.createSubscription = async (req, res) => {
       record.status = "failed";
       record.rawLastEvent = "subscription_create_failed";
       await record.save();
+      await releaseSubscriptionCreation(req.auth.workspace._id, referenceId);
+      creationClaimed = false;
 
       return res.status(502).json({
         error: data?.error?.description || data?.error?.reason || "Could not create subscription",
+        referenceId,
+        retryable: true,
       });
     }
 
@@ -296,29 +414,59 @@ exports.createSubscription = async (req, res) => {
     record.nextChargeAt = unixToDate(data.charge_at);
     await record.save();
 
-    req.auth.workspace.billing = {
-      ...req.auth.workspace.billing,
-      status: "pending",
-      provider: "razorpay",
-      providerSubscriptionId: record.subscriptionId,
-      lastPaymentReference: referenceId,
-      billingEmail: req.auth.user.email,
-      cancelAtCycleEnd: false,
-    };
-    await req.auth.workspace.save();
-
-    return res.status(201).json({
-      subscriptionId: record.subscriptionId,
-      subscriptionShortUrl: record.subscriptionShortUrl,
-      amountLabel: formatAmountInInr(plan.priceInPaise),
-      referenceId,
-      plan: {
-        id: plan.id,
-        name: plan.name,
+    const workspaceUpdate = await Workspace.updateOne(
+      {
+        _id: req.auth.workspace._id,
+        "billing.subscriptionCreationReference": referenceId,
       },
-    });
+      {
+        $set: {
+          "billing.status": "pending",
+          "billing.provider": "razorpay",
+          "billing.providerSubscriptionId": record.subscriptionId,
+          "billing.lastPaymentReference": referenceId,
+          "billing.billingEmail": req.auth.user.email,
+          "billing.cancelAtCycleEnd": false,
+        },
+      }
+    );
+
+    if (workspaceUpdate.matchedCount !== 1) {
+      throw new Error("Subscription creation claim was lost before persistence");
+    }
+
+    return res
+      .status(201)
+      .json(buildSubscriptionCheckoutResponse(record, plan));
   } catch (error) {
     console.error(error);
+
+    if (creationClaimed && !providerRequestStarted) {
+      try {
+        await releaseSubscriptionCreation(req.auth.workspace._id, referenceId);
+      } catch (releaseError) {
+        console.error(releaseError);
+      }
+    }
+
+    if (creationClaimed && providerRequestStarted) {
+      if (record) {
+        record.rawLastEvent = "subscription_create_unknown";
+        try {
+          await record.save();
+        } catch (saveError) {
+          console.error(saveError);
+        }
+      }
+
+      return res.status(502).json({
+        error:
+          "Razorpay subscription creation could not be confirmed. Do not retry; contact support with this reference.",
+        referenceId,
+        retryable: false,
+      });
+    }
+
     return res.status(500).json({ error: "Server error" });
   }
 };
@@ -408,13 +556,13 @@ async function applySubscriptionState(record, subscription, payment, invoice, pa
   record.currentPeriodEndsAt = unixToDate(subscription?.current_end) || record.currentPeriodEndsAt;
   record.nextChargeAt = unixToDate(subscription?.charge_at) || record.nextChargeAt;
 
-  if (["active", "authenticated", "paid"].includes(record.status) && !record.paidAt) {
+  if (["active", "paid"].includes(record.status) && !record.paidAt) {
     record.paidAt = unixToDate(payment?.created_at || invoice?.paid_at || payload.created_at) || new Date();
   }
 
   if (!workspace) return;
 
-  if (["active", "authenticated", "paid"].includes(record.status)) {
+  if (["active", "paid"].includes(record.status)) {
     workspace.plan = plan?.id || workspace.plan;
     workspace.billing = {
       ...workspace.billing,
@@ -428,19 +576,30 @@ async function applySubscriptionState(record, subscription, payment, invoice, pa
       providerCustomerId: subscription?.customer_id || workspace.billing?.providerCustomerId || "",
       providerSubscriptionId: record.subscriptionId,
       cancelAtCycleEnd: false,
+      subscriptionCreationReference: record.referenceId,
+      subscriptionCreationPlanId: record.planId,
+      subscriptionCreationStartedAt:
+        workspace.billing?.subscriptionCreationStartedAt || record.createdAt || new Date(),
     };
   }
 
-  if (["cancelled", "completed", "expired", "halted"].includes(record.status)) {
-    workspace.billing = {
-      ...workspace.billing,
-      status: record.status === "halted" ? "past_due" : "inactive",
-      provider: "razorpay",
-      providerSubscriptionId: record.subscriptionId,
-    };
+  if (record.status === "halted") {
+    workspace.billing.status = "past_due";
+    workspace.billing.provider = "razorpay";
+    workspace.billing.providerSubscriptionId = record.subscriptionId;
+  }
+
+  if (["cancelled", "completed", "expired"].includes(record.status)) {
+    workspace.billing.status = "inactive";
+    workspace.billing.provider = "razorpay";
+    workspace.billing.providerSubscriptionId = "";
   }
 
   await workspace.save();
+
+  if (["cancelled", "completed", "expired"].includes(record.status)) {
+    await releaseSubscriptionCreation(record.workspaceId, record.referenceId);
+  }
 }
 
 exports.handleRazorpayWebhook = async (req, res) => {

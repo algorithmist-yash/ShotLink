@@ -63,6 +63,13 @@ const workspaceSchema = new mongoose.Schema(
       providerCustomerId: { type: String, default: "" },
       providerSubscriptionId: { type: String, default: "" },
       cancelAtCycleEnd: { type: Boolean, default: false },
+      subscriptionCreationReference: { type: String, default: "" },
+      subscriptionCreationPlanId: {
+        type: String,
+        enum: ["", "pro", "business"],
+        default: "",
+      },
+      subscriptionCreationStartedAt: { type: Date, default: null },
     },
     members: {
       type: [workspaceMemberSchema],

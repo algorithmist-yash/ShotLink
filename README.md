@@ -1,195 +1,114 @@
-# 🔗 Shotlink – Full Stack Application
+# Shotlink
 
-A modern **full-stack Shotlink** built with **React, Node.js, Express, and MongoDB Atlas**, featuring **custom expiry**, **real-time analytics**, **QR code generation**, and **manual link expiration**.
+Shotlink is a full-stack URL shortener with authenticated workspaces, link expiry, custom aliases,
+fallback destinations, click analytics, QR codes, custom domains, and Razorpay-backed billing.
 
-Designed with **scalability**, **clean architecture**, and **production-ready practices** in mind.
+## Stack
 
----
+- Frontend: React, Vite, qrcode.react
+- Backend: Node.js, Express, MongoDB, Mongoose
+- Tests: Node's built-in test runner
 
-## ✨ Features
+## Project Structure
 
-- 🔗 Shorten long URLs instantly  
-- ⏳ Custom expiry time (5 min, 30 min, 1 hour, 1 day)  
-- 🧮 Real-time analytics  
-  - Click count  
-  - Creation time  
-  - Expiry time  
-- ❌ Manual expiration (invalidate links anytime)  
-- 📱 QR code generation + download  
-- 🟢 Live status indicator (Active / Expired)  
-- 🎨 Modern responsive UI (desktop & mobile)  
-- 🔐 Secure environment variable handling  
-
----
-
-## 🧱 Tech Stack
-
-### Frontend
-- React (Vite)  
-- JavaScript (ES6+)  
-- qrcode.react  
-- Responsive inline styling  
-
-### Backend
-- Node.js  
-- Express.js  
-- MongoDB Atlas  
-- Mongoose  
-- nanoid (short code generation)  
-
----
-
-## 📁 Project Structure
-
-```
+```text
 shotlink/
-│
-├── backend/
-│   ├── config/
-│   │   └── db.js
-│   ├── src/
-│   │   ├── controllers/
-│   │   │   └── urlController.js
-│   │   ├── models/
-│   │   │   └── Url.js
-│   │   ├── routes/
-│   │   │   └── urlRoutes.js
-│   │   └── server.js
-│   ├── .env            # ignored
-│   └── package.json
-│
-├── frontend/
-│   ├── public/
-│   ├── src/
-│   │   └── App.jsx
-│   ├── .env            # ignored
-│   └── package.json
-│
-├── .gitignore
-├── package.json
-└── README.md
+  backend/
+    config/db.js
+    src/
+      app.js
+      server.js
+      config/
+      controllers/
+      middleware/
+      models/
+      routes/
+      services/
+      utils/
+  frontend/
+    index.html
+    src/App.jsx
+    src/index.css
 ```
 
----
+## Environment
 
-## 🔐 Environment Variables
+Backend variables:
 
-### Backend (backend/.env)
-```
+```text
 PORT=5000
-MONGO_URI=your_mongodb_atlas_connection_string
+MONGO_URI=your_mongodb_connection_string
 BASE_URL=http://localhost:5000
+APP_BASE_URL=http://localhost:5173
+FRONTEND_URL=http://localhost:5173
+ALLOWED_ORIGINS=http://localhost:5173
+IP_HASH_SALT=replace_me
+TRUST_PROXY_CIDRS=
+RAZORPAY_KEY_ID=replace_me
+RAZORPAY_KEY_SECRET=replace_me
+RAZORPAY_WEBHOOK_SECRET=replace_me
+RAZORPAY_PLAN_ID_PRO_MONTHLY=replace_me
+RAZORPAY_PLAN_ID_BUSINESS_MONTHLY=replace_me
 ```
 
-### Frontend (frontend/.env)
-```
+Frontend variables:
+
+```text
 VITE_API_BASE_URL=http://localhost:5000
 ```
 
-⚠️ .env files are intentionally ignored to protect secrets.
+## Run Locally
 
----
+Install dependencies in both apps if needed:
 
-## 🚀 Getting Started
-
-### 1️⃣ Clone the repository
-```
-git clone https://github.com/algorithmist-yash/shotlink.git
-cd shotlink
+```bash
+npm --prefix backend install
+npm --prefix frontend install
 ```
 
-### 2️⃣ Backend Setup
-```
-cd backend
-npm install
-npm run dev
-```
+Start the backend:
 
-Backend will start at:
-http://localhost:5000
-
-### 3️⃣ Frontend Setup
-```
-cd ../frontend
-npm install
-npm run dev
+```bash
+npm --prefix backend run dev
 ```
 
-Frontend will run at:
-http://localhost:5173
+Start the frontend:
 
----
-
-## 🔌 API Endpoints
-
-### ➕ Create Short URL
-POST /shorten
-
-**Body**
-```json
-{
-  "originalUrl": "https://example.com",
-  "expiresInMinutes": 30
-}
+```bash
+npm --prefix frontend run dev
 ```
 
-### 🔁 Redirect
-GET /:shortCode
+## Useful Commands
 
-### 📊 Analytics
-GET /analytics/:shortCode
+```bash
+npm --prefix backend test
+npm --prefix frontend run lint
+npm --prefix frontend run build
+```
 
-### ❌ Manual Expire
-PATCH /expire/:shortCode
+## Main API Routes
 
----
+- `POST /api/v1/auth/register`
+- `POST /api/v1/auth/login`
+- `GET /api/v1/auth/me`
+- `POST /api/v1/auth/logout`
+- `GET /api/v1/links`
+- `POST /api/v1/links`
+- `GET /api/v1/links/:shortCode/analytics`
+- `GET /api/v1/links/:shortCode/events`
+- `PATCH /api/v1/links/:shortCode/expire`
+- `POST /api/v1/links/:shortCode/health-check`
+- `GET /api/v1/billing/plans`
+- `GET /api/v1/billing/summary`
+- `POST /api/v1/billing/subscriptions`
+- `POST /api/v1/billing/subscriptions/cancel`
+- `POST /api/v1/billing/webhooks/razorpay`
+- `GET /:shortCode`
 
-## 📸 Screenshots
+## Notes
 
-(Add screenshots here later for extra polish)
-
----
-
-## 🧠 Key Learnings
-
-- REST API design  
-- MongoDB TTL & expiry handling  
-- Secure environment configuration  
-- Full-stack integration  
-- Error handling & edge cases  
-- Clean UI/UX for real-world apps  
-
----
-
-## 🛡️ Security Notes
-
-- No secrets committed to GitHub  
-- MongoDB Atlas credentials protected  
-- .env files ignored properly  
-
----
-
-## 📈 Future Improvements
-
-- User authentication  
-- Custom aliases  
-- Dashboard with charts  
-- Rate limiting  
-- Link previews  
-- Dark/light mode toggle  
-
----
-
-## 👤 Author
-
-**Yash Raj**  
-📧 Email: [yash.algorithmist@gmail.com](mailto:yash.algorithmist@gmail.com)  
-🐙 GitHub: [https://github.com/algorithmist-yash](https://github.com/algorithmist-yash)  
-💼 LinkedIn: [https://www.linkedin.com/in/yash-raj-476290369/](https://www.linkedin.com/in/yash-raj-476290369/)
-
-
----
-
-## ⭐ If you like this project
-
-Give it a ⭐ on GitHub — it really helps!
+- Link creation requires a signed-in user and required compliance consent fields.
+- Direct private/local IP destinations are rejected.
+- Health checks also reject hostnames that resolve to private or local network addresses.
+- Railway proxy ranges are trusted automatically. On other proxy deployments, set `TRUST_PROXY_CIDRS` to the exact proxy CIDRs; never use a blanket `true` trust setting.
+- Keep `.env` files out of version control.

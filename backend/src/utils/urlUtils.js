@@ -50,6 +50,11 @@ function isPrivateIpv4(hostname) {
 
 function isPrivateIpv6(hostname) {
   const normalized = hostname.toLowerCase();
+  const ipv4MappedAddress = normalized.match(/^::ffff:(\d{1,3}(?:\.\d{1,3}){3})$/);
+
+  if (ipv4MappedAddress) {
+    return isPrivateIpv4(ipv4MappedAddress[1]);
+  }
 
   return (
     normalized === "::1" ||

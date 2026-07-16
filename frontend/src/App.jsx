@@ -1,14 +1,13 @@
 import { useCallback, useEffect, useState } from "react";
 import { QRCodeCanvas } from "qrcode.react";
 
-const API_BASE = (import.meta.env.VITE_API_BASE_URL || "http://localhost:5000").replace(
+const API_BASE = (import.meta.env.VITE_API_BASE_URL || "").replace(
   /\/$/,
   ""
 );
 const STORAGE_KEY = "url-shortener-session-token";
 const ACCOUNT_POLICY_VERSION = "2026-05-19";
 const LINK_POLICY_VERSION = "2026-05-19";
-const BRAND_LOGO_SRC = "/shotlink-logo.png";
 const BRAND_SYMBOL_SRC = "/shotlink-symbol.png";
 
 const PUBLIC_NAV_ITEMS = [
@@ -72,8 +71,8 @@ const LEGAL_SECTIONS = [
 ];
 
 const LANDING_METRICS = [
-  { label: "Avg. redirect target", value: "<50ms", hint: "cache-first architecture" },
-  { label: "Route checks", value: "24/7", hint: "health-aware fallbacks" },
+  { label: "Routing policy", value: "Health-aware", hint: "primary + ordered fallbacks" },
+  { label: "Link controls", value: "Live", hint: "expiry, aliases, and disable" },
   { label: "Data captured", value: "9+", hint: "device, referrer, geo signals" },
   { label: "Launch region", value: "India", hint: "built for local teams first" },
 ];
@@ -110,7 +109,7 @@ const TRUST_SIGNALS = [
 
 const API_SNIPPET_LINES = [
   "POST /api/v1/links",
-  "Authorization: Bearer sk_live_...",
+  "Authorization: Bearer <session-token>",
   "{",
   '  "originalUrl": "https://example.com/campaign",',
   '  "customAlias": "summer-sale",',
@@ -315,6 +314,8 @@ function StatusPill({ label, tone = "neutral" }) {
 
   return (
     <span
+      className="sl-status-pill"
+      data-tone={tone}
       style={{
         display: "inline-flex",
         alignItems: "center",
@@ -381,7 +382,7 @@ function UsageBar({ metric }) {
 
 function ConsentCheckbox({ checked, onChange, children }) {
   return (
-    <label style={styles.checkboxRow}>
+    <label className="sl-checkbox-row" style={styles.checkboxRow}>
       <input
         type="checkbox"
         checked={checked}
@@ -394,15 +395,26 @@ function ConsentCheckbox({ checked, onChange, children }) {
 }
 
 function BrandLogo({ compact = false, style }) {
+  if (!compact) {
+    return (
+      <span className="sl-brand-lockup" aria-label="Shotlink" style={style}>
+        <img src={BRAND_SYMBOL_SRC} alt="" aria-hidden="true" />
+        <span className="sl-brand-wordmark">
+          shotlink<span>.in</span>
+        </span>
+      </span>
+    );
+  }
+
   return (
     <img
-      src={compact ? BRAND_SYMBOL_SRC : BRAND_LOGO_SRC}
+      src={BRAND_SYMBOL_SRC}
       alt="Shotlink"
       style={{
         display: "block",
         objectFit: "contain",
-        width: compact ? 58 : 220,
-        height: compact ? 58 : 54,
+        width: 58,
+        height: 58,
         ...style,
       }}
     />
@@ -648,8 +660,19 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    document.title = publicPage === "home" ? "Shotlink" : `Shotlink | ${formatLabel(publicPage)}`;
+    document.title =
+      publicPage === "home"
+        ? "Shotlink | Branded short links and fallback routing"
+        : `Shotlink | ${formatLabel(publicPage)}`;
   }, [publicPage]);
+
+  useEffect(() => {
+    if (!session) return;
+
+    window.scrollTo({ top: 0, left: 0, behavior: "auto" });
+    const page = document.querySelector(".sl-page");
+    if (page) page.scrollTop = 0;
+  }, [session]);
 
   useEffect(() => {
     const updateLayout = () => setIsMobile(window.innerWidth < 1080);
@@ -660,8 +683,8 @@ export default function App() {
 
   useEffect(() => {
     localStorage.setItem("shotlink-color-mode", colorMode);
-    document.documentElement.dataset.shotlinkTheme = colorMode;
-  }, [colorMode]);
+    document.documentElement.dataset.shotlinkTheme = session ? colorMode : "light";
+  }, [colorMode, session]);
 
   useEffect(() => {
     let cancelled = false;
@@ -1136,8 +1159,8 @@ export default function App() {
             ))}
           </div>
           <p style={styles.legalFinePrint}>
-            Policy version {ACCOUNT_POLICY_VERSION}. Replace this short summary with lawyer-reviewed
-            public documents before accepting large paid customers.
+            Policy version {ACCOUNT_POLICY_VERSION}. Contact support@shotlink.in for the current
+            full policy text or questions about data handling and acceptable use.
           </p>
         </section>
       );
@@ -1147,14 +1170,23 @@ export default function App() {
       <div className="sl-reveal" style={styles.homeStack}>
         <section style={styles.heroPanel}>
           <div style={styles.heroCopy}>
-            <BrandLogo style={styles.heroLogo} />
             <StatusPill label="Intelligent routing infrastructure" tone="accent" />
             <h1 style={styles.title}>High-speed links for serious internet teams.</h1>
             <p style={styles.subtitle}>
               Shotlink turns every short URL into a measurable, branded, fallback-aware route.
             </p>
             <div style={styles.heroActions}>
-              <button className="sl-action" style={styles.primaryButton} onClick={() => setAuthMode("register")}>
+              <button
+                className="sl-action"
+                style={styles.primaryButton}
+                onClick={() => {
+                  setAuthMode("register");
+                  window.setTimeout(
+                    () => document.getElementById("auth-panel")?.scrollIntoView({ behavior: "smooth" }),
+                    0
+                  );
+                }}
+              >
                 Start routing
               </button>
               <a className="sl-action-secondary" href="#docs" style={styles.secondaryLinkButton}>
@@ -1602,6 +1634,7 @@ export default function App() {
                 <a
                   key={item.id}
                   href={item.href}
+                  aria-current={publicPage === item.id ? "page" : undefined}
                   style={
                     publicPage === item.id
                       ? { ...styles.publicNavLink, ...styles.publicNavLinkActive }
@@ -1626,15 +1659,17 @@ export default function App() {
           >
             {renderPublicContent()}
 
-          <section style={styles.authCard}>
+          <section id="auth-panel" style={styles.authCard}>
             <div style={styles.authTabs}>
               <button
+                type="button"
                 style={authMode === "register" ? styles.authTabActive : styles.authTab}
                 onClick={() => setAuthMode("register")}
               >
                 Create account
               </button>
               <button
+                type="button"
                 style={authMode === "login" ? styles.authTabActive : styles.authTab}
                 onClick={() => setAuthMode("login")}
               >
@@ -1642,7 +1677,13 @@ export default function App() {
               </button>
             </div>
 
-            <div style={styles.authBody}>
+            <form
+              style={styles.authBody}
+              onSubmit={(event) => {
+                event.preventDefault();
+                if (!authSubmitDisabled) submitAuth();
+              }}
+            >
               <BrandLogo compact style={styles.authLogo} />
               <h2 style={styles.authTitle}>
                 {authMode === "register" ? "Create account" : "Sign in"}
@@ -1659,6 +1700,8 @@ export default function App() {
                   <input
                     style={styles.input}
                     value={authForm.name}
+                    autoComplete="name"
+                    required
                     onChange={(event) =>
                       setAuthForm((current) => ({ ...current, name: event.target.value }))
                     }
@@ -1671,7 +1714,10 @@ export default function App() {
                 Email
                 <input
                   style={styles.input}
+                  type="email"
                   value={authForm.email}
+                  autoComplete="email"
+                  required
                   onChange={(event) =>
                     setAuthForm((current) => ({ ...current, email: event.target.value }))
                   }
@@ -1685,6 +1731,9 @@ export default function App() {
                   style={styles.input}
                   type="password"
                   value={authForm.password}
+                  autoComplete={authMode === "register" ? "new-password" : "current-password"}
+                  minLength={8}
+                  required
                   onChange={(event) =>
                     setAuthForm((current) => ({ ...current, password: event.target.value }))
                   }
@@ -1698,6 +1747,8 @@ export default function App() {
                   <input
                     style={styles.input}
                     value={authForm.workspaceName}
+                    autoComplete="organization"
+                    required
                     onChange={(event) =>
                       setAuthForm((current) => ({
                         ...current,
@@ -1710,7 +1761,7 @@ export default function App() {
               ) : null}
 
               {authMode === "register" ? (
-                <div style={styles.consentBox}>
+                <div className="sl-consent-box" style={styles.consentBox}>
                   <div>
                     <p style={styles.sectionEyebrow}>Required consent</p>
                     <p style={styles.consentIntro}>
@@ -1737,15 +1788,15 @@ export default function App() {
                 </div>
               ) : null}
 
-              {error ? <p style={styles.error}>{error}</p> : null}
+              {error ? <p role="alert" style={styles.error}>{error}</p> : null}
 
               <button
+                type="submit"
                 style={
                   authSubmitDisabled
                     ? { ...styles.primaryButton, opacity: 0.6, cursor: "not-allowed" }
                     : styles.primaryButton
                 }
-                onClick={submitAuth}
                 disabled={authSubmitDisabled}
               >
                 {authSubmitting
@@ -1754,7 +1805,7 @@ export default function App() {
                     ? "Create workspace"
                     : "Sign in"}
               </button>
-            </div>
+            </form>
           </section>
           </div>
         </div>
@@ -1780,16 +1831,10 @@ export default function App() {
               </p>
             </div>
           </div>
-          <div style={styles.headerActions}>
+          <div className="sl-header-actions" style={styles.headerActions}>
             <StatusPill label={`${activeLinkCount}/${activeLinkLimit} active links`} tone="accent" />
-            <StatusPill
-              label={formatLabel(currentPlan.billingStatus)}
-              tone={getBillingTone(currentPlan.billingStatus)}
-            />
-            <button
-              style={{ ...styles.navActionButton, ...modeStyles.billingButton }}
-              onClick={() => scrollToDashboardSection("billing-panel")}
-            >
+            <StatusPill label={formatLabel(currentPlan.billingStatus)} tone={getBillingTone(currentPlan.billingStatus)} />
+            <button style={{ ...styles.navActionButton, ...modeStyles.billingButton }} onClick={() => scrollToDashboardSection("billing-panel")}>
               Billing
             </button>
             <button
@@ -1807,17 +1852,15 @@ export default function App() {
             >
               {colorMode === "dark" ? "Light mode" : "Dark mode"}
             </button>
-            <button style={styles.secondaryButton} onClick={logout}>
-              Sign out
-            </button>
+            <button style={styles.secondaryButton} onClick={logout}>Sign out</button>
           </div>
         </header>
 
         <section style={styles.commandStrip}>
           <article className="sl-lift" style={{ ...styles.commandCard, ...modeStyles.commandCard }}>
-            <p style={styles.metricLabel}>Routing layer</p>
-            <strong style={styles.commandValue}>Active</strong>
-            <span style={styles.metricHint}>Mongo-backed route registry</span>
+            <p style={styles.metricLabel}>Short links</p>
+            <strong style={styles.commandValue}>{activeLinkCount}</strong>
+            <span style={styles.metricHint}>{remainingLinkSlots} slots available</span>
           </article>
           <article className="sl-lift" style={{ ...styles.commandCard, ...modeStyles.commandCard }}>
             <p style={styles.metricLabel}>Tracked clicks</p>
@@ -1829,397 +1872,37 @@ export default function App() {
             <strong style={styles.commandValue}>{customDomains.length}/{domainLimit}</strong>
             <span style={styles.metricHint}>branded link surfaces</span>
           </article>
+          <article className="sl-lift" style={{ ...styles.commandCard, ...modeStyles.commandCard }}>
+            <p style={styles.metricLabel}>Current plan</p>
+            <strong style={styles.commandValue}>{currentPlan.effectivePlanName}</strong>
+            <span style={styles.metricHint}>{formatLabel(currentPlan.billingStatus)}</span>
+          </article>
         </section>
 
-        <div
-          style={{
-            ...styles.dashboardGrid,
-            gridTemplateColumns: isMobile ? "1fr" : "minmax(230px, 300px) minmax(460px, 600px) minmax(300px, 1fr)",
-          }}
+        <nav
+          className="sl-dashboard-nav"
+          style={{ ...styles.dashboardNavCard, ...modeStyles.panelCard }}
+          aria-label="Workspace navigation"
         >
-          <aside style={{ ...styles.sidebarCard, ...modeStyles.sidebarCard }}>
-            <nav style={styles.dashboardNavCard} aria-label="Workspace navigation">
-              <p style={styles.mutedLabel}>Workspace menu</p>
-              {DASHBOARD_NAV_ITEMS.map((item) => (
-                <button
-                  key={item.id}
-                  style={styles.dashboardNavItem}
-                  onClick={() => {
-                    if (item.id === "docs-panel") {
-                      setShowDocsPanel(true);
-                      window.setTimeout(() => scrollToDashboardSection(item.id), 50);
-                      return;
-                    }
-                    scrollToDashboardSection(item.id);
-                  }}
-                >
-                  {item.label}
-                </button>
-              ))}
-            </nav>
+          {DASHBOARD_NAV_ITEMS.map((item) => (
+            <button
+              key={item.id}
+              style={styles.dashboardNavItem}
+              onClick={() => {
+                if (item.id === "docs-panel") {
+                  setShowDocsPanel(true);
+                  window.setTimeout(() => scrollToDashboardSection(item.id), 50);
+                  return;
+                }
+                scrollToDashboardSection(item.id);
+              }}
+            >
+              {item.label}
+            </button>
+          ))}
+        </nav>
 
-            <div id="billing-panel" style={{ ...styles.panelCard, ...modeStyles.panelCard }}>
-              <div style={styles.panelTitleRow}>
-                <div>
-                  <p style={styles.sectionEyebrow}>Billing</p>
-                  <h2 style={styles.panelTitle}>Active subscription</h2>
-                </div>
-                <button
-                  style={{
-                    ...styles.secondaryButton,
-                    opacity: billingLoading ? 0.7 : 1,
-                    cursor: billingLoading ? "progress" : "pointer",
-                  }}
-                  onClick={() => refreshBillingSummary("Billing status refreshed.")}
-                  disabled={billingLoading}
-                >
-                  {billingLoading ? "Refreshing..." : "Refresh billing"}
-                </button>
-              </div>
-
-              <div style={{ ...styles.subscriptionCard, ...modeStyles.subscriptionCard }}>
-                <div>
-                  <p style={styles.mutedLabel}>Current subscription</p>
-                  <h3 style={styles.subscriptionTitle}>{currentPlan.effectivePlanName}</h3>
-                </div>
-                <StatusPill
-                  label={formatLabel(currentPlan.billingStatus)}
-                  tone={getBillingTone(currentPlan.billingStatus)}
-                />
-                <p style={styles.helperText}>
-                  {activeLinkCount}/{activeLinkLimit} active links used. {remainingLinkSlots} slots
-                  still available.
-                </p>
-                <p style={styles.miniHelperText}>
-                  {currentPlan.currentPeriodEndsAt
-                    ? `Renews or ends ${formatDate(currentPlan.currentPeriodEndsAt)}`
-                    : "Free tier subscription"}
-                </p>
-              </div>
-
-              <div style={styles.paymentCard}>
-                <div>
-                  <p style={styles.mutedLabel}>Upgrade subscription</p>
-                  <p style={styles.helperText}>
-                    Choose a paid plan to open Razorpay checkout. Your workspace updates after the
-                    payment webhook confirms the transaction.
-                  </p>
-                </div>
-                <div style={styles.compactPlanGrid}>
-                  {publicPlans
-                    .filter((plan) => plan.id !== "free")
-                    .map((plan) => {
-                      const isCurrentPlan = currentPlan.effectivePlanId === plan.id;
-                      const isCheckoutLoading = checkoutLoadingPlanId === plan.id;
-
-                      return (
-                        <div key={plan.id} style={styles.compactPlanCard}>
-                          <div style={styles.planHeader}>
-                            <strong style={styles.planName}>{plan.name}</strong>
-                            <span style={styles.compactPlanPrice}>{formatPlanPrice(plan)}</span>
-                          </div>
-                          <p style={styles.miniHelperText}>
-                            {plan.id === "enterprise"
-                              ? "Custom security, support, and scale."
-                              : `${plan.linkLimit} links and ${plan.domainLimit} branded ${
-                                  plan.domainLimit === 1 ? "domain" : "domains"
-                                }.`}
-                          </p>
-                          <button
-                            style={
-                              isCurrentPlan || isCheckoutLoading
-                                ? { ...styles.secondaryButton, opacity: 0.65, cursor: "not-allowed" }
-                                : styles.primaryButton
-                            }
-                            onClick={() => startPlanCheckout(plan)}
-                            disabled={isCurrentPlan || Boolean(checkoutLoadingPlanId)}
-                          >
-                            {isCurrentPlan
-                              ? "Current plan"
-                              : isCheckoutLoading
-                                ? "Opening..."
-                                : plan.id === "enterprise"
-                                  ? "Contact sales"
-                                  : `Upgrade to ${plan.name}`}
-                          </button>
-                        </div>
-                      );
-                    })}
-                </div>
-              </div>
-
-              <div style={styles.billingStatsGrid}>
-                <div style={styles.billingStatCard}>
-                  <p style={styles.billingStatLabel}>Current plan</p>
-                  <p style={styles.billingStatValue}>{currentPlan.effectivePlanName}</p>
-                </div>
-                <div style={styles.billingStatCard}>
-                  <p style={styles.billingStatLabel}>Slots left</p>
-                  <p style={styles.billingStatValue}>{remainingLinkSlots}</p>
-                </div>
-                <div style={styles.billingStatCard}>
-                  <p style={styles.billingStatLabel}>Billing status</p>
-                  <p style={styles.billingStatValueSmall}>{formatLabel(currentPlan.billingStatus)}</p>
-                </div>
-                <div style={styles.billingStatCard}>
-                  <p style={styles.billingStatLabel}>Current period</p>
-                  <p style={styles.billingStatValueSmall}>
-                    {currentPlan.currentPeriodEndsAt
-                      ? formatDate(currentPlan.currentPeriodEndsAt)
-                      : "Free tier"}
-                  </p>
-                </div>
-              </div>
-
-              <div style={styles.paymentCard}>
-                <div style={styles.planHeader}>
-                  <div>
-                    <p style={styles.mutedLabel}>Usage</p>
-                    <p style={styles.helperText}>
-                      Monthly quotas reset with your billing cycle.
-                    </p>
-                  </div>
-                  <StatusPill
-                    label={currentPlan.usagePeriodKey || "Current month"}
-                    tone="neutral"
-                  />
-                </div>
-                <div style={styles.usageGrid}>
-                  {Object.values(currentPlan.usage || {}).map((metric) => (
-                    <UsageBar key={metric.key} metric={metric} />
-                  ))}
-                </div>
-              </div>
-
-              <div style={styles.paymentCard}>
-                <div style={styles.planHeader}>
-                  <div>
-                    <p style={styles.mutedLabel}>Invoices</p>
-                    <p style={styles.helperText}>Recent Razorpay subscription and invoice events.</p>
-                  </div>
-                  {currentPlan.effectivePlanId !== "free" ? (
-                    <button
-                      style={{
-                        ...styles.secondaryButton,
-                        opacity: billingLoading ? 0.65 : 1,
-                        cursor: billingLoading ? "not-allowed" : "pointer",
-                      }}
-                      onClick={cancelCurrentSubscription}
-                      disabled={billingLoading}
-                    >
-                      Cancel at renewal
-                    </button>
-                  ) : null}
-                </div>
-                <div style={styles.invoiceList}>
-                  {billingRecords.length ? (
-                    billingRecords.slice(0, 5).map((record) => (
-                      <div key={record.id} style={styles.invoiceRow}>
-                        <div>
-                          <strong style={styles.planName}>{record.planName}</strong>
-                          <p style={styles.miniHelperText}>
-                            {formatLabel(record.status)} - {formatDate(record.createdAt)}
-                          </p>
-                        </div>
-                        {record.invoiceUrl || record.paymentLinkUrl ? (
-                          <a
-                            href={record.invoiceUrl || record.paymentLinkUrl}
-                            target="_blank"
-                            rel="noreferrer"
-                            style={styles.inlineLink}
-                          >
-                            Open
-                          </a>
-                        ) : (
-                          <span style={styles.miniHelperText}>{formatPriceInInr(record.amountInPaise)}</span>
-                        )}
-                      </div>
-                    ))
-                  ) : (
-                    <p style={styles.helperText}>Invoices appear after your first subscription event.</p>
-                  )}
-                </div>
-              </div>
-
-              {billingMessage ? <p style={styles.success}>{billingMessage}</p> : null}
-            </div>
-
-            <div id="domains-panel" style={{ ...styles.panelCard, ...modeStyles.panelCard }}>
-              <div style={styles.panelTitleRow}>
-                <div>
-                  <p style={styles.sectionEyebrow}>Domains</p>
-                  <h2 style={styles.panelTitle}>Branded customer links</h2>
-                </div>
-                <StatusPill
-                  label={`${customDomains.length}/${domainLimit} domains`}
-                  tone={domainLimit ? "accent" : "neutral"}
-                />
-              </div>
-
-              <div style={styles.inlineForm}>
-                <input
-                  style={styles.input}
-                  placeholder="Enter your branded domain, e.g. go.yourcompany.in"
-                  value={customDomainInput}
-                  onChange={(event) => setCustomDomainInput(event.target.value)}
-                  disabled={domainSaving || customDomains.length >= domainLimit}
-                />
-                <button
-                  style={
-                    domainSaving || customDomains.length >= domainLimit
-                      ? { ...styles.secondaryButton, opacity: 0.6, cursor: "not-allowed" }
-                      : styles.primaryButton
-                  }
-                  onClick={addCustomDomain}
-                  disabled={domainSaving || customDomains.length >= domainLimit}
-                >
-                  {domainSaving ? "Adding..." : "Add"}
-                </button>
-              </div>
-
-              {domainLimit === 0 ? (
-                <p style={styles.helperText}>
-                  Upgrade to Pro or Business to sell branded short links on customer domains.
-                </p>
-              ) : null}
-
-              {domainMessage ? <p style={styles.success}>{domainMessage}</p> : null}
-
-              {customDomains.length ? (
-                <div style={styles.domainList}>
-                  {customDomains.map((domain) => (
-                    <div key={domain.hostname} style={styles.domainCard}>
-                      <div style={styles.planHeader}>
-                        <strong style={styles.planName}>{domain.hostname}</strong>
-                        <StatusPill
-                          label={domain.isPrimary ? `${domain.status} primary` : domain.status}
-                          tone={domain.status === "verified" ? "healthy" : "warning"}
-                        />
-                      </div>
-
-                      <div style={styles.dnsGrid}>
-                        <div>
-                          <p style={styles.mutedLabel}>CNAME</p>
-                          <p style={styles.codeLine}>{domain.hostname} to {cnameTarget}</p>
-                        </div>
-                        <div>
-                          <p style={styles.mutedLabel}>TXT</p>
-                          <p style={styles.codeLine}>{domain.dns?.txtName}</p>
-                          <p style={styles.codeLine}>{domain.dns?.txtValue}</p>
-                        </div>
-                      </div>
-
-                      {domain.lastVerificationError ? (
-                        <p style={styles.error}>{domain.lastVerificationError}</p>
-                      ) : null}
-
-                      <div style={styles.inlineActions}>
-                        <button
-                          style={styles.secondaryButton}
-                          onClick={() => verifyCustomDomain(domain.hostname)}
-                          disabled={domainVerifying === domain.hostname}
-                        >
-                          {domainVerifying === domain.hostname ? "Checking..." : "Verify"}
-                        </button>
-                        {domain.status === "verified" && !domain.isPrimary ? (
-                          <button
-                            style={styles.secondaryButton}
-                            onClick={() => setPrimaryCustomDomain(domain.hostname)}
-                            disabled={domainVerifying === domain.hostname}
-                          >
-                            Make primary
-                          </button>
-                        ) : null}
-                        <button
-                          style={styles.secondaryButton}
-                          onClick={() =>
-                            window.confirm("Remove this domain from the workspace?") &&
-                            removeCustomDomain(domain.hostname)
-                          }
-                          disabled={domainVerifying === domain.hostname}
-                        >
-                          Remove
-                        </button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <p style={styles.emptyState}>
-                  Add a customer subdomain, publish the DNS records, then verify it here.
-                </p>
-              )}
-            </div>
-
-            <div style={styles.panelTitleRow}>
-              <div>
-                <h2 style={styles.panelTitle}>Active links</h2>
-                {expiredLinkCount ? (
-                  <p style={styles.miniHelperText}>{expiredLinkCount} expired link{expiredLinkCount === 1 ? "" : "s"} hidden</p>
-                ) : null}
-              </div>
-              <StatusPill label={workspaceLoading ? "syncing" : "live"} tone="accent" />
-            </div>
-
-            {activeLinks.length ? (
-              <div style={styles.linkList}>
-                {activeLinks.map((link) => (
-                  <button
-                    key={link.shortCode}
-                    style={
-                      link.shortCode === selectedShortCode
-                        ? styles.linkListItemActive
-                        : styles.linkListItem
-                    }
-                    onClick={() => setSelectedShortCode(link.shortCode)}
-                  >
-                    <div style={styles.linkListTopRow}>
-                      <span style={styles.linkShortCode}>{link.shortCode}</span>
-                      <StatusPill
-                        label={link.isActive ? "active" : "expired"}
-                        tone={getActiveTone(link)}
-                      />
-                    </div>
-                    {link.customDomainHost ? (
-                      <p style={styles.mutedLabel}>{link.customDomainHost}</p>
-                    ) : null}
-                    <p style={styles.linkOriginal}>{link.originalUrl}</p>
-                    <div style={styles.linkListFooter}>
-                      <span>{link.clicks} clicks</span>
-                      <span>{formatDate(link.createdAt)}</span>
-                    </div>
-                  </button>
-                ))}
-              </div>
-            ) : (
-              <p style={styles.emptyState}>
-                No links yet. Create your first resilient short link from the builder.
-              </p>
-            )}
-
-            {showDocsPanel ? (
-              <div id="docs-panel" style={{ ...styles.docsQuickPanel, ...modeStyles.docsQuickPanel }}>
-                <div style={styles.panelTitleRow}>
-                  <div>
-                    <p style={styles.sectionEyebrow}>Docs</p>
-                    <h2 style={styles.panelTitle}>Quick operator guide</h2>
-                  </div>
-                  <button style={styles.secondaryButton} onClick={() => setShowDocsPanel(false)}>
-                    Hide
-                  </button>
-                </div>
-                <div style={styles.docsQuickList}>
-                  {DOC_SECTIONS.slice(0, 3).map((section) => (
-                    <div key={section.title} style={styles.docsQuickItem}>
-                      <strong>{section.title}</strong>
-                      <span>{section.body}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            ) : null}
-          </aside>
-
+        <main style={styles.dashboardGrid}>
           <section id="builder-panel" style={{ ...styles.builderCard, ...modeStyles.builderCard }}>
             <div style={styles.panelTitleRow}>
               <div>
@@ -2228,29 +1911,30 @@ export default function App() {
               </div>
               <StatusPill label={currentPlan.effectivePlanName} tone={getPlanTone(currentPlan.effectivePlanId)} />
             </div>
-
             <p style={styles.helperText}>
               {remainingLinkSlots > 0
                 ? `${remainingLinkSlots} active link slots remaining on the ${currentPlan.effectivePlanName} plan.`
                 : `You have used all ${activeLinkLimit} active-link slots on the ${currentPlan.effectivePlanName} plan. Upgrade billing to create more links.`}
             </p>
-
-            <label style={styles.label}>
-              Short link domain
-              <select
-                style={styles.select}
-                value={selectedDomainHost}
-                onChange={(event) => setSelectedDomainHost(event.target.value)}
-              >
-                <option value="">Default redirect domain</option>
-                {verifiedDomains.map((domain) => (
-                  <option key={domain.hostname} value={domain.hostname}>
-                    {domain.hostname}
-                  </option>
-                ))}
-              </select>
-            </label>
-
+            <div className="sl-builder-form-grid" style={styles.builderFormGrid}>
+              <label style={styles.label}>
+                Short link domain
+                <select style={styles.select} value={selectedDomainHost} onChange={(event) => setSelectedDomainHost(event.target.value)}>
+                  <option value="">Default redirect domain</option>
+                  {verifiedDomains.map((domain) => (
+                    <option key={domain.hostname} value={domain.hostname}>{domain.hostname}</option>
+                  ))}
+                </select>
+              </label>
+              <label style={styles.label}>
+                Link expiry
+                <select style={styles.select} value={expiry} onChange={(event) => setExpiry(Number(event.target.value))}>
+                  {EXPIRY_OPTIONS.map((option) => (
+                    <option key={option.value} value={option.value}>{option.label}</option>
+                  ))}
+                </select>
+              </label>
+            </div>
             <label style={styles.label}>
               Primary destination
               <input
@@ -2260,13 +1944,10 @@ export default function App() {
                 onChange={(event) => setUrl(event.target.value)}
               />
             </label>
-
             <label style={styles.label}>
               Custom alias
-              <div style={styles.aliasInputGroup}>
-                <span style={styles.aliasPrefix}>
-                  {selectedDomainHost || "shot.link"}/
-                </span>
+              <div className="sl-alias-group" style={styles.aliasInputGroup}>
+                <span className="sl-alias-prefix" style={styles.aliasPrefix}>{selectedDomainHost || "shot.link"}/</span>
                 <input
                   style={{ ...styles.input, ...styles.aliasInput }}
                   placeholder="summer-sale"
@@ -2274,11 +1955,8 @@ export default function App() {
                   onChange={(event) => setCustomAlias(event.target.value)}
                 />
               </div>
-              <span style={styles.miniHelperText}>
-                Optional. Use 3-48 letters, numbers, hyphens, or underscores.
-              </span>
+              <span style={styles.miniHelperText}>Optional. Use 3-48 letters, numbers, hyphens, or underscores.</span>
             </label>
-
             <label style={styles.label}>
               Fallback destinations
               <textarea
@@ -2288,94 +1966,50 @@ export default function App() {
                 onChange={(event) => setFallbackInput(event.target.value)}
               />
             </label>
-
-            <label style={styles.label}>
-              Link expiry
-              <select
-                style={styles.select}
-                value={expiry}
-                onChange={(event) => setExpiry(Number(event.target.value))}
-              >
-                {EXPIRY_OPTIONS.map((option) => (
-                  <option key={option.value} value={option.value}>
-                    {option.label}
-                  </option>
-                ))}
-              </select>
-            </label>
-
-            <div style={styles.consentBox}>
+            <div className="sl-consent-box" style={styles.consentBox}>
               <p style={styles.consentIntro}>
-                Link policy version {LINK_POLICY_VERSION}. Required for every link so abusive or
-                illegal destinations can be suspended with a clear audit trail.
+                Link policy version {LINK_POLICY_VERSION}. Required for every link so abusive or illegal destinations can be suspended with a clear audit trail.
               </p>
-              <ConsentCheckbox
-                checked={linkComplianceAccepted}
-                onChange={setLinkComplianceAccepted}
-              >
-                I have authority to share these destinations, consent to automated health checks,
-                and will not use this link for phishing, malware, spam, impersonation, or unlawful
-                content.
+              <ConsentCheckbox checked={linkComplianceAccepted} onChange={setLinkComplianceAccepted}>
+                I have authority to share these destinations, consent to automated health checks, and will not use this link for phishing, malware, spam, impersonation, or unlawful content.
               </ConsentCheckbox>
             </div>
-
             <button
-              style={
-                linkSubmitDisabled
-                  ? { ...styles.primaryButton, opacity: 0.6, cursor: "not-allowed" }
-                  : styles.primaryButton
-              }
+              style={linkSubmitDisabled ? { ...styles.primaryButton, opacity: 0.6, cursor: "not-allowed" } : styles.primaryButton}
               onClick={createLink}
               disabled={linkSubmitDisabled}
             >
               {loading
                 ? "Creating link..."
-                  : remainingLinkSlots <= 0
-                    ? "Upgrade to create more links"
+                : remainingLinkSlots <= 0
+                  ? "Upgrade to create more links"
                   : !linkComplianceAccepted
                     ? "Accept link policy to create"
-                  : "Shorten URL"}
+                    : "Shorten URL"}
             </button>
-
-            {error ? <p style={styles.error}>{error}</p> : null}
-            {copied ? <p style={styles.success}>{copied}</p> : null}
-
+            {error ? <p role="alert" style={styles.error}>{error}</p> : null}
+            {copied ? <p role="status" style={styles.success}>{copied}</p> : null}
             {analytics?.shortUrl && analytics.isActive ? (
               <div style={{ ...styles.resultCard, ...modeStyles.panelCard }}>
                 <div style={styles.resultTopRow}>
                   <div>
                     <p style={styles.mutedLabel}>Selected short URL</p>
-                    <a href={analytics.shortUrl} target="_blank" rel="noreferrer" style={styles.link}>
-                      {analytics.shortUrl}
-                    </a>
+                    <a href={analytics.shortUrl} target="_blank" rel="noreferrer" style={styles.link}>{analytics.shortUrl}</a>
                   </div>
                   <div style={styles.inlineActions}>
-                    <button style={styles.secondaryButton} onClick={copyShortUrl}>
-                      Copy
-                    </button>
-                    <button style={styles.secondaryButton} onClick={downloadQR}>
-                      QR
-                    </button>
+                    <button style={styles.secondaryButton} onClick={copyShortUrl}>Copy</button>
+                    <button style={styles.secondaryButton} onClick={downloadQR}>QR</button>
                   </div>
                 </div>
-
                 <div style={styles.qrPanel}>
                   <QRCodeCanvas id="qr-code" value={analytics.shortUrl} size={132} includeMargin />
                   <div style={styles.qrText}>
                     <p style={styles.mutedLabel}>Routing behavior</p>
                     <p style={styles.qrHeadline}>
-                      {analytics.currentTarget
-                        ? `Currently sending traffic to ${analytics.currentTarget.label}`
-                        : "No healthy destination available"}
+                      {analytics.currentTarget ? `Currently sending traffic to ${analytics.currentTarget.label}` : "No healthy destination available"}
                     </p>
-                    <p style={styles.qrDescription}>
-                      Refresh route health after destination deploys, incidents, or domain fixes.
-                    </p>
-                    <button
-                      style={styles.secondaryButton}
-                      onClick={refreshHealth}
-                      disabled={refreshingHealth}
-                    >
+                    <p style={styles.qrDescription}>Refresh route health after destination deploys, incidents, or domain fixes.</p>
+                    <button style={styles.secondaryButton} onClick={refreshHealth} disabled={refreshingHealth}>
                       {refreshingHealth ? "Refreshing..." : "Refresh route health"}
                     </button>
                   </div>
@@ -2395,156 +2029,202 @@ export default function App() {
                 tone={analytics?.isActive ? "healthy" : selectedShortCode ? "danger" : "neutral"}
               />
             </div>
-
             <div style={styles.metricsGrid}>
-              <div style={{ ...styles.metricCard, ...modeStyles.metricCard }}>
-                <p style={styles.metricLabel}>Total clicks</p>
-                <p style={styles.metricValue}>{analytics?.clicks ?? 0}</p>
-              </div>
-              <div style={{ ...styles.metricCard, ...modeStyles.metricCard }}>
-                <p style={styles.metricLabel}>Last click</p>
-                <p style={styles.metricValueSmall}>{formatDate(analytics?.lastClickedAt)}</p>
-              </div>
-              <div style={{ ...styles.metricCard, ...modeStyles.metricCard }}>
-                <p style={styles.metricLabel}>Expires in</p>
-                <p style={styles.metricValueSmall}>{countdown || "Not started"}</p>
-              </div>
+              <div style={{ ...styles.metricCard, ...modeStyles.metricCard }}><p style={styles.metricLabel}>Total clicks</p><p style={styles.metricValue}>{analytics?.clicks ?? 0}</p></div>
+              <div style={{ ...styles.metricCard, ...modeStyles.metricCard }}><p style={styles.metricLabel}>Last click</p><p style={styles.metricValueSmall}>{formatDate(analytics?.lastClickedAt)}</p></div>
+              <div style={{ ...styles.metricCard, ...modeStyles.metricCard }}><p style={styles.metricLabel}>Expires in</p><p style={styles.metricValueSmall}>{countdown || "Not started"}</p></div>
               <div style={{ ...styles.metricCard, ...modeStyles.metricCard }}>
                 <p style={styles.metricLabel}>Current target</p>
                 <p style={styles.metricValueSmall}>
-                  {analytics?.currentTarget?.kind === "fallback"
-                    ? analytics.currentTarget.label
-                    : analytics?.currentTarget
-                      ? "Primary destination"
-                      : "Unavailable"}
+                  {analytics?.currentTarget?.kind === "fallback" ? analytics.currentTarget.label : analytics?.currentTarget ? "Primary destination" : "Unavailable"}
                 </p>
               </div>
             </div>
-
-            <div style={{ ...styles.panelCard, ...modeStyles.panelCard }}>
-              <div style={styles.panelTitleRow}>
-                <h3 style={styles.panelTitle}>Destination health</h3>
-                {analytics?.primaryHealth ? (
-                  <StatusPill
-                    label={analytics.primaryHealth.status}
-                    tone={getHealthTone(analytics.primaryHealth.status)}
-                  />
-                ) : null}
-              </div>
-
-              <div style={styles.routeList}>
-                <div style={styles.routeCard}>
-                  <div>
-                    <p style={styles.routeLabel}>Primary</p>
-                    <p style={styles.routeUrl}>
-                      {analytics?.originalUrl || "Select a link to inspect route health"}
-                    </p>
-                  </div>
-                  <div style={styles.routeMeta}>
-                    <StatusPill
-                      label={analytics?.primaryHealth?.status || "unknown"}
-                      tone={getHealthTone(analytics?.primaryHealth?.status)}
-                    />
-                    <span style={styles.routeTime}>
-                      {analytics?.primaryHealth?.lastCheckedAt
-                        ? formatDate(analytics.primaryHealth.lastCheckedAt)
-                        : "Not checked yet"}
-                    </span>
-                  </div>
+            <div style={styles.analyticsDetailGrid}>
+              <div style={{ ...styles.panelCard, ...modeStyles.panelCard }}>
+                <div style={styles.panelTitleRow}>
+                  <h3 style={styles.panelTitle}>Destination health</h3>
+                  {analytics?.primaryHealth ? <StatusPill label={analytics.primaryHealth.status} tone={getHealthTone(analytics.primaryHealth.status)} /> : null}
                 </div>
-
-                {(analytics?.fallbackUrls || []).map((fallback) => (
-                  <div key={fallback.url} style={styles.routeCard}>
+                <div style={styles.routeList}>
+                  <div style={styles.routeCard}>
                     <div>
-                      <p style={styles.routeLabel}>{fallback.label}</p>
-                      <p style={styles.routeUrl}>{fallback.url}</p>
+                      <p style={styles.routeLabel}>Primary</p>
+                      <p style={styles.routeUrl}>{analytics?.originalUrl || "Select a link to inspect route health"}</p>
                     </div>
                     <div style={styles.routeMeta}>
-                      <StatusPill
-                        label={fallback.lastStatus}
-                        tone={getHealthTone(fallback.lastStatus)}
-                      />
-                      <span style={styles.routeTime}>
-                        {fallback.lastCheckedAt
-                          ? formatDate(fallback.lastCheckedAt)
-                          : "Not checked yet"}
-                      </span>
+                      <StatusPill label={analytics?.primaryHealth?.status || "unknown"} tone={getHealthTone(analytics?.primaryHealth?.status)} />
+                      <span style={styles.routeTime}>{analytics?.primaryHealth?.lastCheckedAt ? formatDate(analytics.primaryHealth.lastCheckedAt) : "Not checked yet"}</span>
                     </div>
                   </div>
-                ))}
+                  {(analytics?.fallbackUrls || []).map((fallback) => (
+                    <div key={fallback.url} style={styles.routeCard}>
+                      <div><p style={styles.routeLabel}>{fallback.label}</p><p style={styles.routeUrl}>{fallback.url}</p></div>
+                      <div style={styles.routeMeta}>
+                        <StatusPill label={fallback.lastStatus} tone={getHealthTone(fallback.lastStatus)} />
+                        <span style={styles.routeTime}>{fallback.lastCheckedAt ? formatDate(fallback.lastCheckedAt) : "Not checked yet"}</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+              <div style={{ ...styles.panelCard, ...modeStyles.panelCard }}>
+                <div style={styles.panelTitleRow}><h3 style={styles.panelTitle}>Device mix</h3><span style={styles.metricHint}>{totalDeviceClicks} tracked events</span></div>
+                {analytics?.deviceBreakdown?.length ? analytics.deviceBreakdown.map((item) => <DeviceBar key={item.deviceType} item={item} total={totalDeviceClicks} />) : <p style={styles.emptyState}>Clicks will appear here after people open the selected short URL.</p>}
               </div>
             </div>
-
-            <div style={{ ...styles.panelCard, ...modeStyles.panelCard }}>
-              <div style={styles.panelTitleRow}>
-                <h3 style={styles.panelTitle}>Device mix</h3>
-                <span style={styles.metricHint}>{totalDeviceClicks} tracked events</span>
-              </div>
-
-              {analytics?.deviceBreakdown?.length ? (
-                analytics.deviceBreakdown.map((item) => (
-                  <DeviceBar key={item.deviceType} item={item} total={totalDeviceClicks} />
-                ))
-              ) : (
-                <p style={styles.emptyState}>
-                  Clicks will appear here after people open the selected short URL.
-                </p>
-              )}
-            </div>
-
             <div style={{ ...styles.panelCard, ...modeStyles.panelCard }}>
               <div style={styles.panelTitleRow}>
                 <h3 style={styles.panelTitle}>Recent click events</h3>
-                {selectedShortCode ? (
-                  <button style={styles.secondaryButton} onClick={() => refreshAnalytics()}>
-                    Refresh analytics
-                  </button>
-                ) : null}
+                {selectedShortCode ? <button style={styles.secondaryButton} onClick={() => refreshAnalytics()}>Refresh analytics</button> : null}
               </div>
-
               {analytics?.recentEvents?.length ? (
                 <div style={styles.eventList}>
                   {analytics.recentEvents.map((event, index) => (
                     <div key={`${event.clickedAt}-${index}`} style={styles.eventCard}>
                       <div style={styles.eventTopRow}>
-                        <strong style={styles.eventTitle}>
-                          {event.deviceType} on {event.browser}
-                        </strong>
-                        <StatusPill
-                          label={event.redirectTargetKind}
-                          tone={event.redirectTargetKind === "fallback" ? "warning" : "accent"}
-                        />
+                        <strong style={styles.eventTitle}>{event.deviceType} on {event.browser}</strong>
+                        <StatusPill label={event.redirectTargetKind} tone={event.redirectTargetKind === "fallback" ? "warning" : "accent"} />
                       </div>
-                      <p style={styles.eventMeta}>
-                        {event.os} - {formatDate(event.clickedAt)}
-                      </p>
-                      <p style={styles.eventTarget}>
-                        {event.redirectTarget || "No redirect target available"}
-                      </p>
-                      <p style={styles.eventReferrer}>
-                        Referrer: {event.referrer || "Direct / unknown"}
-                      </p>
+                      <p style={styles.eventMeta}>{event.os} - {formatDate(event.clickedAt)}</p>
+                      <p style={styles.eventTarget}>{event.redirectTarget || "No redirect target available"}</p>
+                      <p style={styles.eventReferrer}>Referrer: {event.referrer || "Direct / unknown"}</p>
                     </div>
                   ))}
                 </div>
-              ) : (
-                <p style={styles.emptyState}>
-                  No click events yet. Open the selected short URL from another tab to populate this
-                  feed.
-                </p>
-              )}
+              ) : <p style={styles.emptyState}>No click events yet. Open the selected short URL from another tab to populate this feed.</p>}
             </div>
-
-            {analytics?.isActive ? (
-              <button
-                style={styles.dangerButton}
-                onClick={() => window.confirm("Expire this short link now?") && expireCurrentLink()}
-              >
-                Expire this short link
-              </button>
-            ) : null}
+            {analytics?.isActive ? <button style={styles.dangerButton} onClick={() => window.confirm("Expire this short link now?") && expireCurrentLink()}>Expire this short link</button> : null}
           </section>
-        </div>
+
+          <section id="links-panel" style={{ ...styles.panelCard, ...modeStyles.panelCard }}>
+            <div style={styles.panelTitleRow}>
+              <div>
+                <p style={styles.sectionEyebrow}>Links</p>
+                <h2 style={styles.panelTitle}>Active links</h2>
+                {expiredLinkCount ? <p style={styles.miniHelperText}>{expiredLinkCount} expired link{expiredLinkCount === 1 ? "" : "s"} hidden</p> : null}
+              </div>
+              <StatusPill label={workspaceLoading ? "syncing" : "live"} tone="accent" />
+            </div>
+            {activeLinks.length ? (
+              <div style={styles.linkList}>
+                {activeLinks.map((link) => (
+                  <button key={link.shortCode} style={link.shortCode === selectedShortCode ? styles.linkListItemActive : styles.linkListItem} onClick={() => setSelectedShortCode(link.shortCode)}>
+                    <div style={styles.linkListTopRow}><span style={styles.linkShortCode}>{link.shortCode}</span><StatusPill label={link.isActive ? "active" : "expired"} tone={getActiveTone(link)} /></div>
+                    {link.customDomainHost ? <p style={styles.mutedLabel}>{link.customDomainHost}</p> : null}
+                    <p style={styles.linkOriginal}>{link.originalUrl}</p>
+                    <div style={styles.linkListFooter}><span>{link.clicks} clicks</span><span>{formatDate(link.createdAt)}</span></div>
+                  </button>
+                ))}
+              </div>
+            ) : <p style={styles.emptyState}>No links yet. Create your first short link from the builder.</p>}
+          </section>
+
+          <section id="domains-panel" style={{ ...styles.panelCard, ...modeStyles.panelCard }}>
+            <div style={styles.panelTitleRow}>
+              <div><p style={styles.sectionEyebrow}>Domains</p><h2 style={styles.panelTitle}>Branded customer links</h2></div>
+              <StatusPill label={`${customDomains.length}/${domainLimit} domains`} tone={domainLimit ? "accent" : "neutral"} />
+            </div>
+            <div style={styles.inlineForm}>
+              <input style={styles.input} placeholder="Enter your branded domain, e.g. go.yourcompany.in" value={customDomainInput} onChange={(event) => setCustomDomainInput(event.target.value)} disabled={domainSaving || customDomains.length >= domainLimit} />
+              <button style={domainSaving || customDomains.length >= domainLimit ? { ...styles.secondaryButton, opacity: 0.6, cursor: "not-allowed" } : styles.primaryButton} onClick={addCustomDomain} disabled={domainSaving || customDomains.length >= domainLimit}>
+                {domainSaving ? "Adding..." : "Add domain"}
+              </button>
+            </div>
+            {domainLimit === 0 ? <p style={styles.helperText}>Upgrade to Pro or Business to use branded short links on customer domains.</p> : null}
+            {domainMessage ? <p style={styles.success}>{domainMessage}</p> : null}
+            {customDomains.length ? (
+              <div style={styles.domainList}>
+                {customDomains.map((domain) => (
+                  <div key={domain.hostname} style={styles.domainCard}>
+                    <div style={styles.planHeader}><strong style={styles.planName}>{domain.hostname}</strong><StatusPill label={domain.isPrimary ? `${domain.status} primary` : domain.status} tone={domain.status === "verified" ? "healthy" : "warning"} /></div>
+                    <div style={styles.dnsGrid}>
+                      <div><p style={styles.mutedLabel}>CNAME</p><p style={styles.codeLine}>{domain.hostname} to {cnameTarget}</p></div>
+                      <div><p style={styles.mutedLabel}>TXT</p><p style={styles.codeLine}>{domain.dns?.txtName}</p><p style={styles.codeLine}>{domain.dns?.txtValue}</p></div>
+                    </div>
+                    {domain.lastVerificationError ? <p style={styles.error}>{domain.lastVerificationError}</p> : null}
+                    <div style={styles.inlineActions}>
+                      <button style={styles.secondaryButton} onClick={() => verifyCustomDomain(domain.hostname)} disabled={domainVerifying === domain.hostname}>{domainVerifying === domain.hostname ? "Checking..." : "Verify"}</button>
+                      {domain.status === "verified" && !domain.isPrimary ? <button style={styles.secondaryButton} onClick={() => setPrimaryCustomDomain(domain.hostname)} disabled={domainVerifying === domain.hostname}>Make primary</button> : null}
+                      <button style={styles.secondaryButton} onClick={() => window.confirm("Remove this domain from the workspace?") && removeCustomDomain(domain.hostname)} disabled={domainVerifying === domain.hostname}>Remove</button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : <p style={styles.emptyState}>Add a customer subdomain, publish the DNS records, then verify it here.</p>}
+          </section>
+
+          <section id="billing-panel" style={{ ...styles.panelCard, ...modeStyles.panelCard }}>
+            <div style={styles.panelTitleRow}>
+              <div><p style={styles.sectionEyebrow}>Billing</p><h2 style={styles.panelTitle}>Active subscription</h2></div>
+              <button style={{ ...styles.secondaryButton, opacity: billingLoading ? 0.7 : 1, cursor: billingLoading ? "progress" : "pointer" }} onClick={() => refreshBillingSummary("Billing status refreshed.")} disabled={billingLoading}>
+                {billingLoading ? "Refreshing..." : "Refresh billing"}
+              </button>
+            </div>
+            <div style={styles.billingOverviewGrid}>
+              <div style={{ ...styles.subscriptionCard, ...modeStyles.subscriptionCard }}>
+                <div><p style={styles.mutedLabel}>Current subscription</p><h3 style={styles.subscriptionTitle}>{currentPlan.effectivePlanName}</h3></div>
+                <StatusPill label={formatLabel(currentPlan.billingStatus)} tone={getBillingTone(currentPlan.billingStatus)} />
+                <p style={styles.helperText}>{activeLinkCount}/{activeLinkLimit} active links used. {remainingLinkSlots} slots still available.</p>
+                <p style={styles.miniHelperText}>{currentPlan.currentPeriodEndsAt ? `Renews or ends ${formatDate(currentPlan.currentPeriodEndsAt)}` : "Free tier subscription"}</p>
+              </div>
+              <div style={styles.billingStatsGrid}>
+                <div style={styles.billingStatCard}><p style={styles.billingStatLabel}>Current plan</p><p style={styles.billingStatValue}>{currentPlan.effectivePlanName}</p></div>
+                <div style={styles.billingStatCard}><p style={styles.billingStatLabel}>Slots left</p><p style={styles.billingStatValue}>{remainingLinkSlots}</p></div>
+                <div style={styles.billingStatCard}><p style={styles.billingStatLabel}>Billing status</p><p style={styles.billingStatValueSmall}>{formatLabel(currentPlan.billingStatus)}</p></div>
+                <div style={styles.billingStatCard}><p style={styles.billingStatLabel}>Current period</p><p style={styles.billingStatValueSmall}>{currentPlan.currentPeriodEndsAt ? formatDate(currentPlan.currentPeriodEndsAt) : "Free tier"}</p></div>
+              </div>
+            </div>
+            <div style={styles.paymentCard}>
+              <div><p style={styles.mutedLabel}>Upgrade subscription</p><p style={styles.helperText}>Choose a paid plan to open Razorpay checkout.</p></div>
+              <div style={styles.compactPlanGrid}>
+                {publicPlans.filter((plan) => plan.id !== "free").map((plan) => {
+                  const isCurrentPlan = currentPlan.effectivePlanId === plan.id;
+                  const isCheckoutLoading = checkoutLoadingPlanId === plan.id;
+                  return (
+                    <div key={plan.id} style={{ ...styles.compactPlanCard, ...modeStyles.compactPlanCard }}>
+                      <div style={styles.planHeader}><strong style={styles.planName}>{plan.name}</strong><span style={styles.compactPlanPrice}>{formatPlanPrice(plan)}</span></div>
+                      <p style={styles.miniHelperText}>{plan.id === "enterprise" ? "Custom security, support, and scale." : `${plan.linkLimit} links and ${plan.domainLimit} branded ${plan.domainLimit === 1 ? "domain" : "domains"}.`}</p>
+                      <button style={isCurrentPlan || isCheckoutLoading ? { ...styles.secondaryButton, opacity: 0.65, cursor: "not-allowed" } : styles.primaryButton} onClick={() => startPlanCheckout(plan)} disabled={isCurrentPlan || Boolean(checkoutLoadingPlanId)}>
+                        {isCurrentPlan ? "Current plan" : isCheckoutLoading ? "Opening..." : plan.id === "enterprise" ? "Contact sales" : `Upgrade to ${plan.name}`}
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+            <div style={styles.billingDetailGrid}>
+              <div style={styles.paymentCard}>
+                <div style={styles.planHeader}><div><p style={styles.mutedLabel}>Usage</p><p style={styles.helperText}>Monthly quotas reset with your billing cycle.</p></div><StatusPill label={currentPlan.usagePeriodKey || "Current month"} tone="neutral" /></div>
+                <div style={styles.usageGrid}>{Object.values(currentPlan.usage || {}).map((metric) => <UsageBar key={metric.key} metric={metric} />)}</div>
+              </div>
+              <div style={styles.paymentCard}>
+                <div style={styles.planHeader}>
+                  <div><p style={styles.mutedLabel}>Invoices</p><p style={styles.helperText}>Recent Razorpay subscription and invoice events.</p></div>
+                  {currentPlan.effectivePlanId !== "free" ? <button style={{ ...styles.secondaryButton, opacity: billingLoading ? 0.65 : 1, cursor: billingLoading ? "not-allowed" : "pointer" }} onClick={cancelCurrentSubscription} disabled={billingLoading}>Cancel at renewal</button> : null}
+                </div>
+                <div style={styles.invoiceList}>
+                  {billingRecords.length ? billingRecords.slice(0, 5).map((record) => (
+                    <div key={record.id} style={styles.invoiceRow}>
+                      <div><strong style={styles.planName}>{record.planName}</strong><p style={styles.miniHelperText}>{formatLabel(record.status)} - {formatDate(record.createdAt)}</p></div>
+                      {record.invoiceUrl || record.paymentLinkUrl ? <a href={record.invoiceUrl || record.paymentLinkUrl} target="_blank" rel="noreferrer" style={styles.inlineLink}>Open</a> : <span style={styles.miniHelperText}>{formatPriceInInr(record.amountInPaise)}</span>}
+                    </div>
+                  )) : <p style={styles.helperText}>Invoices appear after your first subscription event.</p>}
+                </div>
+              </div>
+            </div>
+            {billingMessage ? <p style={styles.success}>{billingMessage}</p> : null}
+          </section>
+
+          {showDocsPanel ? (
+            <section id="docs-panel" style={{ ...styles.docsQuickPanel, ...modeStyles.docsQuickPanel }}>
+              <div style={styles.panelTitleRow}><div><p style={styles.sectionEyebrow}>Docs</p><h2 style={styles.panelTitle}>Quick operator guide</h2></div><button style={styles.secondaryButton} onClick={() => setShowDocsPanel(false)}>Hide</button></div>
+              <div style={styles.docsQuickList}>
+                {DOC_SECTIONS.slice(0, 3).map((section) => <div key={section.title} style={styles.docsQuickItem}><strong>{section.title}</strong><span>{section.body}</span></div>)}
+              </div>
+            </section>
+          ) : null}
+        </main>
       </div>
     </div>
   );
@@ -2688,9 +2368,9 @@ const lightModeStyles = {
     color: designTokens.colors.ink,
   },
   subscriptionCard: {
-    background: "#fff5ef",
-    border: "1px solid #ffd4c2",
-    borderLeft: `4px solid ${designTokens.colors.orange}`,
+    background: "#eef3ff",
+    border: "1px solid #c9d7fb",
+    borderLeft: `4px solid ${designTokens.colors.blue}`,
     color: designTokens.colors.ink,
   },
   metricCard: {
@@ -2731,7 +2411,7 @@ const styles = {
   page: {
     minHeight: "100vh",
     position: "relative",
-    overflowX: "hidden",
+    overflowX: "clip",
     background: "#f7f9fc",
     color: designTokens.colors.ink,
     padding: "20px 18px 44px",
@@ -3048,7 +2728,7 @@ const styles = {
     border: "none",
     borderRadius: 8,
     minHeight: 48,
-    background: designTokens.colors.orange,
+    background: designTokens.colors.blue,
     color: "#ffffff",
     fontWeight: 900,
     cursor: "pointer",
@@ -3184,12 +2864,13 @@ const styles = {
     display: "grid",
     gap: 8,
     padding: 18,
-    borderRadius: 22,
-    background: "rgba(7, 9, 20, 0.76)",
-    border: `1px solid ${designTokens.colors.border}`,
+    borderRadius: 14,
+    background: "var(--sl-surface)",
+    border: "1px solid var(--sl-surface-border)",
+    boxShadow: designTokens.shadows.panel,
   },
   metricStripValue: {
-    color: designTokens.colors.white,
+    color: "var(--sl-heading)",
     fontSize: "1.8rem",
     lineHeight: 1,
     letterSpacing: "-0.05em",
@@ -3203,20 +2884,19 @@ const styles = {
     display: "grid",
     gap: 12,
     padding: 20,
-    borderRadius: 26,
+    borderRadius: 16,
     minHeight: 190,
-    background:
-      "linear-gradient(145deg, rgba(12, 15, 31, 0.82), rgba(3, 4, 10, 0.72))",
-    border: `1px solid ${designTokens.colors.border}`,
-    boxShadow: "inset 0 1px 0 rgba(255, 255, 255, 0.05)",
+    background: "var(--sl-surface)",
+    border: "1px solid var(--sl-surface-border)",
+    boxShadow: designTokens.shadows.panel,
   },
   signalBadge: {
     width: "fit-content",
     padding: "7px 10px",
     borderRadius: 999,
-    background: "rgba(76, 85, 255, 0.14)",
-    color: designTokens.colors.ice,
-    border: "1px solid rgba(76, 85, 255, 0.28)",
+    background: "rgba(42, 91, 215, 0.10)",
+    color: designTokens.colors.blue,
+    border: "1px solid rgba(42, 91, 215, 0.22)",
     fontSize: 11,
     fontWeight: 900,
     letterSpacing: "0.08em",
@@ -3224,7 +2904,7 @@ const styles = {
   },
   showcaseTitle: {
     margin: 0,
-    color: designTokens.colors.white,
+    color: "var(--sl-heading)",
     fontSize: "1.25rem",
     letterSpacing: "-0.035em",
   },
@@ -3232,10 +2912,9 @@ const styles = {
     display: "grid",
     gap: 18,
     padding: 22,
-    borderRadius: 28,
-    background:
-      "linear-gradient(135deg, rgba(76, 85, 255, 0.18), rgba(6, 8, 18, 0.86))",
-    border: `1px solid ${designTokens.colors.borderBright}`,
+    borderRadius: 16,
+    background: "linear-gradient(135deg, #eef3ff, #ffffff)",
+    border: "1px solid rgba(42, 91, 215, 0.24)",
     boxShadow: designTokens.shadows.panel,
   },
   chartPreview: {
@@ -3259,7 +2938,7 @@ const styles = {
     display: "grid",
     gap: 16,
     padding: 22,
-    borderRadius: 28,
+    borderRadius: 16,
     background: "rgba(5, 7, 16, 0.82)",
     border: `1px solid ${designTokens.colors.border}`,
   },
@@ -3410,6 +3089,9 @@ const styles = {
     gap: 10,
     alignItems: "center",
     flexWrap: "wrap",
+    flex: "1 1 460px",
+    justifyContent: "flex-end",
+    minWidth: 0,
   },
   navActionButton: {
     border: "1px solid transparent",
@@ -3426,6 +3108,49 @@ const styles = {
     display: "grid",
     gap: 20,
     alignItems: "start",
+  },
+  dashboardNavCard: {
+    display: "flex",
+    alignItems: "center",
+    gap: 6,
+    padding: 6,
+    borderRadius: 12,
+    overflowX: "auto",
+    position: "sticky",
+    top: 8,
+    zIndex: 6,
+    boxShadow: designTokens.shadows.panel,
+  },
+  dashboardNavItem: {
+    border: "none",
+    borderRadius: 8,
+    padding: "10px 14px",
+    background: "transparent",
+    color: designTokens.colors.blue,
+    fontSize: 14,
+    fontWeight: 850,
+    whiteSpace: "nowrap",
+    cursor: "pointer",
+  },
+  builderFormGrid: {
+    display: "grid",
+    gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
+    gap: 14,
+  },
+  analyticsDetailGrid: {
+    display: "grid",
+    gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))",
+    gap: 18,
+  },
+  billingOverviewGrid: {
+    display: "grid",
+    gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))",
+    gap: 14,
+  },
+  billingDetailGrid: {
+    display: "grid",
+    gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))",
+    gap: 14,
   },
   commandStrip: {
     display: "grid",
@@ -3571,10 +3296,10 @@ const styles = {
     fontSize: 15,
     fontWeight: 900,
     letterSpacing: 0,
-    background: designTokens.colors.orange,
+    background: designTokens.colors.blue,
     color: "#ffffff",
     cursor: "pointer",
-    boxShadow: "0 12px 24px rgba(255, 91, 34, 0.22)",
+    boxShadow: "0 12px 24px rgba(42, 91, 215, 0.22)",
     transition: "transform 180ms ease, box-shadow 180ms ease, filter 180ms ease",
   },
   secondaryButton: {
@@ -3600,11 +3325,11 @@ const styles = {
   },
   error: {
     margin: 0,
-    color: "#fca5a5",
+    color: "#b42318",
   },
   success: {
     margin: 0,
-    color: "#86efac",
+    color: designTokens.colors.success,
   },
   helperText: {
     margin: 0,
@@ -3650,12 +3375,12 @@ const styles = {
     gap: 12,
     padding: 16,
     borderRadius: 18,
-    background: "rgba(2, 6, 23, 0.52)",
-    border: "1px solid rgba(45, 212, 191, 0.18)",
+    background: "var(--sl-surface-soft)",
+    border: "1px solid var(--sl-surface-border)",
   },
   consentIntro: {
     margin: 0,
-    color: "#cbd5e1",
+    color: "var(--sl-content)",
     fontSize: 13,
     lineHeight: 1.6,
   },
@@ -3664,7 +3389,7 @@ const styles = {
     gridTemplateColumns: "20px minmax(0, 1fr)",
     gap: 10,
     alignItems: "start",
-    color: "#e2e8f0",
+    color: "var(--sl-content)",
     fontSize: 13,
     lineHeight: 1.5,
     cursor: "pointer",
@@ -3681,9 +3406,8 @@ const styles = {
     gap: 14,
   },
   metricCard: {
-    background:
-      "linear-gradient(145deg, rgba(12, 15, 31, 0.86), rgba(4, 6, 14, 0.78))",
-    border: `1px solid ${designTokens.colors.border}`,
+    background: "var(--sl-surface)",
+    border: "1px solid var(--sl-surface-border)",
     borderRadius: 22,
     padding: 18,
     boxShadow: "inset 0 1px 0 rgba(255, 255, 255, 0.05)",
@@ -3701,7 +3425,7 @@ const styles = {
     fontSize: "2.2rem",
     fontWeight: 900,
     lineHeight: 1,
-    color: designTokens.colors.white,
+    color: "var(--sl-heading)",
   },
   metricValueSmall: {
     margin: "12px 0 0",
@@ -3718,8 +3442,8 @@ const styles = {
     gap: 18,
     padding: 20,
     borderRadius: 22,
-    background: "rgba(3, 4, 10, 0.68)",
-    border: `1px solid ${designTokens.colors.border}`,
+    background: "var(--sl-surface-soft)",
+    border: "1px solid var(--sl-surface-border)",
   },
   resultTopRow: {
     display: "flex",
@@ -3769,7 +3493,7 @@ const styles = {
   },
   qrDescription: {
     margin: "0 0 14px",
-    color: "#cbd5e1",
+    color: "var(--sl-content)",
     lineHeight: 1.6,
   },
   linkList: {
@@ -3777,9 +3501,9 @@ const styles = {
     gap: 10,
   },
   linkListItem: {
-    border: `1px solid ${designTokens.colors.border}`,
+    border: "1px solid var(--sl-surface-border)",
     borderRadius: 18,
-    background: "rgba(3, 4, 10, 0.62)",
+    background: "var(--sl-surface-soft)",
     color: designTokens.colors.ink,
     padding: 16,
     textAlign: "left",
@@ -3787,9 +3511,9 @@ const styles = {
     transition: "transform 180ms ease, border-color 180ms ease, background 180ms ease",
   },
   linkListItemActive: {
-    border: `1px solid ${designTokens.colors.borderBright}`,
+    border: `1px solid ${designTokens.colors.blue}`,
     borderRadius: 18,
-    background: "linear-gradient(135deg, rgba(76, 85, 255, 0.22), rgba(3, 4, 10, 0.82))",
+    background: "var(--sl-surface-accent)",
     color: designTokens.colors.ink,
     padding: 16,
     textAlign: "left",
@@ -3810,7 +3534,7 @@ const styles = {
   },
   linkOriginal: {
     margin: "10px 0",
-    color: "#cbd5e1",
+    color: "var(--sl-content)",
     lineHeight: 1.55,
     wordBreak: "break-word",
   },
@@ -3818,14 +3542,13 @@ const styles = {
     display: "flex",
     justifyContent: "space-between",
     gap: 12,
-    color: "#94a3b8",
+    color: "var(--sl-muted-content)",
     fontSize: 12,
     flexWrap: "wrap",
   },
   panelCard: {
-    background:
-      "linear-gradient(150deg, rgba(12, 15, 31, 0.82), rgba(4, 6, 14, 0.76))",
-    border: `1px solid ${designTokens.colors.border}`,
+    background: "var(--sl-surface)",
+    border: "1px solid var(--sl-surface-border)",
     borderRadius: 26,
     padding: 20,
     display: "grid",
@@ -3837,9 +3560,8 @@ const styles = {
     gap: 14,
     padding: 18,
     borderRadius: 22,
-    background:
-      "linear-gradient(150deg, rgba(6, 78, 59, 0.24), rgba(8, 13, 22, 0.76))",
-    border: `1px solid ${designTokens.colors.border}`,
+    background: "var(--sl-surface)",
+    border: "1px solid var(--sl-surface-border)",
   },
   docsQuickList: {
     display: "grid",
@@ -3850,8 +3572,8 @@ const styles = {
     gap: 5,
     padding: 12,
     borderRadius: 14,
-    background: "rgba(255, 255, 255, 0.045)",
-    border: "1px solid rgba(148, 163, 184, 0.12)",
+    background: "var(--sl-surface-soft)",
+    border: "1px solid var(--sl-surface-border)",
     color: designTokens.colors.text,
     fontSize: 13,
     lineHeight: 1.45,
@@ -3861,13 +3583,12 @@ const styles = {
     gap: 10,
     padding: 16,
     borderRadius: 18,
-    background:
-      "linear-gradient(145deg, rgba(37, 99, 235, 0.16), rgba(16, 185, 129, 0.08))",
-    border: `1px solid ${designTokens.colors.border}`,
+    background: "var(--sl-surface-accent)",
+    border: "1px solid var(--sl-surface-border)",
   },
   subscriptionTitle: {
     margin: 0,
-    color: designTokens.colors.white,
+    color: "var(--sl-heading)",
     fontSize: "1.65rem",
     lineHeight: 1,
     fontWeight: 950,
@@ -3880,8 +3601,8 @@ const styles = {
   billingStatCard: {
     padding: 16,
     borderRadius: 18,
-    background: "rgba(3, 4, 10, 0.58)",
-    border: `1px solid ${designTokens.colors.border}`,
+    background: "var(--sl-surface-soft)",
+    border: "1px solid var(--sl-surface-border)",
   },
   billingStatLabel: {
     margin: 0,
@@ -3915,20 +3636,17 @@ const styles = {
     gap: 14,
     padding: 18,
     borderRadius: 24,
-    background:
-      "linear-gradient(150deg, rgba(10, 13, 28, 0.82), rgba(3, 4, 10, 0.74))",
-    border: `1px solid ${designTokens.colors.border}`,
-    boxShadow: "inset 0 1px 0 rgba(255, 255, 255, 0.05)",
+    background: "var(--sl-surface)",
+    border: "1px solid var(--sl-surface-border)",
+    boxShadow: designTokens.shadows.panel,
   },
   compactPlanCard: {
     display: "grid",
     gap: 10,
     padding: 14,
     borderRadius: 18,
-    background:
-      "linear-gradient(150deg, rgba(10, 13, 28, 0.80), rgba(3, 4, 10, 0.70))",
-    border: `1px solid ${designTokens.colors.border}`,
-    boxShadow: "inset 0 1px 0 rgba(255, 255, 255, 0.05)",
+    background: "var(--sl-surface-soft)",
+    border: "1px solid var(--sl-surface-border)",
   },
   planCardFeatured: {
     border: `1px solid ${designTokens.colors.borderBright}`,
@@ -3949,14 +3667,14 @@ const styles = {
     fontSize: "1.7rem",
     fontWeight: 900,
     lineHeight: 1,
-    color: designTokens.colors.white,
+    color: "var(--sl-heading)",
   },
   compactPlanPrice: {
     margin: 0,
     fontSize: "1.25rem",
     fontWeight: 900,
     lineHeight: 1.1,
-    color: designTokens.colors.white,
+    color: "var(--sl-heading)",
   },
   planFeatureList: {
     display: "grid",
@@ -3972,8 +3690,8 @@ const styles = {
     gap: 8,
     padding: 16,
     borderRadius: 18,
-    background: "rgba(3, 4, 10, 0.58)",
-    border: `1px solid ${designTokens.colors.border}`,
+    background: "var(--sl-surface-soft)",
+    border: "1px solid var(--sl-surface-border)",
   },
   usageGrid: {
     display: "grid",
@@ -4022,11 +3740,11 @@ const styles = {
     alignItems: "center",
     padding: 12,
     borderRadius: 14,
-    background: "rgba(255, 255, 255, 0.04)",
-    border: `1px solid ${designTokens.colors.border}`,
+    background: "var(--sl-surface)",
+    border: "1px solid var(--sl-surface-border)",
   },
   inlineLink: {
-    color: designTokens.colors.ice,
+    color: designTokens.colors.blue,
     fontSize: 13,
     fontWeight: 800,
     textDecoration: "none",
@@ -4040,8 +3758,8 @@ const styles = {
     gap: 12,
     padding: 16,
     borderRadius: 18,
-    background: "rgba(3, 4, 10, 0.58)",
-    border: `1px solid ${designTokens.colors.border}`,
+    background: "var(--sl-surface-soft)",
+    border: "1px solid var(--sl-surface-border)",
   },
   dnsGrid: {
     display: "grid",
@@ -4070,20 +3788,20 @@ const styles = {
     flexWrap: "wrap",
     padding: 16,
     borderRadius: 18,
-    background: "rgba(3, 4, 10, 0.58)",
-    border: `1px solid ${designTokens.colors.border}`,
+    background: "var(--sl-surface-soft)",
+    border: "1px solid var(--sl-surface-border)",
   },
   routeLabel: {
     margin: "0 0 6px",
     fontSize: 13,
     fontWeight: 800,
-    color: "#e2e8f0",
+    color: "var(--sl-heading)",
     letterSpacing: "0.03em",
     textTransform: "uppercase",
   },
   routeUrl: {
     margin: 0,
-    color: "#cbd5e1",
+    color: "var(--sl-content)",
     wordBreak: "break-all",
   },
   routeMeta: {
@@ -4093,7 +3811,7 @@ const styles = {
   },
   routeTime: {
     fontSize: 12,
-    color: "#94a3b8",
+    color: "var(--sl-muted-content)",
   },
   deviceBar: {
     display: "grid",
@@ -4109,12 +3827,12 @@ const styles = {
     textTransform: "capitalize",
   },
   deviceBarCount: {
-    color: "#cbd5e1",
+    color: "var(--sl-content)",
   },
   deviceBarTrack: {
     height: 10,
     borderRadius: 999,
-    background: "rgba(255, 255, 255, 0.07)",
+    background: "rgba(100, 116, 139, 0.18)",
     overflow: "hidden",
   },
   deviceBarFill: {
@@ -4130,8 +3848,8 @@ const styles = {
   eventCard: {
     padding: 16,
     borderRadius: 18,
-    background: "rgba(3, 4, 10, 0.58)",
-    border: `1px solid ${designTokens.colors.border}`,
+    background: "var(--sl-surface-soft)",
+    border: "1px solid var(--sl-surface-border)",
   },
   eventTopRow: {
     display: "flex",
@@ -4145,16 +3863,16 @@ const styles = {
   },
   eventMeta: {
     margin: "8px 0 6px",
-    color: "#cbd5e1",
+    color: "var(--sl-content)",
   },
   eventTarget: {
     margin: "0 0 6px",
-    color: "#7dd3fc",
+    color: designTokens.colors.blue,
     wordBreak: "break-all",
   },
   eventReferrer: {
     margin: 0,
-    color: "#94a3b8",
+    color: "var(--sl-muted-content)",
     wordBreak: "break-word",
   },
   emptyState: {

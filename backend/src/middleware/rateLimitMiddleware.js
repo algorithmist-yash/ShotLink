@@ -1,21 +1,32 @@
-const buckets = new Map();
+const crypto = require("node:crypto");
 
-function getHeader(req, name) {
-  if (typeof req.get === "function") {
-    return req.get(name);
-  }
+const RateLimitBucket = require("../models/RateLimitBucket");
+const { extractClientIp } = require("../utils/deviceInfo");
 
-  return req.headers?.[name.toLowerCase()];
+function buildBucketId(keyPrefix, clientIp, windowStartedAt) {
+  const salt = process.env.IP_HASH_SALT || "local-development-salt";
+
+  return crypto
+    .createHash("sha256")
+    .update(`${salt}:${keyPrefix}:${clientIp || "unknown"}:${windowStartedAt}`)
+    .digest("hex");
 }
 
-function getClientKey(req, keyPrefix) {
-  const forwardedFor = String(getHeader(req, "x-forwarded-for") || "")
-    .split(",")
-    .map((item) => item.trim())
-    .filter(Boolean);
-  const ip = req.ip || forwardedFor[0] || req.socket?.remoteAddress || "unknown";
+async function consumeRateLimit({ bucketId, expiresAt }) {
+  const bucket = await RateLimitBucket.findOneAndUpdate(
+    { _id: bucketId },
+    {
+      $inc: { count: 1 },
+      $setOnInsert: { expiresAt },
+    },
+    {
+      new: true,
+      setDefaultsOnInsert: false,
+      upsert: true,
+    }
+  );
 
-  return `${keyPrefix}:${ip}`;
+  return Number(bucket.count);
 }
 
 function setResponseHeader(res, name, value) {
@@ -29,37 +40,55 @@ function setResponseHeader(res, name, value) {
   }
 }
 
-function createRateLimiter({ windowMs, max, keyPrefix = "global" }) {
-  return (req, res, next) => {
-    const now = Date.now();
-    const key = getClientKey(req, keyPrefix);
-    const currentBucket = buckets.get(key) || [];
-    const freshHits = currentBucket.filter((timestamp) => now - timestamp < windowMs);
-    const resetAt = freshHits[0] ? freshHits[0] + windowMs : now + windowMs;
+function createRateLimiter({
+  windowMs,
+  max,
+  keyPrefix = "global",
+  consume = consumeRateLimit,
+  clock = Date.now,
+}) {
+  return async (req, res, next) => {
+    const now = clock();
+    const windowStartedAt = Math.floor(now / windowMs) * windowMs;
+    const resetAt = windowStartedAt + windowMs;
+    const bucketId = buildBucketId(
+      keyPrefix,
+      extractClientIp(req),
+      windowStartedAt
+    );
 
-    setResponseHeader(res, "RateLimit-Limit", String(max));
-    setResponseHeader(res, "RateLimit-Remaining", String(Math.max(max - freshHits.length, 0)));
-    setResponseHeader(res, "RateLimit-Reset", String(Math.ceil(resetAt / 1000)));
+    try {
+      const count = await consume({
+        bucketId,
+        expiresAt: new Date(resetAt + windowMs),
+      });
+      if (!Number.isFinite(count) || count < 1) {
+        throw new Error("Rate limit store returned an invalid count");
+      }
+      const remaining = Math.max(max - count, 0);
 
-    if (freshHits.length >= max) {
-      buckets.set(key, freshHits);
-      return res.status(429).json({
-        error: "Too many requests. Please wait a moment and try again.",
+      setResponseHeader(res, "RateLimit-Limit", String(max));
+      setResponseHeader(res, "RateLimit-Remaining", String(remaining));
+      setResponseHeader(res, "RateLimit-Reset", String(Math.ceil(resetAt / 1000)));
+
+      if (count > max) {
+        setResponseHeader(
+          res,
+          "Retry-After",
+          String(Math.max(Math.ceil((resetAt - now) / 1000), 1))
+        );
+        return res.status(429).json({
+          error: "Too many requests. Please wait a moment and try again.",
+        });
+      }
+
+      return next();
+    } catch (error) {
+      console.error("Rate limit store failed:", error.message);
+      return res.status(503).json({
+        error: "Request protection is temporarily unavailable. Please try again shortly.",
       });
     }
-
-    freshHits.push(now);
-    buckets.set(key, freshHits);
-
-    if (buckets.size > 10000) {
-      for (const [bucketKey, timestamps] of buckets.entries()) {
-        if (!timestamps.some((timestamp) => now - timestamp < windowMs)) {
-          buckets.delete(bucketKey);
-        }
-      }
-    }
-
-    return next();
   };
 }
 
@@ -77,6 +106,8 @@ const writeRateLimit = createRateLimiter({
 
 module.exports = {
   authRateLimit,
+  buildBucketId,
+  consumeRateLimit,
   createRateLimiter,
   writeRateLimit,
 };
