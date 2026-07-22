@@ -15,6 +15,7 @@ const {
   serializeBillingSnapshot,
 } = require("../config/billingPlans");
 const { getRazorpayBasicAuthHeader, verifyRazorpayWebhookSignature } = require("../utils/razorpayUtils");
+const { recordAuditEvent } = require("../services/auditLogService");
 
 const BLOCKING_BILLING_STATUSES = ["pending", "active", "past_due"];
 const REUSABLE_CHECKOUT_STATUSES = ["created"];
@@ -272,6 +273,13 @@ exports.createPaymentLink = async (req, res) => {
     record.status = data.status === "paid" ? "paid" : "created";
     await record.save();
 
+    await recordAuditEvent(req, {
+      action: "billing.payment_link_created",
+      targetType: "billing_record",
+      targetId: record._id,
+      metadata: { planId: plan.id, referenceId },
+    });
+
     return res.status(201).json({
       paymentLinkUrl: record.paymentLinkUrl,
       paymentLinkId: record.paymentLinkId,
@@ -327,7 +335,7 @@ exports.createSubscription = async (req, res) => {
           "billing.subscriptionCreationStartedAt": creationStartedAt,
         },
       },
-      { new: true, runValidators: true }
+      { returnDocument: "after", runValidators: true }
     );
 
     if (!claimedWorkspace) {
@@ -337,6 +345,12 @@ exports.createSubscription = async (req, res) => {
         : null;
 
       if (isReusableSubscriptionCheckout(existingRecord, plan.id)) {
+        await recordAuditEvent(req, {
+          action: "billing.subscription_checkout_reused",
+          targetType: "billing_record",
+          targetId: existingRecord._id,
+          metadata: { planId: plan.id, referenceId: existingRecord.referenceId },
+        });
         return res
           .status(200)
           .json(buildSubscriptionCheckoutResponse(existingRecord, plan, true));
@@ -435,6 +449,13 @@ exports.createSubscription = async (req, res) => {
       throw new Error("Subscription creation claim was lost before persistence");
     }
 
+    await recordAuditEvent(req, {
+      action: "billing.subscription_created",
+      targetType: "billing_record",
+      targetId: record._id,
+      metadata: { planId: plan.id, referenceId },
+    });
+
     return res
       .status(201)
       .json(buildSubscriptionCheckoutResponse(record, plan));
@@ -512,6 +533,12 @@ exports.cancelSubscription = async (req, res) => {
         },
       }
     );
+
+    await recordAuditEvent(req, {
+      action: "billing.subscription_cancel_requested",
+      targetType: "subscription",
+      targetId: subscriptionId,
+    });
 
     return res.json({
       message: "Subscription cancellation scheduled for the end of the current billing cycle",

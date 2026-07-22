@@ -20,7 +20,14 @@ const {
   verifyPassword,
 } = require("../utils/authUtils");
 const { slugifyWorkspaceName } = require("../utils/slugUtils");
+const { recordAuditEvent } = require("../services/auditLogService");
 const { getDefaultCnameTarget, getTxtRecordName } = require("../utils/domainUtils");
+const {
+  clearSessionCookie,
+  deriveCsrfToken,
+  getSessionCookieToken,
+  setSessionCookie,
+} = require("../utils/sessionCookieUtils");
 
 async function generateWorkspaceSlug(name) {
   const baseSlug = slugifyWorkspaceName(name);
@@ -33,7 +40,12 @@ async function generateWorkspaceSlug(name) {
   return slug;
 }
 
-async function issueSession(req, user, workspace) {
+async function issueSession(req, res, user, workspace) {
+  const previousToken = getSessionCookieToken(req);
+  if (previousToken) {
+    await Session.deleteOne({ tokenHash: hashSessionToken(previousToken) });
+  }
+
   const token = generateSessionToken();
   const expiresAt = new Date(Date.now() + SESSION_TTL_DAYS * 24 * 60 * 60 * 1000);
 
@@ -46,7 +58,9 @@ async function issueSession(req, user, workspace) {
     expiresAt,
   });
 
-  return { token, expiresAt };
+  setSessionCookie(res, token, expiresAt);
+
+  return { token, expiresAt, csrfToken: deriveCsrfToken(token) };
 }
 
 function serializeAuthPayload(user, workspace, sessionDetails) {
@@ -97,8 +111,11 @@ function serializeAuthPayload(user, workspace, sessionDetails) {
   };
 
   if (sessionDetails) {
-    response.token = sessionDetails.token;
-    response.sessionExpiresAt = sessionDetails.expiresAt;
+    if (sessionDetails.token) response.token = sessionDetails.token;
+    if (sessionDetails.expiresAt) {
+      response.sessionExpiresAt = sessionDetails.expiresAt;
+    }
+    if (sessionDetails.csrfToken) response.csrfToken = sessionDetails.csrfToken;
   }
 
   return response;
@@ -158,7 +175,16 @@ exports.register = async (req, res) => {
     user.defaultWorkspaceId = workspace._id;
     await user.save();
 
-    const sessionDetails = await issueSession(req, user, workspace);
+    const sessionDetails = await issueSession(req, res, user, workspace);
+
+    await recordAuditEvent(req, {
+      action: "account.registered",
+      targetType: "user",
+      targetId: user._id,
+      workspaceId: workspace._id,
+      actorUserId: user._id,
+      metadata: { emailDomain: email.split("@")[1] || "" },
+    });
 
     return res.status(201).json(serializeAuthPayload(user, workspace, sessionDetails));
   } catch (error) {
@@ -193,7 +219,15 @@ exports.login = async (req, res) => {
     user.lastLoginAt = new Date();
     await user.save();
 
-    const sessionDetails = await issueSession(req, user, workspace);
+    const sessionDetails = await issueSession(req, res, user, workspace);
+
+    await recordAuditEvent(req, {
+      action: "session.login",
+      targetType: "user",
+      targetId: user._id,
+      workspaceId: workspace._id,
+      actorUserId: user._id,
+    });
 
     return res.json(serializeAuthPayload(user, workspace, sessionDetails));
   } catch (error) {
@@ -203,14 +237,26 @@ exports.login = async (req, res) => {
 };
 
 exports.getCurrentSession = async (req, res) => {
-  return res.json(serializeAuthPayload(req.auth.user, req.auth.workspace));
+  return res.json(
+    serializeAuthPayload(req.auth.user, req.auth.workspace, {
+      csrfToken: req.auth.csrfToken,
+      expiresAt: req.auth.session.expiresAt,
+    })
+  );
 };
 
 exports.logout = async (req, res) => {
   try {
+    await recordAuditEvent(req, {
+      action: "session.logout",
+      targetType: "session",
+      targetId: req.auth.session._id,
+    });
     await Session.deleteOne({ _id: req.auth.session._id });
+    clearSessionCookie(res);
     return res.json({ message: "Logged out" });
   } catch (error) {
+    clearSessionCookie(res);
     console.error(error);
     return res.status(500).json({ error: "Server error" });
   }

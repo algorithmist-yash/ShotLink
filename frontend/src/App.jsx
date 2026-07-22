@@ -1,20 +1,29 @@
 import { useCallback, useEffect, useState } from "react";
 import { QRCodeCanvas } from "qrcode.react";
+import { apiFetch } from "./apiClient";
+import { BrandLogo } from "./components/BrandLogo";
+import { ConsentCheckbox, FeedbackMessage } from "./components/FormFeedback";
+import { DeviceBar, UsageBar } from "./components/MetricBars";
+import { StatusPill } from "./components/StatusPill";
+import { usePublicPage } from "./hooks/usePublicPage";
+import { useResponsiveLayout } from "./hooks/useResponsiveLayout";
+import {
+  formatDate,
+  formatLabel,
+  formatPlanPrice,
+  formatPriceInInr,
+} from "./utils/formatters";
+import { darkModeStyles, lightModeStyles, styles } from "./styles";
 
-const API_BASE = (import.meta.env.VITE_API_BASE_URL || "").replace(
-  /\/$/,
-  ""
-);
-const STORAGE_KEY = "url-shortener-session-token";
+const LEGACY_SESSION_STORAGE_KEY = "url-shortener-session-token";
 const ACCOUNT_POLICY_VERSION = "2026-05-19";
 const LINK_POLICY_VERSION = "2026-05-19";
-const BRAND_SYMBOL_SRC = "/shotlink-symbol.png";
 
 const PUBLIC_NAV_ITEMS = [
-  { id: "home", label: "Platform", href: "#" },
-  { id: "pricing", label: "Pricing", href: "#pricing" },
-  { id: "docs", label: "Resources", href: "#docs" },
-  { id: "legal", label: "Trust", href: "#legal" },
+  { id: "home", label: "Platform", href: "/" },
+  { id: "pricing", label: "Pricing", href: "/pricing" },
+  { id: "docs", label: "Resources", href: "/docs" },
+  { id: "legal", label: "Trust", href: "/trust" },
 ];
 
 const DASHBOARD_NAV_ITEMS = [
@@ -243,185 +252,7 @@ const DEFAULT_PUBLIC_PLANS = [
   },
 ];
 
-function formatPriceInInr(amountInPaise) {
-  return new Intl.NumberFormat("en-IN", {
-    style: "currency",
-    currency: "INR",
-    maximumFractionDigits: 0,
-  }).format(amountInPaise / 100);
-}
-
-function formatPlanPrice(plan) {
-  if (plan?.id === "enterprise") return "Custom";
-  if (!plan?.priceInPaise) return "Free";
-
-  const suffix =
-    plan.intervalMonths === 1
-      ? "/month"
-      : plan.intervalMonths
-        ? `/${plan.intervalMonths} months`
-        : "";
-
-  return `${formatPriceInInr(plan.priceInPaise)}${suffix}`;
-}
-
-function formatUsageNumber(value) {
-  return new Intl.NumberFormat("en-IN", {
-    maximumFractionDigits: 0,
-  }).format(Number(value) || 0);
-}
-
-function getUsageLabel(key) {
-  const labels = {
-    links: "Links",
-    clicks: "Clicks",
-    domains: "Domains",
-    teamMembers: "Team members",
-    apiRequests: "API requests",
-    qrCodes: "QR codes",
-  };
-
-  return labels[key] || formatLabel(key);
-}
-
-function formatLabel(value) {
-  return String(value || "")
-    .split(/[_-\s]+/)
-    .filter(Boolean)
-    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
-    .join(" ");
-}
-
-function formatDate(value) {
-  if (!value) return "Not available yet";
-
-  return new Date(value).toLocaleString(undefined, {
-    dateStyle: "medium",
-    timeStyle: "short",
-  });
-}
-
-function StatusPill({ label, tone = "neutral" }) {
-  const tones = {
-    healthy: { background: "rgba(16, 185, 129, 0.16)", color: "#bbf7d0" },
-    warning: { background: "rgba(245, 158, 11, 0.18)", color: "#fde68a" },
-    danger: { background: "rgba(239, 68, 68, 0.16)", color: "#fecaca" },
-    neutral: { background: "rgba(255, 255, 255, 0.08)", color: "#f8fafc" },
-    accent: { background: "rgba(37, 99, 235, 0.18)", color: "#dbeafe" },
-  };
-
-  const palette = tones[tone] || tones.neutral;
-
-  return (
-    <span
-      className="sl-status-pill"
-      data-tone={tone}
-      style={{
-        display: "inline-flex",
-        alignItems: "center",
-        padding: "6px 12px",
-        borderRadius: 999,
-        fontSize: 12,
-        fontWeight: 700,
-        letterSpacing: "0.04em",
-        textTransform: "uppercase",
-        background: palette.background,
-        color: palette.color,
-      }}
-    >
-      {label}
-    </span>
-  );
-}
-
-function DeviceBar({ item, total }) {
-  const width = total ? `${Math.round((item.count / total) * 100)}%` : "0%";
-
-  return (
-    <div style={styles.deviceBar}>
-      <div style={styles.deviceBarHeader}>
-        <span style={styles.deviceBarLabel}>{item.deviceType}</span>
-        <span style={styles.deviceBarCount}>{item.count}</span>
-      </div>
-      <div style={styles.deviceBarTrack}>
-        <div style={{ ...styles.deviceBarFill, width }} />
-      </div>
-    </div>
-  );
-}
-
-function UsageBar({ metric }) {
-  if (!metric) return null;
-
-  return (
-    <div style={styles.usageBar}>
-      <div style={styles.usageBarHeader}>
-        <span style={styles.usageBarLabel}>{getUsageLabel(metric.key)}</span>
-        <span style={styles.usageBarCount}>
-          {formatUsageNumber(metric.used)} / {formatUsageNumber(metric.limit)}
-        </span>
-      </div>
-      <div style={styles.usageBarTrack}>
-        <div
-          style={{
-            ...styles.usageBarFill,
-            width: `${metric.percentUsed || 0}%`,
-            background:
-            metric.percentUsed >= 90
-                ? designTokens.colors.danger
-                : metric.percentUsed >= 70
-                  ? designTokens.colors.yellow
-                  : designTokens.colors.blue,
-          }}
-        />
-      </div>
-      <p style={styles.miniHelperText}>{formatUsageNumber(metric.remaining)} remaining</p>
-    </div>
-  );
-}
-
-function ConsentCheckbox({ checked, onChange, children }) {
-  return (
-    <label className="sl-checkbox-row" style={styles.checkboxRow}>
-      <input
-        type="checkbox"
-        checked={checked}
-        onChange={(event) => onChange(event.target.checked)}
-        style={styles.checkboxInput}
-      />
-      <span>{children}</span>
-    </label>
-  );
-}
-
-function BrandLogo({ compact = false, style }) {
-  if (!compact) {
-    return (
-      <span className="sl-brand-lockup" aria-label="Shotlink" style={style}>
-        <img src={BRAND_SYMBOL_SRC} alt="" aria-hidden="true" />
-        <span className="sl-brand-wordmark">
-          shotlink<span>.in</span>
-        </span>
-      </span>
-    );
-  }
-
-  return (
-    <img
-      src={BRAND_SYMBOL_SRC}
-      alt="Shotlink"
-      style={{
-        display: "block",
-        objectFit: "contain",
-        width: 58,
-        height: 58,
-        ...style,
-      }}
-    />
-  );
-}
-
-function ShortenerPreview() {
+function ShortenerPreview({ onStart }) {
   return (
     <div className="sl-lift" style={styles.shortenerPreviewCard}>
       <div style={styles.previewHeader}>
@@ -441,12 +272,24 @@ function ShortenerPreview() {
             <strong>summer-sale</strong>
           </div>
         </label>
-        <button style={styles.previewButton}>Shorten URL</button>
+        <button
+          type="button"
+          className="sl-action"
+          style={styles.previewButton}
+          onClick={onStart}
+        >
+          Shorten URL
+        </button>
       </div>
 
       <div style={styles.previewResultGrid}>
         <div style={styles.previewQr}>
-          <QRCodeCanvas value="https://shot.link/summer-sale" size={92} includeMargin />
+          <QRCodeCanvas
+            value="https://shot.link/summer-sale"
+            size={92}
+            includeMargin
+            aria-label="QR code for the demo short link"
+          />
         </div>
         <div>
           <p style={styles.mutedLabel}>Ready to share</p>
@@ -461,12 +304,11 @@ function ShortenerPreview() {
     </div>
   );
 }
-
 function MiniTrafficChart() {
   const bars = [32, 52, 44, 78, 62, 91, 72, 96, 84, 104, 92, 116];
 
   return (
-    <div style={styles.chartPreview} aria-label="Traffic chart preview">
+    <div style={styles.chartPreview} role="img" aria-label="Traffic chart preview">
       {bars.map((height, index) => (
         <span
           key={`${height}-${index}`}
@@ -476,15 +318,6 @@ function MiniTrafficChart() {
       ))}
     </div>
   );
-}
-
-function getPublicPageFromHash() {
-  const pageId = String(window.location.hash || "")
-    .replace("#", "")
-    .trim()
-    .toLowerCase();
-
-  return PUBLIC_NAV_ITEMS.some((item) => item.id === pageId) ? pageId : "home";
 }
 
 function getHealthTone(status) {
@@ -523,11 +356,18 @@ function isUsableLink(link) {
   if (!link.expiresAt) return true;
   return new Date(link.expiresAt).getTime() > Date.now();
 }
+function toBrowserSession(data) {
+  return {
+    csrfToken: data.csrfToken || "",
+    sessionExpiresAt: data.sessionExpiresAt || null,
+    user: data.user,
+    workspace: data.workspace,
+  };
+}
 
-export default function App() {
+function App() {
   const [authMode, setAuthMode] = useState("register");
-  const [publicPage, setPublicPage] = useState(() => getPublicPageFromHash());
-  const [token, setToken] = useState(() => localStorage.getItem(STORAGE_KEY) || "");
+  const [publicPage, setPublicPage] = usePublicPage();
   const [session, setSession] = useState(null);
   const [authForm, setAuthForm] = useState({
     name: "",
@@ -536,7 +376,7 @@ export default function App() {
     workspaceName: "",
     consents: createDefaultConsents(),
   });
-  const [authLoading, setAuthLoading] = useState(Boolean(localStorage.getItem(STORAGE_KEY)));
+  const [authLoading, setAuthLoading] = useState(true);
   const [authSubmitting, setAuthSubmitting] = useState(false);
   const [workspaceLoading, setWorkspaceLoading] = useState(false);
   const [links, setLinks] = useState([]);
@@ -549,51 +389,54 @@ export default function App() {
   const [loading, setLoading] = useState(false);
   const [refreshingHealth, setRefreshingHealth] = useState(false);
   const [countdown, setCountdown] = useState("");
-  const [error, setError] = useState("");
+  const [authError, setAuthError] = useState("");
+  const [linkError, setLinkError] = useState("");
+  const [analyticsError, setAnalyticsError] = useState("");
   const [copied, setCopied] = useState("");
   const [publicPlans, setPublicPlans] = useState(DEFAULT_PUBLIC_PLANS);
   const [billingSummary, setBillingSummary] = useState(null);
   const [billingLoading, setBillingLoading] = useState(false);
   const [checkoutLoadingPlanId, setCheckoutLoadingPlanId] = useState("");
   const [billingMessage, setBillingMessage] = useState("");
+  const [billingError, setBillingError] = useState("");
   const [customDomainInput, setCustomDomainInput] = useState("");
   const [domainMessage, setDomainMessage] = useState("");
+  const [domainError, setDomainError] = useState("");
   const [domainSaving, setDomainSaving] = useState(false);
   const [domainVerifying, setDomainVerifying] = useState("");
   const [selectedDomainHost, setSelectedDomainHost] = useState("");
   const [linkComplianceAccepted, setLinkComplianceAccepted] = useState(false);
-  const [isMobile, setIsMobile] = useState(false);
+  const isMobile = useResponsiveLayout();
   const [colorMode, setColorMode] = useState(() => localStorage.getItem("shotlink-color-mode") || "light");
   const [showDocsPanel, setShowDocsPanel] = useState(false);
+  const isAuthenticated = Boolean(session);
 
   const clearSession = useCallback(() => {
-    localStorage.removeItem(STORAGE_KEY);
-    setToken("");
     setSession(null);
     setLinks([]);
     setSelectedShortCode("");
     setAnalytics(null);
     setBillingSummary(null);
     setBillingMessage("");
+    setBillingError("");
     setBillingLoading(false);
     setCheckoutLoadingPlanId("");
     setCustomDomainInput("");
     setDomainMessage("");
+    setDomainError("");
     setDomainSaving(false);
     setDomainVerifying("");
     setSelectedDomainHost("");
     setLinkComplianceAccepted(false);
+    setLinkError("");
+    setAnalyticsError("");
   }, []);
 
   const authorizedFetch = useCallback(
     async (path, options = {}) => {
-      const response = await fetch(`${API_BASE}${path}`, {
+      const response = await apiFetch(path, {
+        csrfToken: session?.csrfToken || "",
         ...options,
-        headers: {
-          "Content-Type": "application/json",
-          ...(options.headers || {}),
-          Authorization: `Bearer ${token}`,
-        },
       });
 
       if (response.status === 401) {
@@ -603,7 +446,7 @@ export default function App() {
 
       return response;
     },
-    [clearSession, token]
+    [clearSession, session?.csrfToken]
   );
 
   const fetchBillingSummary = useCallback(async () => {
@@ -653,33 +496,12 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    const updatePublicPage = () => setPublicPage(getPublicPageFromHash());
-    updatePublicPage();
-    window.addEventListener("hashchange", updatePublicPage);
-    return () => window.removeEventListener("hashchange", updatePublicPage);
-  }, []);
-
-  useEffect(() => {
-    document.title =
-      publicPage === "home"
-        ? "Shotlink | Branded short links and fallback routing"
-        : `Shotlink | ${formatLabel(publicPage)}`;
-  }, [publicPage]);
-
-  useEffect(() => {
     if (!session) return;
 
     window.scrollTo({ top: 0, left: 0, behavior: "auto" });
     const page = document.querySelector(".sl-page");
     if (page) page.scrollTop = 0;
   }, [session]);
-
-  useEffect(() => {
-    const updateLayout = () => setIsMobile(window.innerWidth < 1080);
-    updateLayout();
-    window.addEventListener("resize", updateLayout);
-    return () => window.removeEventListener("resize", updateLayout);
-  }, []);
 
   useEffect(() => {
     localStorage.setItem("shotlink-color-mode", colorMode);
@@ -691,7 +513,7 @@ export default function App() {
 
     const loadPublicPlans = async () => {
       try {
-        const response = await fetch(`${API_BASE}/api/v1/billing/plans`);
+        const response = await apiFetch("/api/v1/billing/plans");
         if (!response.ok) return;
 
         const data = await response.json();
@@ -762,23 +584,28 @@ export default function App() {
   }, [analytics, selectedShortCode]);
 
   useEffect(() => {
-    if (!token) {
-      setSession(null);
-      setAuthLoading(false);
-      return undefined;
-    }
-
     let cancelled = false;
 
     const loadSession = async () => {
       setAuthLoading(true);
 
       try {
-        const response = await fetch(`${API_BASE}/api/v1/auth/me`, {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        });
+        const legacyToken = localStorage.getItem(LEGACY_SESSION_STORAGE_KEY);
+        localStorage.removeItem(LEGACY_SESSION_STORAGE_KEY);
+
+        if (legacyToken) {
+          try {
+            await apiFetch("/api/v1/auth/logout", {
+              method: "POST",
+              headers: { Authorization: `Bearer ${legacyToken}` },
+            });
+          } catch {
+            // The token is already removed locally. A failed best-effort revoke
+            // must not prevent the browser from restoring a cookie session.
+          }
+        }
+
+        const response = await apiFetch("/api/v1/auth/me");
 
         if (!response.ok) {
           throw new Error("Session expired");
@@ -786,8 +613,8 @@ export default function App() {
 
         const data = await response.json();
         if (!cancelled) {
-          setSession(data);
-          setError("");
+          setSession(toBrowserSession(data));
+          setAuthError("");
         }
       } catch {
         if (!cancelled) {
@@ -805,10 +632,10 @@ export default function App() {
     return () => {
       cancelled = true;
     };
-  }, [clearSession, token]);
+  }, [clearSession]);
 
   useEffect(() => {
-    if (!session || !token) {
+    if (!isAuthenticated) {
       setLinks([]);
       setSelectedShortCode("");
       setAnalytics(null);
@@ -823,6 +650,10 @@ export default function App() {
       try {
         const response = await authorizedFetch("/api/v1/links");
         const data = await response.json();
+
+        if (!response.ok) {
+          throw new Error(data.error || "Could not load links");
+        }
 
         if (!cancelled) {
           const incomingLinks = data.links || [];
@@ -840,10 +671,11 @@ export default function App() {
 
             return firstActiveShortCode;
           });
+          setLinkError("");
         }
       } catch (requestError) {
         if (!cancelled) {
-          setError(requestError.message || "Could not load links");
+          setLinkError(requestError.message || "Could not load links");
         }
       } finally {
         if (!cancelled) {
@@ -857,7 +689,7 @@ export default function App() {
     return () => {
       cancelled = true;
     };
-  }, [authorizedFetch, session, token]);
+  }, [authorizedFetch, isAuthenticated]);
 
   useEffect(() => {
     if (!links.length) return;
@@ -876,8 +708,9 @@ export default function App() {
   }, [links, selectedShortCode]);
 
   useEffect(() => {
-    if (!selectedShortCode || !token) {
+    if (!selectedShortCode || !isAuthenticated) {
       setAnalytics(null);
+      setAnalyticsError("");
       return undefined;
     }
 
@@ -887,12 +720,17 @@ export default function App() {
       try {
         const response = await authorizedFetch(`/api/v1/links/${selectedShortCode}/analytics`);
         const data = await response.json();
+        if (!response.ok) {
+          throw new Error(data.error || "Could not load analytics");
+        }
+
         if (!cancelled) {
           setAnalytics(data);
+          setAnalyticsError("");
         }
       } catch (requestError) {
         if (!cancelled) {
-          setError(requestError.message || "Could not load analytics");
+          setAnalyticsError(requestError.message || "Could not load analytics");
         }
       }
     };
@@ -902,7 +740,7 @@ export default function App() {
     return () => {
       cancelled = true;
     };
-  }, [authorizedFetch, selectedShortCode, token]);
+  }, [authorizedFetch, isAuthenticated, selectedShortCode]);
 
   useEffect(() => {
     const verifiedDomains = (session?.workspace?.customDomains || []).filter(
@@ -920,7 +758,7 @@ export default function App() {
 
   const refreshBillingSummary = async (message = "") => {
     setBillingLoading(true);
-    setError("");
+    setBillingError("");
 
     try {
       const data = await fetchBillingSummary();
@@ -932,7 +770,7 @@ export default function App() {
 
       return data;
     } catch (requestError) {
-      setError(requestError.message || "Could not load billing");
+      setBillingError(requestError.message || "Could not load billing");
       return null;
     } finally {
       setBillingLoading(false);
@@ -941,6 +779,8 @@ export default function App() {
 
   const startPlanCheckout = async (plan) => {
     if (!plan) return;
+
+    setBillingError("");
 
     if (plan.id === "enterprise") {
       const supportEmail = billingSummary?.supportEmail || "support@shotlink.in";
@@ -955,7 +795,7 @@ export default function App() {
 
     setCheckoutLoadingPlanId(plan.id);
     setBillingMessage("");
-    setError("");
+    setBillingError("");
 
     try {
       const response = await authorizedFetch("/api/v1/billing/subscriptions", {
@@ -975,7 +815,7 @@ export default function App() {
       setBillingMessage(`Opening ${data.plan?.name || plan.name} subscription for ${data.amountLabel}.`);
       window.location.href = data.subscriptionShortUrl;
     } catch (requestError) {
-      setError(requestError.message || "Could not start checkout");
+      setBillingError(requestError.message || "Could not start checkout");
     } finally {
       setCheckoutLoadingPlanId("");
     }
@@ -984,7 +824,7 @@ export default function App() {
   const cancelCurrentSubscription = async () => {
     setBillingLoading(true);
     setBillingMessage("");
-    setError("");
+    setBillingError("");
 
     try {
       const response = await authorizedFetch("/api/v1/billing/subscriptions/cancel", {
@@ -999,14 +839,14 @@ export default function App() {
 
       await refreshBillingSummary(data.message || "Subscription cancellation scheduled.");
     } catch (requestError) {
-      setError(requestError.message || "Could not cancel subscription");
+      setBillingError(requestError.message || "Could not cancel subscription");
     } finally {
       setBillingLoading(false);
     }
   };
 
   useEffect(() => {
-    if (!token) {
+    if (!isAuthenticated) {
       setBillingSummary(null);
       setBillingLoading(false);
       return undefined;
@@ -1021,11 +861,11 @@ export default function App() {
         const data = await fetchBillingSummary();
         if (!cancelled) {
           applyBillingSummary(data);
-          setError("");
+          setBillingError("");
         }
       } catch (requestError) {
         if (!cancelled) {
-          setError(requestError.message || "Could not load billing");
+          setBillingError(requestError.message || "Could not load billing");
         }
       } finally {
         if (!cancelled) {
@@ -1039,7 +879,7 @@ export default function App() {
     return () => {
       cancelled = true;
     };
-  }, [applyBillingSummary, fetchBillingSummary, token]);
+  }, [applyBillingSummary, fetchBillingSummary, isAuthenticated]);
 
   const parseFallbackUrls = () =>
     fallbackInput
@@ -1052,6 +892,16 @@ export default function App() {
       const remaining = currentLinks.filter((item) => item.shortCode !== incomingLink.shortCode);
       return [incomingLink, ...remaining];
     });
+  };
+
+  const openRegistrationPanel = () => {
+    setPublicPage("home");
+    window.history.pushState({}, "", "/");
+    setAuthMode("register");
+    window.setTimeout(
+      () => document.getElementById("auth-panel")?.scrollIntoView({ behavior: "smooth" }),
+      0
+    );
   };
 
   const renderPublicPricing = ({ compact = false } = {}) => (
@@ -1085,11 +935,7 @@ export default function App() {
           {!compact ? (
             <button
               style={styles.primaryButton}
-              onClick={() => {
-                setPublicPage("home");
-                window.location.hash = "";
-                setAuthMode("register");
-              }}
+              onClick={openRegistrationPanel}
             >
               Start with {plan.name}
             </button>
@@ -1130,7 +976,12 @@ export default function App() {
               </article>
             ))}
           </div>
-          <div style={styles.codePanel}>
+          <div
+            aria-label="Example API request"
+            role="region"
+            style={styles.codePanel}
+            tabIndex={0}
+          >
             <p style={styles.mutedLabel}>API shape</p>
             {API_SNIPPET_LINES.map((line) => (
               <code key={line} style={styles.codeRow}>
@@ -1179,17 +1030,11 @@ export default function App() {
               <button
                 className="sl-action"
                 style={styles.primaryButton}
-                onClick={() => {
-                  setAuthMode("register");
-                  window.setTimeout(
-                    () => document.getElementById("auth-panel")?.scrollIntoView({ behavior: "smooth" }),
-                    0
-                  );
-                }}
+                onClick={openRegistrationPanel}
               >
                 Start routing
               </button>
-              <a className="sl-action-secondary" href="#docs" style={styles.secondaryLinkButton}>
+              <a className="sl-action-secondary" href="/docs" style={styles.secondaryLinkButton}>
                 View docs
               </a>
             </div>
@@ -1201,7 +1046,7 @@ export default function App() {
               ))}
             </div>
           </div>
-          <ShortenerPreview />
+          <ShortenerPreview onStart={openRegistrationPanel} />
         </section>
 
         <section style={styles.metricStrip}>
@@ -1240,7 +1085,12 @@ export default function App() {
             <p style={styles.sectionEyebrow}>Developer API</p>
             <h2 style={styles.publicSectionTitle}>Designed for automation.</h2>
           </div>
-          <div style={styles.codePanel}>
+          <div
+            aria-label="Example API request"
+            role="region"
+            style={styles.codePanel}
+            tabIndex={0}
+          >
             {API_SNIPPET_LINES.slice(0, 5).map((line) => (
               <code key={line} style={styles.codeRow}>
                 {line}
@@ -1272,7 +1122,7 @@ export default function App() {
 
   const submitAuth = async () => {
     setAuthSubmitting(true);
-    setError("");
+    setAuthError("");
 
     try {
       const { consents, ...registerFields } = authForm;
@@ -1281,9 +1131,8 @@ export default function App() {
           ? { ...registerFields, consents }
           : { email: authForm.email, password: authForm.password };
 
-      const response = await fetch(`${API_BASE}/api/v1/auth/${authMode}`, {
+      const response = await apiFetch(`/api/v1/auth/${authMode}`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
       });
 
@@ -1292,9 +1141,7 @@ export default function App() {
         throw new Error(data.error || "Authentication failed");
       }
 
-      localStorage.setItem(STORAGE_KEY, data.token);
-      setToken(data.token);
-      setSession({ user: data.user, workspace: data.workspace });
+      setSession(toBrowserSession(data));
       setAuthForm({
         name: "",
         email: authForm.email,
@@ -1303,7 +1150,7 @@ export default function App() {
         consents: createDefaultConsents(),
       });
     } catch (requestError) {
-      setError(requestError.message || "Authentication failed");
+      setAuthError(requestError.message || "Authentication failed");
     } finally {
       setAuthSubmitting(false);
     }
@@ -1311,7 +1158,7 @@ export default function App() {
 
   const logout = async () => {
     try {
-      if (token) {
+      if (session) {
         await authorizedFetch("/api/v1/auth/logout", { method: "POST" });
       }
     } catch {
@@ -1323,12 +1170,12 @@ export default function App() {
 
   const addCustomDomain = async () => {
     if (!customDomainInput.trim()) {
-      setError("Enter a domain before adding it.");
+      setDomainError("Enter a domain before adding it.");
       return;
     }
 
     setDomainSaving(true);
-    setError("");
+    setDomainError("");
     setDomainMessage("");
 
     try {
@@ -1346,7 +1193,7 @@ export default function App() {
       setCustomDomainInput("");
       setDomainMessage("Domain added. Add the DNS records below, then verify it.");
     } catch (requestError) {
-      setError(requestError.message || "Could not add domain");
+      setDomainError(requestError.message || "Could not add domain");
     } finally {
       setDomainSaving(false);
     }
@@ -1354,7 +1201,7 @@ export default function App() {
 
   const verifyCustomDomain = async (hostname) => {
     setDomainVerifying(hostname);
-    setError("");
+    setDomainError("");
     setDomainMessage("");
 
     try {
@@ -1376,7 +1223,7 @@ export default function App() {
       applyWorkspaceSettings(data);
       setDomainMessage(`${hostname} is verified and ready for branded links.`);
     } catch (requestError) {
-      setError(requestError.message || "Could not verify domain");
+      setDomainError(requestError.message || "Could not verify domain");
     } finally {
       setDomainVerifying("");
     }
@@ -1384,7 +1231,8 @@ export default function App() {
 
   const setPrimaryCustomDomain = async (hostname) => {
     setDomainVerifying(hostname);
-    setError("");
+    setDomainError("");
+    setDomainMessage("");
 
     try {
       const response = await authorizedFetch(
@@ -1403,7 +1251,7 @@ export default function App() {
       setSelectedDomainHost(hostname);
       setDomainMessage(`${hostname} is now the default branded domain.`);
     } catch (requestError) {
-      setError(requestError.message || "Could not set primary domain");
+      setDomainError(requestError.message || "Could not set primary domain");
     } finally {
       setDomainVerifying("");
     }
@@ -1411,7 +1259,8 @@ export default function App() {
 
   const removeCustomDomain = async (hostname) => {
     setDomainVerifying(hostname);
-    setError("");
+    setDomainError("");
+    setDomainMessage("");
 
     try {
       const response = await authorizedFetch(
@@ -1429,7 +1278,7 @@ export default function App() {
       applyWorkspaceSettings(data);
       setDomainMessage(`${hostname} removed from this workspace.`);
     } catch (requestError) {
-      setError(requestError.message || "Could not remove domain");
+      setDomainError(requestError.message || "Could not remove domain");
     } finally {
       setDomainVerifying("");
     }
@@ -1440,22 +1289,28 @@ export default function App() {
 
     const response = await authorizedFetch(`/api/v1/links/${shortCodeToLoad}/analytics`);
     const data = await response.json();
+
+    if (!response.ok) {
+      throw new Error(data.error || "Could not refresh analytics");
+    }
+
     setAnalytics(data);
+    setAnalyticsError("");
   };
 
   const createLink = async () => {
     if (!url.trim()) {
-      setError("Please enter a valid destination URL.");
+      setLinkError("Please enter a valid destination URL.");
       return;
     }
 
     if (!linkComplianceAccepted) {
-      setError("Please confirm the destination authority and anti-abuse consent before creating this link.");
+      setLinkError("Please confirm the destination authority and anti-abuse consent before creating this link.");
       return;
     }
 
     setLoading(true);
-    setError("");
+    setLinkError("");
     setCopied("");
 
     try {
@@ -1488,10 +1343,14 @@ export default function App() {
       setFallbackInput("");
       setExpiry(30);
       setLinkComplianceAccepted(false);
-      await refreshAnalytics(data.link.shortCode);
+      try {
+        await refreshAnalytics(data.link.shortCode);
+      } catch (requestError) {
+        setAnalyticsError(requestError.message || "Could not load analytics for the new link");
+      }
       await refreshBillingSummary();
     } catch (requestError) {
-      setError(requestError.message || "Could not create link");
+      setLinkError(requestError.message || "Could not create link");
     } finally {
       setLoading(false);
     }
@@ -1501,21 +1360,31 @@ export default function App() {
     if (!selectedShortCode) return;
 
     const shortCodeToExpire = selectedShortCode;
+    setLinkError("");
 
-    await authorizedFetch(`/api/v1/links/${selectedShortCode}/expire`, {
-      method: "PATCH",
-    });
+    try {
+      const response = await authorizedFetch(`/api/v1/links/${selectedShortCode}/expire`, {
+        method: "PATCH",
+      });
+      const data = await response.json();
 
-    await refreshBillingSummary();
-    const updatedLinks = links.map((link) =>
-      link.shortCode === shortCodeToExpire ? { ...link, isActive: false } : link
-    );
-    const nextShortCode = updatedLinks.find(isUsableLink)?.shortCode || "";
+      if (!response.ok) {
+        throw new Error(data.error || "Could not expire this link");
+      }
 
-    setLinks(updatedLinks);
-    setSelectedShortCode(nextShortCode);
-    if (!nextShortCode) {
-      setAnalytics(null);
+      await refreshBillingSummary();
+      const updatedLinks = links.map((link) =>
+        link.shortCode === shortCodeToExpire ? { ...link, isActive: false } : link
+      );
+      const nextShortCode = updatedLinks.find(isUsableLink)?.shortCode || "";
+
+      setLinks(updatedLinks);
+      setSelectedShortCode(nextShortCode);
+      if (!nextShortCode) {
+        setAnalytics(null);
+      }
+    } catch (requestError) {
+      setLinkError(requestError.message || "Could not expire this link");
     }
   };
 
@@ -1523,6 +1392,7 @@ export default function App() {
     if (!selectedShortCode) return;
 
     setRefreshingHealth(true);
+    setLinkError("");
 
     try {
       const response = await authorizedFetch(
@@ -1537,9 +1407,13 @@ export default function App() {
       }
 
       upsertLink(data.link);
-      await refreshAnalytics(selectedShortCode);
+      try {
+        await refreshAnalytics(selectedShortCode);
+      } catch (requestError) {
+        setAnalyticsError(requestError.message || "Could not refresh analytics");
+      }
     } catch (requestError) {
-      setError(requestError.message || "Health refresh failed");
+      setLinkError(requestError.message || "Health refresh failed");
     } finally {
       setRefreshingHealth(false);
     }
@@ -1626,7 +1500,7 @@ export default function App() {
 
         <div style={styles.publicShell}>
           <header style={styles.publicNav}>
-            <a href="#" style={styles.brandLink} aria-label="Shotlink home">
+            <a href="/" style={styles.brandLink} aria-label="Shotlink home">
               <BrandLogo style={styles.navLogo} />
             </a>
             <nav style={styles.publicNavLinks} aria-label="Public pages">
@@ -1788,7 +1662,7 @@ export default function App() {
                 </div>
               ) : null}
 
-              {error ? <p role="alert" style={styles.error}>{error}</p> : null}
+              <FeedbackMessage message={authError} />
 
               <button
                 type="submit"
@@ -1820,8 +1694,11 @@ export default function App() {
       <div className="sl-glow sl-glow-bottom" style={{ ...styles.backgroundGlowBottom, ...modeStyles.backgroundGlowBottom }} />
 
       <div style={styles.dashboardShell}>
-        <header style={{ ...styles.headerBar, ...modeStyles.headerBar }}>
-          <div style={styles.dashboardBrandBlock}>
+        <header
+          className="sl-dashboard-header"
+          style={{ ...styles.headerBar, ...modeStyles.headerBar }}
+        >
+          <div className="sl-dashboard-brand" style={styles.dashboardBrandBlock}>
             <BrandLogo compact style={styles.dashboardLogo} />
             <div>
               <p style={styles.sectionEyebrow}>Workspace</p>
@@ -1834,10 +1711,15 @@ export default function App() {
           <div className="sl-header-actions" style={styles.headerActions}>
             <StatusPill label={`${activeLinkCount}/${activeLinkLimit} active links`} tone="accent" />
             <StatusPill label={formatLabel(currentPlan.billingStatus)} tone={getBillingTone(currentPlan.billingStatus)} />
-            <button style={{ ...styles.navActionButton, ...modeStyles.billingButton }} onClick={() => scrollToDashboardSection("billing-panel")}>
+            <button
+              className="sl-header-shortcut"
+              style={{ ...styles.navActionButton, ...modeStyles.billingButton }}
+              onClick={() => scrollToDashboardSection("billing-panel")}
+            >
               Billing
             </button>
             <button
+              className="sl-header-shortcut"
               style={{ ...styles.navActionButton, ...modeStyles.docsButton }}
               onClick={() => {
                 setShowDocsPanel(true);
@@ -1856,23 +1738,23 @@ export default function App() {
           </div>
         </header>
 
-        <section style={styles.commandStrip}>
-          <article className="sl-lift" style={{ ...styles.commandCard, ...modeStyles.commandCard }}>
+        <section className="sl-command-strip" style={styles.commandStrip}>
+          <article className="sl-lift sl-command-card" style={{ ...styles.commandCard, ...modeStyles.commandCard }}>
             <p style={styles.metricLabel}>Short links</p>
             <strong style={styles.commandValue}>{activeLinkCount}</strong>
             <span style={styles.metricHint}>{remainingLinkSlots} slots available</span>
           </article>
-          <article className="sl-lift" style={{ ...styles.commandCard, ...modeStyles.commandCard }}>
+          <article className="sl-lift sl-command-card" style={{ ...styles.commandCard, ...modeStyles.commandCard }}>
             <p style={styles.metricLabel}>Tracked clicks</p>
             <strong style={styles.commandValue}>{analytics?.clicks ?? 0}</strong>
             <span style={styles.metricHint}>selected link telemetry</span>
           </article>
-          <article className="sl-lift" style={{ ...styles.commandCard, ...modeStyles.commandCard }}>
+          <article className="sl-lift sl-command-card" style={{ ...styles.commandCard, ...modeStyles.commandCard }}>
             <p style={styles.metricLabel}>Domains</p>
             <strong style={styles.commandValue}>{customDomains.length}/{domainLimit}</strong>
             <span style={styles.metricHint}>branded link surfaces</span>
           </article>
-          <article className="sl-lift" style={{ ...styles.commandCard, ...modeStyles.commandCard }}>
+          <article className="sl-lift sl-command-card" style={{ ...styles.commandCard, ...modeStyles.commandCard }}>
             <p style={styles.metricLabel}>Current plan</p>
             <strong style={styles.commandValue}>{currentPlan.effectivePlanName}</strong>
             <span style={styles.metricHint}>{formatLabel(currentPlan.billingStatus)}</span>
@@ -1916,79 +1798,99 @@ export default function App() {
                 ? `${remainingLinkSlots} active link slots remaining on the ${currentPlan.effectivePlanName} plan.`
                 : `You have used all ${activeLinkLimit} active-link slots on the ${currentPlan.effectivePlanName} plan. Upgrade billing to create more links.`}
             </p>
-            <div className="sl-builder-form-grid" style={styles.builderFormGrid}>
-              <label style={styles.label}>
-                Short link domain
-                <select style={styles.select} value={selectedDomainHost} onChange={(event) => setSelectedDomainHost(event.target.value)}>
-                  <option value="">Default redirect domain</option>
-                  {verifiedDomains.map((domain) => (
-                    <option key={domain.hostname} value={domain.hostname}>{domain.hostname}</option>
-                  ))}
-                </select>
-              </label>
-              <label style={styles.label}>
-                Link expiry
-                <select style={styles.select} value={expiry} onChange={(event) => setExpiry(Number(event.target.value))}>
-                  {EXPIRY_OPTIONS.map((option) => (
-                    <option key={option.value} value={option.value}>{option.label}</option>
-                  ))}
-                </select>
-              </label>
-            </div>
-            <label style={styles.label}>
-              Primary destination
-              <input
-                style={styles.input}
-                placeholder="Paste a long URL, e.g. https://example.com/summer-campaign"
-                value={url}
-                onChange={(event) => setUrl(event.target.value)}
-              />
-            </label>
-            <label style={styles.label}>
-              Custom alias
-              <div className="sl-alias-group" style={styles.aliasInputGroup}>
-                <span className="sl-alias-prefix" style={styles.aliasPrefix}>{selectedDomainHost || "shot.link"}/</span>
-                <input
-                  style={{ ...styles.input, ...styles.aliasInput }}
-                  placeholder="summer-sale"
-                  value={customAlias}
-                  onChange={(event) => setCustomAlias(event.target.value)}
-                />
-              </div>
-              <span style={styles.miniHelperText}>Optional. Use 3-48 letters, numbers, hyphens, or underscores.</span>
-            </label>
-            <label style={styles.label}>
-              Fallback destinations
-              <textarea
-                style={styles.textarea}
-                placeholder={"Optional: paste backup URLs, one per line\nhttps://backup-1.yourcompany.in\nhttps://backup-2.yourcompany.in"}
-                value={fallbackInput}
-                onChange={(event) => setFallbackInput(event.target.value)}
-              />
-            </label>
-            <div className="sl-consent-box" style={styles.consentBox}>
-              <p style={styles.consentIntro}>
-                Link policy version {LINK_POLICY_VERSION}. Required for every link so abusive or illegal destinations can be suspended with a clear audit trail.
-              </p>
-              <ConsentCheckbox checked={linkComplianceAccepted} onChange={setLinkComplianceAccepted}>
-                I have authority to share these destinations, consent to automated health checks, and will not use this link for phishing, malware, spam, impersonation, or unlawful content.
-              </ConsentCheckbox>
-            </div>
-            <button
-              style={linkSubmitDisabled ? { ...styles.primaryButton, opacity: 0.6, cursor: "not-allowed" } : styles.primaryButton}
-              onClick={createLink}
-              disabled={linkSubmitDisabled}
+            <form
+              style={styles.linkBuilderForm}
+              noValidate
+              onSubmit={(event) => {
+                event.preventDefault();
+                createLink();
+              }}
+              onKeyDown={(event) => {
+                const isSingleLineInput =
+                  event.target.tagName === "INPUT" && event.target.type !== "checkbox";
+
+                if (event.key !== "Enter" || !isSingleLineInput) return;
+
+                event.preventDefault();
+                if (!linkSubmitDisabled) event.currentTarget.requestSubmit();
+              }}
             >
-              {loading
-                ? "Creating link..."
-                : remainingLinkSlots <= 0
-                  ? "Upgrade to create more links"
-                  : !linkComplianceAccepted
-                    ? "Accept link policy to create"
-                    : "Shorten URL"}
-            </button>
-            {error ? <p role="alert" style={styles.error}>{error}</p> : null}
-            {copied ? <p role="status" style={styles.success}>{copied}</p> : null}
+              <div className="sl-builder-form-grid" style={styles.builderFormGrid}>
+                <label style={styles.label}>
+                  Short link domain
+                  <select style={styles.select} value={selectedDomainHost} onChange={(event) => setSelectedDomainHost(event.target.value)}>
+                    <option value="">Default redirect domain</option>
+                    {verifiedDomains.map((domain) => (
+                      <option key={domain.hostname} value={domain.hostname}>{domain.hostname}</option>
+                    ))}
+                  </select>
+                </label>
+                <label style={styles.label}>
+                  Link expiry
+                  <select style={styles.select} value={expiry} onChange={(event) => setExpiry(Number(event.target.value))}>
+                    {EXPIRY_OPTIONS.map((option) => (
+                      <option key={option.value} value={option.value}>{option.label}</option>
+                    ))}
+                  </select>
+                </label>
+              </div>
+              <label style={styles.label}>
+                Primary destination
+                <input
+                  style={styles.input}
+                  type="url"
+                  autoComplete="url"
+                  placeholder="Paste a long URL, e.g. https://example.com/summer-campaign"
+                  value={url}
+                  onChange={(event) => setUrl(event.target.value)}
+                />
+              </label>
+              <label style={styles.label}>
+                Custom alias
+                <div className="sl-alias-group" style={styles.aliasInputGroup}>
+                  <span className="sl-alias-prefix" style={styles.aliasPrefix}>{selectedDomainHost || "shot.link"}/</span>
+                  <input
+                    style={{ ...styles.input, ...styles.aliasInput }}
+                    placeholder="summer-sale"
+                    value={customAlias}
+                    onChange={(event) => setCustomAlias(event.target.value)}
+                  />
+                </div>
+                <span style={styles.miniHelperText}>Optional. Use 3-48 letters, numbers, hyphens, or underscores.</span>
+              </label>
+              <label style={styles.label}>
+                Fallback destinations
+                <textarea
+                  style={styles.textarea}
+                  placeholder={"Optional: paste backup URLs, one per line\nhttps://backup-1.yourcompany.in\nhttps://backup-2.yourcompany.in"}
+                  value={fallbackInput}
+                  onChange={(event) => setFallbackInput(event.target.value)}
+                />
+              </label>
+              <div className="sl-consent-box" style={styles.consentBox}>
+                <p style={styles.consentIntro}>
+                  Link policy version {LINK_POLICY_VERSION}. Required for every link so abusive or illegal destinations can be suspended with a clear audit trail.
+                </p>
+                <ConsentCheckbox checked={linkComplianceAccepted} onChange={setLinkComplianceAccepted}>
+                  I have authority to share these destinations, consent to automated health checks, and will not use this link for phishing, malware, spam, impersonation, or unlawful content.
+                </ConsentCheckbox>
+              </div>
+              <button
+                type="submit"
+                style={linkSubmitDisabled ? { ...styles.primaryButton, opacity: 0.6, cursor: "not-allowed" } : styles.primaryButton}
+                disabled={linkSubmitDisabled}
+              >
+                {loading
+                  ? "Creating link..."
+                  : remainingLinkSlots <= 0
+                    ? "Upgrade to create more links"
+                    : !linkComplianceAccepted
+                      ? "Accept link policy to create"
+                      : "Shorten URL"}
+              </button>
+              <FeedbackMessage message={linkError} />
+              <FeedbackMessage message={copied} tone="success" />
+            </form>
             {analytics?.shortUrl && analytics.isActive ? (
               <div style={{ ...styles.resultCard, ...modeStyles.panelCard }}>
                 <div style={styles.resultTopRow}>
@@ -2002,7 +1904,13 @@ export default function App() {
                   </div>
                 </div>
                 <div style={styles.qrPanel}>
-                  <QRCodeCanvas id="qr-code" value={analytics.shortUrl} size={132} includeMargin />
+                  <QRCodeCanvas
+                    id="qr-code"
+                    value={analytics.shortUrl}
+                    size={132}
+                    includeMargin
+                    aria-label={`QR code for ${analytics.shortUrl}`}
+                  />
                   <div style={styles.qrText}>
                     <p style={styles.mutedLabel}>Routing behavior</p>
                     <p style={styles.qrHeadline}>
@@ -2029,6 +1937,7 @@ export default function App() {
                 tone={analytics?.isActive ? "healthy" : selectedShortCode ? "danger" : "neutral"}
               />
             </div>
+            <FeedbackMessage message={analyticsError} />
             <div style={styles.metricsGrid}>
               <div style={{ ...styles.metricCard, ...modeStyles.metricCard }}><p style={styles.metricLabel}>Total clicks</p><p style={styles.metricValue}>{analytics?.clicks ?? 0}</p></div>
               <div style={{ ...styles.metricCard, ...modeStyles.metricCard }}><p style={styles.metricLabel}>Last click</p><p style={styles.metricValueSmall}>{formatDate(analytics?.lastClickedAt)}</p></div>
@@ -2076,7 +1985,21 @@ export default function App() {
             <div style={{ ...styles.panelCard, ...modeStyles.panelCard }}>
               <div style={styles.panelTitleRow}>
                 <h3 style={styles.panelTitle}>Recent click events</h3>
-                {selectedShortCode ? <button style={styles.secondaryButton} onClick={() => refreshAnalytics()}>Refresh analytics</button> : null}
+                {selectedShortCode ? (
+                  <button
+                    style={styles.secondaryButton}
+                    onClick={async () => {
+                      setAnalyticsError("");
+                      try {
+                        await refreshAnalytics();
+                      } catch (requestError) {
+                        setAnalyticsError(requestError.message || "Could not refresh analytics");
+                      }
+                    }}
+                  >
+                    Refresh analytics
+                  </button>
+                ) : null}
               </div>
               {analytics?.recentEvents?.length ? (
                 <div style={styles.eventList}>
@@ -2125,6 +2048,8 @@ export default function App() {
               <div><p style={styles.sectionEyebrow}>Domains</p><h2 style={styles.panelTitle}>Branded customer links</h2></div>
               <StatusPill label={`${customDomains.length}/${domainLimit} domains`} tone={domainLimit ? "accent" : "neutral"} />
             </div>
+            <FeedbackMessage message={domainError} />
+            <FeedbackMessage message={domainMessage} tone="success" />
             <div style={styles.inlineForm}>
               <input style={styles.input} placeholder="Enter your branded domain, e.g. go.yourcompany.in" value={customDomainInput} onChange={(event) => setCustomDomainInput(event.target.value)} disabled={domainSaving || customDomains.length >= domainLimit} />
               <button style={domainSaving || customDomains.length >= domainLimit ? { ...styles.secondaryButton, opacity: 0.6, cursor: "not-allowed" } : styles.primaryButton} onClick={addCustomDomain} disabled={domainSaving || customDomains.length >= domainLimit}>
@@ -2132,7 +2057,6 @@ export default function App() {
               </button>
             </div>
             {domainLimit === 0 ? <p style={styles.helperText}>Upgrade to Pro or Business to use branded short links on customer domains.</p> : null}
-            {domainMessage ? <p style={styles.success}>{domainMessage}</p> : null}
             {customDomains.length ? (
               <div style={styles.domainList}>
                 {customDomains.map((domain) => (
@@ -2142,7 +2066,7 @@ export default function App() {
                       <div><p style={styles.mutedLabel}>CNAME</p><p style={styles.codeLine}>{domain.hostname} to {cnameTarget}</p></div>
                       <div><p style={styles.mutedLabel}>TXT</p><p style={styles.codeLine}>{domain.dns?.txtName}</p><p style={styles.codeLine}>{domain.dns?.txtValue}</p></div>
                     </div>
-                    {domain.lastVerificationError ? <p style={styles.error}>{domain.lastVerificationError}</p> : null}
+                    <FeedbackMessage message={domain.lastVerificationError} />
                     <div style={styles.inlineActions}>
                       <button style={styles.secondaryButton} onClick={() => verifyCustomDomain(domain.hostname)} disabled={domainVerifying === domain.hostname}>{domainVerifying === domain.hostname ? "Checking..." : "Verify"}</button>
                       {domain.status === "verified" && !domain.isPrimary ? <button style={styles.secondaryButton} onClick={() => setPrimaryCustomDomain(domain.hostname)} disabled={domainVerifying === domain.hostname}>Make primary</button> : null}
@@ -2161,6 +2085,8 @@ export default function App() {
                 {billingLoading ? "Refreshing..." : "Refresh billing"}
               </button>
             </div>
+            <FeedbackMessage message={billingError} />
+            <FeedbackMessage message={billingMessage} tone="success" />
             <div style={styles.billingOverviewGrid}>
               <div style={{ ...styles.subscriptionCard, ...modeStyles.subscriptionCard }}>
                 <div><p style={styles.mutedLabel}>Current subscription</p><h3 style={styles.subscriptionTitle}>{currentPlan.effectivePlanName}</h3></div>
@@ -2213,7 +2139,6 @@ export default function App() {
                 </div>
               </div>
             </div>
-            {billingMessage ? <p style={styles.success}>{billingMessage}</p> : null}
           </section>
 
           {showDocsPanel ? (
@@ -2230,1654 +2155,4 @@ export default function App() {
   );
 }
 
-const designTokens = {
-  colors: {
-    ink: "#17233c",
-    text: "#34405c",
-    muted: "#667085",
-    black: "#0b1736",
-    night: "#17233c",
-    panel: "#ffffff",
-    panelStrong: "#ffffff",
-    border: "#d9dee8",
-    borderBright: "#2a5bd7",
-    blue: "#2a5bd7",
-    blueHot: "#1741a6",
-    green: "#008a5b",
-    yellow: "#f5b700",
-    orange: "#ff5b22",
-    orangeHot: "#e54810",
-    white: "#ffffff",
-    ice: "#f7f9fc",
-    cyan: "#2a5bd7",
-    success: "#008a5b",
-    danger: "#d92d20",
-  },
-  shadows: {
-    blueGlow: "0 12px 28px rgba(42, 91, 215, 0.16)",
-    panel: "0 18px 50px rgba(23, 35, 60, 0.10)",
-    lift: "0 16px 42px rgba(23, 35, 60, 0.12)",
-  },
-};
-
-const darkModeStyles = {
-  page: {
-    background:
-      "radial-gradient(circle at 10% 8%, rgba(37, 99, 235, 0.30), transparent 30%), radial-gradient(circle at 88% 16%, rgba(16, 185, 129, 0.18), transparent 28%), radial-gradient(circle at 72% 86%, rgba(245, 197, 66, 0.10), transparent 30%), linear-gradient(155deg, #05070b 0%, #101827 48%, #05070b 100%)",
-  },
-  backgroundGrid: {
-    opacity: 0.52,
-  },
-  backgroundGlowTop: {
-    background: "rgba(37, 99, 235, 0.22)",
-  },
-  backgroundGlowBottom: {
-    background: "rgba(16, 185, 129, 0.14)",
-  },
-  headerBar: {
-    background:
-      "linear-gradient(135deg, rgba(8, 13, 22, 0.94), rgba(5, 7, 11, 0.88))",
-    border: "1px solid rgba(148, 163, 184, 0.22)",
-  },
-  commandCard: {
-    background:
-      "linear-gradient(145deg, rgba(8, 13, 22, 0.88), rgba(5, 7, 11, 0.80))",
-    border: "1px solid rgba(148, 163, 184, 0.18)",
-  },
-  sidebarCard: {
-    background: "rgba(5, 7, 11, 0.26)",
-    border: "1px solid rgba(148, 163, 184, 0.14)",
-  },
-  builderCard: {
-    background:
-      "linear-gradient(155deg, rgba(8, 13, 22, 0.94), rgba(5, 7, 11, 0.90))",
-    border: "1px solid rgba(37, 99, 235, 0.48)",
-  },
-  panelCard: {
-    background:
-      "linear-gradient(150deg, rgba(8, 13, 22, 0.88), rgba(5, 7, 11, 0.80))",
-    border: "1px solid rgba(148, 163, 184, 0.16)",
-  },
-  subscriptionCard: {
-    borderLeft: "4px solid #2563eb",
-  },
-  metricCard: {
-    background:
-      "linear-gradient(145deg, rgba(8, 13, 22, 0.88), rgba(5, 7, 11, 0.82))",
-    border: "1px solid rgba(148, 163, 184, 0.16)",
-  },
-  compactPlanCard: {
-    borderLeft: "4px solid #f5c542",
-  },
-  docsQuickPanel: {
-    borderLeft: "4px solid #10b981",
-  },
-  billingButton: {
-    background: "#f5c542",
-    color: "#05070b",
-    borderColor: "rgba(245, 197, 66, 0.55)",
-  },
-  docsButton: {
-    background: "#10b981",
-    color: "#03120d",
-    borderColor: "rgba(16, 185, 129, 0.55)",
-  },
-  themeButton: {
-    background: "rgba(37, 99, 235, 0.18)",
-    color: "#dbeafe",
-    borderColor: "rgba(37, 99, 235, 0.42)",
-  },
-};
-
-const lightModeStyles = {
-  page: {
-    background: "#f7f9fc",
-    color: designTokens.colors.ink,
-  },
-  backgroundGrid: {
-    opacity: 0,
-  },
-  backgroundGlowTop: {
-    background: "transparent",
-  },
-  backgroundGlowBottom: {
-    background: "transparent",
-  },
-  headerBar: {
-    background: "#ffffff",
-    border: `1px solid ${designTokens.colors.border}`,
-    boxShadow: designTokens.shadows.panel,
-  },
-  commandCard: {
-    background: "#ffffff",
-    border: `1px solid ${designTokens.colors.border}`,
-    color: designTokens.colors.ink,
-  },
-  sidebarCard: {
-    background: "#ffffff",
-    border: `1px solid ${designTokens.colors.border}`,
-  },
-  builderCard: {
-    background: "#ffffff",
-    border: `1px solid ${designTokens.colors.border}`,
-    boxShadow: designTokens.shadows.panel,
-  },
-  panelCard: {
-    background: "#ffffff",
-    border: `1px solid ${designTokens.colors.border}`,
-    color: designTokens.colors.ink,
-  },
-  subscriptionCard: {
-    background: "#eef3ff",
-    border: "1px solid #c9d7fb",
-    borderLeft: `4px solid ${designTokens.colors.blue}`,
-    color: designTokens.colors.ink,
-  },
-  metricCard: {
-    background: "#ffffff",
-    border: `1px solid ${designTokens.colors.border}`,
-    color: designTokens.colors.ink,
-  },
-  compactPlanCard: {
-    background: "#ffffff",
-    border: `1px solid ${designTokens.colors.border}`,
-    borderLeft: `4px solid ${designTokens.colors.blue}`,
-    color: designTokens.colors.ink,
-  },
-  docsQuickPanel: {
-    background: "#ffffff",
-    border: `1px solid ${designTokens.colors.border}`,
-    borderLeft: `4px solid ${designTokens.colors.green}`,
-    color: designTokens.colors.ink,
-  },
-  billingButton: {
-    background: "#ffffff",
-    color: designTokens.colors.blue,
-    borderColor: designTokens.colors.border,
-  },
-  docsButton: {
-    background: "#ffffff",
-    color: designTokens.colors.blue,
-    borderColor: designTokens.colors.border,
-  },
-  themeButton: {
-    background: designTokens.colors.blue,
-    color: "#ffffff",
-    borderColor: designTokens.colors.blue,
-  },
-};
-
-const styles = {
-  page: {
-    minHeight: "100vh",
-    position: "relative",
-    overflowX: "clip",
-    background: "#f7f9fc",
-    color: designTokens.colors.ink,
-    padding: "20px 18px 44px",
-    fontFamily:
-      "'Inter Tight', Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
-  },
-  backgroundGrid: {
-    position: "absolute",
-    inset: 0,
-    pointerEvents: "none",
-    opacity: 0,
-  },
-  backgroundGlowTop: {
-    position: "absolute",
-    top: -160,
-    left: "8%",
-    width: 420,
-    height: 420,
-    background: "transparent",
-    filter: "blur(86px)",
-    pointerEvents: "none",
-  },
-  backgroundGlowBottom: {
-    position: "absolute",
-    right: "-7%",
-    bottom: "-12%",
-    width: 520,
-    height: 520,
-    background: "transparent",
-    filter: "blur(104px)",
-    pointerEvents: "none",
-  },
-  publicShell: {
-    position: "relative",
-    zIndex: 1,
-    maxWidth: 1260,
-    margin: "0 auto",
-    display: "grid",
-    gap: 34,
-  },
-  publicNav: {
-    display: "flex",
-    justifyContent: "space-between",
-    alignItems: "center",
-    gap: 18,
-    flexWrap: "wrap",
-    padding: "10px 0 18px",
-  },
-  brandLink: {
-    display: "inline-flex",
-    alignItems: "center",
-    textDecoration: "none",
-  },
-  navLogo: {
-    width: 184,
-    height: 46,
-  },
-  publicNavLinks: {
-    display: "flex",
-    gap: 8,
-    alignItems: "center",
-    flexWrap: "wrap",
-    padding: 4,
-    borderRadius: 8,
-    background: "#ffffff",
-    border: `1px solid ${designTokens.colors.border}`,
-    boxShadow: "0 10px 28px rgba(23, 35, 60, 0.06)",
-  },
-  publicNavLink: {
-    padding: "9px 13px",
-    borderRadius: 6,
-    color: designTokens.colors.ink,
-    textDecoration: "none",
-    fontSize: 14,
-    fontWeight: 700,
-    transition: "background 180ms ease, color 180ms ease, transform 180ms ease",
-  },
-  publicNavLinkActive: {
-    color: designTokens.colors.white,
-    background: designTokens.colors.blue,
-    boxShadow: "none",
-  },
-  publicContentGrid: {
-    display: "grid",
-    gap: 24,
-    alignItems: "start",
-  },
-  authShell: {
-    position: "relative",
-    zIndex: 1,
-    maxWidth: 1180,
-    margin: "0 auto",
-    display: "grid",
-    gap: 24,
-    alignItems: "start",
-  },
-  dashboardShell: {
-    position: "relative",
-    zIndex: 1,
-    maxWidth: 1440,
-    margin: "0 auto",
-    display: "grid",
-    gap: 22,
-  },
-  loadingShell: {
-    position: "relative",
-    zIndex: 1,
-    maxWidth: 640,
-    margin: "12vh auto 0",
-    padding: 32,
-    borderRadius: 30,
-    background: designTokens.colors.panelStrong,
-    border: `1px solid ${designTokens.colors.border}`,
-    boxShadow: designTokens.shadows.panel,
-    textAlign: "center",
-  },
-  loadingLogo: {
-    margin: "0 auto 16px",
-  },
-  loadingTitle: {
-    margin: 0,
-    fontSize: "2.2rem",
-  },
-  loadingText: {
-    margin: "12px 0 0",
-    color: "#cbd5e1",
-  },
-  heroPanel: {
-    display: "grid",
-    gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))",
-    gap: 24,
-    alignItems: "center",
-    paddingTop: 8,
-  },
-  homeStack: {
-    display: "grid",
-    gap: 18,
-  },
-  heroCopy: {
-    display: "grid",
-    gap: 18,
-    minWidth: 0,
-  },
-  heroLogo: {
-    width: "min(430px, 88vw)",
-    height: "auto",
-    filter: "drop-shadow(0 0 34px rgba(76, 85, 255, 0.16))",
-  },
-  title: {
-    margin: "4px 0",
-    fontSize: "clamp(2.8rem, 5vw, 5.6rem)",
-    lineHeight: 0.94,
-    letterSpacing: 0,
-    maxWidth: 760,
-    color: designTokens.colors.ink,
-    textShadow: "none",
-  },
-  subtitle: {
-    margin: 0,
-    maxWidth: 610,
-    fontSize: "clamp(1rem, 1.5vw, 1.22rem)",
-    lineHeight: 1.65,
-    color: designTokens.colors.text,
-  },
-  heroActions: {
-    display: "flex",
-    gap: 12,
-    flexWrap: "wrap",
-    alignItems: "center",
-  },
-  secondaryLinkButton: {
-    border: `1px solid ${designTokens.colors.border}`,
-    borderRadius: 8,
-    padding: "15px 18px",
-    fontSize: 15,
-    fontWeight: 800,
-    background: "#ffffff",
-    color: designTokens.colors.blue,
-    cursor: "pointer",
-    textDecoration: "none",
-    boxShadow: "0 10px 24px rgba(23, 35, 60, 0.06)",
-  },
-  compactFeatureGrid: {
-    display: "grid",
-    gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))",
-    gap: 12,
-  },
-  compactFeatureCard: {
-    padding: "14px 16px",
-    borderRadius: 8,
-    background: "#ffffff",
-    border: `1px solid ${designTokens.colors.border}`,
-    color: designTokens.colors.ink,
-    fontWeight: 800,
-    boxShadow: "inset 0 1px 0 rgba(255, 255, 255, 0.05)",
-  },
-  publicPageCard: {
-    display: "grid",
-    gap: 20,
-    padding: "clamp(22px, 4vw, 42px)",
-    borderRadius: 12,
-    background: "#ffffff",
-    border: `1px solid ${designTokens.colors.border}`,
-    boxShadow: designTokens.shadows.panel,
-  },
-  publicTitle: {
-    margin: 0,
-    fontSize: "clamp(2.35rem, 5vw, 5rem)",
-    lineHeight: 0.94,
-    letterSpacing: 0,
-    color: designTokens.colors.ink,
-  },
-  publicLead: {
-    margin: 0,
-    maxWidth: 720,
-    color: designTokens.colors.text,
-    lineHeight: 1.7,
-    fontSize: "1.04rem",
-  },
-  publicSectionTitle: {
-    margin: "8px 0 10px",
-    fontSize: "clamp(1.35rem, 2.3vw, 2.1rem)",
-    lineHeight: 1,
-    letterSpacing: "-0.04em",
-    color: designTokens.colors.white,
-  },
-  docGrid: {
-    display: "grid",
-    gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
-    gap: 14,
-  },
-  docCard: {
-    display: "grid",
-    gap: 8,
-    padding: 18,
-    borderRadius: 22,
-    background: "rgba(3, 4, 10, 0.58)",
-    border: `1px solid ${designTokens.colors.border}`,
-    boxShadow: "inset 0 1px 0 rgba(255, 255, 255, 0.05)",
-  },
-  docTitle: {
-    margin: 0,
-    fontSize: "1rem",
-  },
-  transmissionCard: {
-    position: "relative",
-    overflow: "hidden",
-    minHeight: 372,
-    padding: 22,
-    borderRadius: 12,
-    background: "#ffffff",
-    border: `1px solid ${designTokens.colors.border}`,
-    boxShadow: designTokens.shadows.panel,
-  },
-  shortenerPreviewCard: {
-    display: "grid",
-    gap: 18,
-    padding: 22,
-    borderRadius: 12,
-    background: "#ffffff",
-    border: `1px solid ${designTokens.colors.border}`,
-    boxShadow: designTokens.shadows.panel,
-  },
-  previewHeader: {
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "space-between",
-    gap: 12,
-    flexWrap: "wrap",
-  },
-  previewDomain: {
-    color: designTokens.colors.blue,
-    fontWeight: 900,
-    fontSize: 14,
-  },
-  previewForm: {
-    display: "grid",
-    gap: 12,
-    padding: 16,
-    borderRadius: 8,
-    background: "#f7f9fc",
-    border: `1px solid ${designTokens.colors.border}`,
-  },
-  previewLabel: {
-    display: "grid",
-    gap: 8,
-    color: designTokens.colors.ink,
-    fontSize: 13,
-    fontWeight: 800,
-  },
-  previewInput: {
-    minHeight: 46,
-    display: "flex",
-    alignItems: "center",
-    padding: "12px 14px",
-    borderRadius: 8,
-    background: "#ffffff",
-    border: `1px solid ${designTokens.colors.border}`,
-    color: designTokens.colors.text,
-    wordBreak: "break-all",
-  },
-  previewAliasRow: {
-    minHeight: 46,
-    display: "flex",
-    alignItems: "center",
-    gap: 4,
-    padding: "12px 14px",
-    borderRadius: 8,
-    background: "#ffffff",
-    border: `1px solid ${designTokens.colors.border}`,
-    color: designTokens.colors.text,
-  },
-  previewButton: {
-    border: "none",
-    borderRadius: 8,
-    minHeight: 48,
-    background: designTokens.colors.blue,
-    color: "#ffffff",
-    fontWeight: 900,
-    cursor: "pointer",
-    boxShadow: "0 12px 24px rgba(255, 91, 34, 0.22)",
-  },
-  previewResultGrid: {
-    display: "grid",
-    gridTemplateColumns: "auto minmax(0, 1fr)",
-    gap: 16,
-    alignItems: "center",
-  },
-  previewQr: {
-    padding: 10,
-    borderRadius: 8,
-    background: "#ffffff",
-    border: `1px solid ${designTokens.colors.border}`,
-  },
-  previewShortLink: {
-    margin: "4px 0 12px",
-    color: designTokens.colors.blue,
-    fontSize: "1.25rem",
-    fontWeight: 950,
-    wordBreak: "break-all",
-  },
-  previewMiniButton: {
-    display: "inline-flex",
-    alignItems: "center",
-    minHeight: 32,
-    padding: "7px 10px",
-    borderRadius: 8,
-    background: "#eef3ff",
-    color: designTokens.colors.blue,
-    fontSize: 12,
-    fontWeight: 900,
-  },
-  visualHeader: {
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "space-between",
-    gap: 12,
-    position: "relative",
-    zIndex: 1,
-  },
-  visualDot: {
-    width: 9,
-    height: 9,
-    borderRadius: 999,
-    background: designTokens.colors.blue,
-    boxShadow: "0 0 22px rgba(76, 85, 255, 0.9)",
-  },
-  visualLabel: {
-    flex: 1,
-    color: designTokens.colors.text,
-    fontSize: 13,
-    fontWeight: 800,
-    letterSpacing: "0.08em",
-    textTransform: "uppercase",
-  },
-  routeCanvas: {
-    position: "relative",
-    height: 220,
-    margin: "28px 0 22px",
-    borderRadius: 12,
-    background:
-      "linear-gradient(180deg, #f7f9fc, #ffffff), linear-gradient(90deg, rgba(42,91,215,0.08) 1px, transparent 1px), linear-gradient(0deg, rgba(42,91,215,0.08) 1px, transparent 1px)",
-    backgroundSize: "auto, 34px 34px, 34px 34px",
-    border: `1px solid ${designTokens.colors.border}`,
-    overflow: "hidden",
-  },
-  routeNode: {
-    position: "absolute",
-    zIndex: 2,
-    width: 68,
-    height: 68,
-    display: "grid",
-    placeItems: "center",
-    borderRadius: 8,
-    fontSize: 12,
-    fontWeight: 900,
-    letterSpacing: "0.08em",
-    color: designTokens.colors.white,
-    background: designTokens.colors.blue,
-    border: `1px solid ${designTokens.colors.blue}`,
-    boxShadow: designTokens.shadows.blueGlow,
-  },
-  routeNodeSource: {
-    left: 24,
-    top: 76,
-  },
-  routeNodeEdge: {
-    left: "calc(50% - 34px)",
-    top: 26,
-    background: "linear-gradient(135deg, rgba(76, 85, 255, 0.95), rgba(9, 12, 28, 0.92))",
-  },
-  routeNodeTarget: {
-    right: 24,
-    bottom: 34,
-  },
-  latencyGrid: {
-    display: "grid",
-    gridTemplateColumns: "1fr 1fr",
-    gap: 12,
-    position: "relative",
-    zIndex: 1,
-  },
-  latencyCard: {
-    display: "grid",
-    gap: 4,
-    padding: 14,
-    borderRadius: 18,
-    background: "rgba(255, 255, 255, 0.045)",
-    border: "1px solid rgba(255, 255, 255, 0.08)",
-  },
-  latencyValue: {
-    color: designTokens.colors.white,
-    fontSize: "1.55rem",
-    fontWeight: 950,
-    letterSpacing: "-0.04em",
-  },
-  latencyLabel: {
-    color: designTokens.colors.muted,
-    fontSize: 12,
-    fontWeight: 700,
-    textTransform: "uppercase",
-    letterSpacing: "0.06em",
-  },
-  metricStrip: {
-    display: "grid",
-    gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))",
-    gap: 12,
-  },
-  metricStripCard: {
-    display: "grid",
-    gap: 8,
-    padding: 18,
-    borderRadius: 14,
-    background: "var(--sl-surface)",
-    border: "1px solid var(--sl-surface-border)",
-    boxShadow: designTokens.shadows.panel,
-  },
-  metricStripValue: {
-    color: "var(--sl-heading)",
-    fontSize: "1.8rem",
-    lineHeight: 1,
-    letterSpacing: "-0.05em",
-  },
-  showcaseGrid: {
-    display: "grid",
-    gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
-    gap: 14,
-  },
-  showcaseCard: {
-    display: "grid",
-    gap: 12,
-    padding: 20,
-    borderRadius: 16,
-    minHeight: 190,
-    background: "var(--sl-surface)",
-    border: "1px solid var(--sl-surface-border)",
-    boxShadow: designTokens.shadows.panel,
-  },
-  signalBadge: {
-    width: "fit-content",
-    padding: "7px 10px",
-    borderRadius: 999,
-    background: "rgba(42, 91, 215, 0.10)",
-    color: designTokens.colors.blue,
-    border: "1px solid rgba(42, 91, 215, 0.22)",
-    fontSize: 11,
-    fontWeight: 900,
-    letterSpacing: "0.08em",
-    textTransform: "uppercase",
-  },
-  showcaseTitle: {
-    margin: 0,
-    color: "var(--sl-heading)",
-    fontSize: "1.25rem",
-    letterSpacing: "-0.035em",
-  },
-  analyticsPreviewCard: {
-    display: "grid",
-    gap: 18,
-    padding: 22,
-    borderRadius: 16,
-    background: "linear-gradient(135deg, #eef3ff, #ffffff)",
-    border: "1px solid rgba(42, 91, 215, 0.24)",
-    boxShadow: designTokens.shadows.panel,
-  },
-  chartPreview: {
-    height: 160,
-    display: "flex",
-    gap: 8,
-    alignItems: "end",
-    padding: 16,
-    borderRadius: 22,
-    background: "rgba(3, 4, 10, 0.54)",
-    border: "1px solid rgba(255, 255, 255, 0.08)",
-  },
-  chartBar: {
-    flex: 1,
-    minWidth: 8,
-    borderRadius: "999px 999px 6px 6px",
-    background: "linear-gradient(180deg, #ffffff 0%, #4c55ff 52%, #151cff 100%)",
-    boxShadow: "0 0 20px rgba(76, 85, 255, 0.32)",
-  },
-  apiPreviewCard: {
-    display: "grid",
-    gap: 16,
-    padding: 22,
-    borderRadius: 16,
-    background: "rgba(5, 7, 16, 0.82)",
-    border: `1px solid ${designTokens.colors.border}`,
-  },
-  codePanel: {
-    display: "grid",
-    gap: 6,
-    padding: 18,
-    borderRadius: 22,
-    background: "rgba(0, 0, 0, 0.42)",
-    border: "1px solid rgba(255, 255, 255, 0.08)",
-    overflowX: "auto",
-  },
-  codeRow: {
-    display: "block",
-    color: designTokens.colors.ice,
-    fontFamily: "ui-monospace, SFMono-Regular, Menlo, Consolas, monospace",
-    fontSize: 13,
-    lineHeight: 1.6,
-    whiteSpace: "pre",
-  },
-  trustGrid: {
-    display: "flex",
-    flexWrap: "wrap",
-    gap: 10,
-  },
-  trustPill: {
-    padding: "10px 13px",
-    borderRadius: 999,
-    color: designTokens.colors.text,
-    background: "rgba(255, 255, 255, 0.045)",
-    border: `1px solid ${designTokens.colors.border}`,
-    fontSize: 13,
-    fontWeight: 800,
-  },
-  featureGrid: {
-    display: "grid",
-    gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
-    gap: 14,
-  },
-  featureCard: {
-    padding: 18,
-    borderRadius: 20,
-    background: "rgba(15, 23, 42, 0.76)",
-    border: "1px solid rgba(148, 163, 184, 0.12)",
-  },
-  featureTitle: {
-    margin: "0 0 8px",
-    fontSize: "1rem",
-  },
-  featureText: {
-    margin: 0,
-    color: "#cbd5e1",
-    lineHeight: 1.6,
-  },
-  pricingPreview: {
-    display: "grid",
-    gap: 16,
-    padding: 22,
-    borderRadius: 24,
-    background: "rgba(15, 23, 42, 0.76)",
-    border: "1px solid rgba(148, 163, 184, 0.12)",
-  },
-  authCard: {
-    position: "sticky",
-    top: 22,
-    background: "#ffffff",
-    border: `1px solid ${designTokens.colors.border}`,
-    borderRadius: 12,
-    overflow: "hidden",
-    boxShadow: designTokens.shadows.panel,
-  },
-  authTabs: {
-    display: "grid",
-    gridTemplateColumns: "1fr 1fr",
-    borderBottom: `1px solid ${designTokens.colors.border}`,
-  },
-  authTab: {
-    border: "none",
-    background: "transparent",
-    color: designTokens.colors.text,
-    padding: "16px 18px",
-    fontWeight: 700,
-    cursor: "pointer",
-  },
-  authTabActive: {
-    border: "none",
-    background: "#eef3ff",
-    color: designTokens.colors.blue,
-    padding: "16px 18px",
-    fontWeight: 800,
-    cursor: "pointer",
-  },
-  authBody: {
-    display: "grid",
-    gap: 16,
-    padding: 24,
-  },
-  authLogo: {
-    width: 62,
-    height: 62,
-  },
-  authTitle: {
-    margin: 0,
-    fontSize: "1.7rem",
-    letterSpacing: "-0.04em",
-  },
-  authSubtitle: {
-    margin: "4px 0 4px",
-    color: designTokens.colors.text,
-    lineHeight: 1.6,
-  },
-  headerBar: {
-    display: "flex",
-    justifyContent: "space-between",
-    gap: 16,
-    alignItems: "flex-start",
-    flexWrap: "wrap",
-    padding: 18,
-    borderRadius: 12,
-    background: "#ffffff",
-    border: `1px solid ${designTokens.colors.border}`,
-    boxShadow: "inset 0 1px 0 rgba(255, 255, 255, 0.05)",
-  },
-  dashboardBrandBlock: {
-    display: "flex",
-    gap: 14,
-    alignItems: "center",
-    minWidth: 0,
-  },
-  dashboardLogo: {
-    width: 58,
-    height: 58,
-    flex: "0 0 auto",
-  },
-  dashboardTitle: {
-    margin: "8px 0 0",
-    fontSize: "clamp(1.8rem, 3vw, 3.2rem)",
-    lineHeight: 0.96,
-    letterSpacing: 0,
-    color: designTokens.colors.ink,
-  },
-  workspaceMeta: {
-    margin: "8px 0 0",
-    color: designTokens.colors.text,
-  },
-  headerActions: {
-    display: "flex",
-    gap: 10,
-    alignItems: "center",
-    flexWrap: "wrap",
-    flex: "1 1 460px",
-    justifyContent: "flex-end",
-    minWidth: 0,
-  },
-  navActionButton: {
-    border: "1px solid transparent",
-    borderRadius: 8,
-    padding: "10px 14px",
-    minHeight: 42,
-    fontSize: 14,
-    fontWeight: 900,
-    cursor: "pointer",
-    boxShadow: "inset 0 1px 0 rgba(255, 255, 255, 0.35)",
-    transition: "transform 180ms ease, filter 180ms ease, box-shadow 180ms ease",
-  },
-  dashboardGrid: {
-    display: "grid",
-    gap: 20,
-    alignItems: "start",
-  },
-  dashboardNavCard: {
-    display: "flex",
-    alignItems: "center",
-    gap: 6,
-    padding: 6,
-    borderRadius: 12,
-    overflowX: "auto",
-    position: "sticky",
-    top: 8,
-    zIndex: 6,
-    boxShadow: designTokens.shadows.panel,
-  },
-  dashboardNavItem: {
-    border: "none",
-    borderRadius: 8,
-    padding: "10px 14px",
-    background: "transparent",
-    color: designTokens.colors.blue,
-    fontSize: 14,
-    fontWeight: 850,
-    whiteSpace: "nowrap",
-    cursor: "pointer",
-  },
-  builderFormGrid: {
-    display: "grid",
-    gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
-    gap: 14,
-  },
-  analyticsDetailGrid: {
-    display: "grid",
-    gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))",
-    gap: 18,
-  },
-  billingOverviewGrid: {
-    display: "grid",
-    gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))",
-    gap: 14,
-  },
-  billingDetailGrid: {
-    display: "grid",
-    gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))",
-    gap: 14,
-  },
-  commandStrip: {
-    display: "grid",
-    gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
-    gap: 14,
-  },
-  commandCard: {
-    display: "grid",
-    gap: 8,
-    padding: 18,
-    borderRadius: 8,
-    background: "#ffffff",
-    border: `1px solid ${designTokens.colors.border}`,
-    boxShadow: "inset 0 1px 0 rgba(255, 255, 255, 0.05)",
-  },
-  commandValue: {
-    color: designTokens.colors.ink,
-    fontSize: "1.65rem",
-    lineHeight: 1,
-    letterSpacing: 0,
-  },
-  sidebarCard: {
-    background: "#ffffff",
-    border: `1px solid ${designTokens.colors.border}`,
-    borderRadius: 12,
-    padding: 20,
-    display: "grid",
-    gap: 16,
-  },
-  builderCard: {
-    background: "#ffffff",
-    border: `1px solid ${designTokens.colors.border}`,
-    borderRadius: 12,
-    padding: 22,
-    display: "grid",
-    gap: 18,
-    boxShadow: designTokens.shadows.panel,
-  },
-  analyticsPanel: {
-    display: "grid",
-    gap: 18,
-    alignContent: "start",
-  },
-  analyticsHeader: {
-    display: "flex",
-    justifyContent: "space-between",
-    gap: 12,
-    alignItems: "flex-start",
-    flexWrap: "wrap",
-  },
-  sectionEyebrow: {
-    margin: 0,
-    fontSize: 12,
-    letterSpacing: 0,
-    textTransform: "uppercase",
-    color: designTokens.colors.blue,
-    fontWeight: 900,
-  },
-  panelTitle: {
-    margin: "6px 0 0",
-    fontSize: "1.15rem",
-    letterSpacing: 0,
-    color: designTokens.colors.ink,
-  },
-  panelTitleRow: {
-    display: "flex",
-    justifyContent: "space-between",
-    gap: 12,
-    alignItems: "center",
-    flexWrap: "wrap",
-  },
-  label: {
-    display: "grid",
-    gap: 10,
-    fontSize: 14,
-    fontWeight: 700,
-    color: designTokens.colors.ink,
-  },
-  input: {
-    width: "100%",
-    borderRadius: 8,
-    border: `1px solid ${designTokens.colors.border}`,
-    background: "#ffffff",
-    color: designTokens.colors.ink,
-    padding: "15px 16px",
-    outline: "none",
-    fontSize: 15,
-    transition: "border-color 180ms ease, box-shadow 180ms ease, background 180ms ease",
-  },
-  aliasInputGroup: {
-    display: "grid",
-    gridTemplateColumns: "auto minmax(0, 1fr)",
-    alignItems: "stretch",
-    border: `1px solid ${designTokens.colors.border}`,
-    borderRadius: 8,
-    overflow: "hidden",
-    background: "#ffffff",
-  },
-  aliasPrefix: {
-    display: "flex",
-    alignItems: "center",
-    padding: "0 14px",
-    background: "#eef3ff",
-    color: designTokens.colors.blue,
-    borderRight: `1px solid ${designTokens.colors.border}`,
-    fontWeight: 900,
-    fontSize: 14,
-    whiteSpace: "nowrap",
-  },
-  aliasInput: {
-    border: "none",
-    borderRadius: 0,
-    boxShadow: "none",
-  },
-  textarea: {
-    width: "100%",
-    minHeight: 110,
-    resize: "vertical",
-    borderRadius: 8,
-    border: `1px solid ${designTokens.colors.border}`,
-    background: "#ffffff",
-    color: designTokens.colors.ink,
-    padding: "15px 16px",
-    outline: "none",
-    fontSize: 15,
-    fontFamily: "inherit",
-    transition: "border-color 180ms ease, box-shadow 180ms ease, background 180ms ease",
-  },
-  select: {
-    width: "100%",
-    borderRadius: 8,
-    border: `1px solid ${designTokens.colors.border}`,
-    background: "#ffffff",
-    color: designTokens.colors.ink,
-    padding: "15px 16px",
-    outline: "none",
-    fontSize: 15,
-  },
-  primaryButton: {
-    border: "none",
-    borderRadius: 8,
-    padding: "15px 18px",
-    fontSize: 15,
-    fontWeight: 900,
-    letterSpacing: 0,
-    background: designTokens.colors.blue,
-    color: "#ffffff",
-    cursor: "pointer",
-    boxShadow: "0 12px 24px rgba(42, 91, 215, 0.22)",
-    transition: "transform 180ms ease, box-shadow 180ms ease, filter 180ms ease",
-  },
-  secondaryButton: {
-    border: `1px solid ${designTokens.colors.border}`,
-    borderRadius: 8,
-    padding: "10px 14px",
-    fontSize: 14,
-    fontWeight: 800,
-    background: "#ffffff",
-    color: designTokens.colors.blue,
-    cursor: "pointer",
-    transition: "transform 180ms ease, border-color 180ms ease, background 180ms ease",
-  },
-  dangerButton: {
-    border: "none",
-    borderRadius: 8,
-    padding: "14px 18px",
-    fontSize: 15,
-    fontWeight: 800,
-    background: designTokens.colors.danger,
-    color: "#fff7ed",
-    cursor: "pointer",
-  },
-  error: {
-    margin: 0,
-    color: "#b42318",
-  },
-  success: {
-    margin: 0,
-    color: designTokens.colors.success,
-  },
-  helperText: {
-    margin: 0,
-    color: designTokens.colors.text,
-    lineHeight: 1.6,
-  },
-  miniHelperText: {
-    margin: "6px 0 0",
-    color: designTokens.colors.muted,
-    fontSize: 12,
-    lineHeight: 1.4,
-  },
-  legalCard: {
-    display: "grid",
-    gap: 16,
-    padding: 22,
-    borderRadius: 24,
-    background: "rgba(6, 78, 59, 0.24)",
-    border: "1px solid rgba(45, 212, 191, 0.18)",
-  },
-  legalList: {
-    display: "grid",
-    gap: 10,
-  },
-  legalNoticeItem: {
-    margin: 0,
-    color: "#d1fae5",
-    lineHeight: 1.65,
-  },
-  legalFinePrint: {
-    margin: 0,
-    color: "#a7f3d0",
-    fontSize: 13,
-    lineHeight: 1.6,
-  },
-  legalLinkRow: {
-    display: "flex",
-    gap: 16,
-    flexWrap: "wrap",
-  },
-  consentBox: {
-    display: "grid",
-    gap: 12,
-    padding: 16,
-    borderRadius: 18,
-    background: "var(--sl-surface-soft)",
-    border: "1px solid var(--sl-surface-border)",
-  },
-  consentIntro: {
-    margin: 0,
-    color: "var(--sl-content)",
-    fontSize: 13,
-    lineHeight: 1.6,
-  },
-  checkboxRow: {
-    display: "grid",
-    gridTemplateColumns: "20px minmax(0, 1fr)",
-    gap: 10,
-    alignItems: "start",
-    color: "var(--sl-content)",
-    fontSize: 13,
-    lineHeight: 1.5,
-    cursor: "pointer",
-  },
-  checkboxInput: {
-    width: 16,
-    height: 16,
-    marginTop: 2,
-    accentColor: designTokens.colors.blue,
-  },
-  metricsGrid: {
-    display: "grid",
-    gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))",
-    gap: 14,
-  },
-  metricCard: {
-    background: "var(--sl-surface)",
-    border: "1px solid var(--sl-surface-border)",
-    borderRadius: 22,
-    padding: 18,
-    boxShadow: "inset 0 1px 0 rgba(255, 255, 255, 0.05)",
-  },
-  metricLabel: {
-    margin: 0,
-    color: designTokens.colors.muted,
-    fontSize: 13,
-    letterSpacing: "0.05em",
-    textTransform: "uppercase",
-    fontWeight: 800,
-  },
-  metricValue: {
-    margin: "12px 0 0",
-    fontSize: "2.2rem",
-    fontWeight: 900,
-    lineHeight: 1,
-    color: "var(--sl-heading)",
-  },
-  metricValueSmall: {
-    margin: "12px 0 0",
-    fontSize: "1rem",
-    fontWeight: 700,
-    lineHeight: 1.5,
-  },
-  metricHint: {
-    color: designTokens.colors.muted,
-    fontSize: 13,
-  },
-  resultCard: {
-    display: "grid",
-    gap: 18,
-    padding: 20,
-    borderRadius: 22,
-    background: "var(--sl-surface-soft)",
-    border: "1px solid var(--sl-surface-border)",
-  },
-  resultTopRow: {
-    display: "flex",
-    gap: 12,
-    justifyContent: "space-between",
-    alignItems: "flex-start",
-    flexWrap: "wrap",
-  },
-  mutedLabel: {
-    margin: "0 0 8px",
-    fontSize: 12,
-    letterSpacing: "0.08em",
-    textTransform: "uppercase",
-    color: designTokens.colors.muted,
-  },
-  link: {
-    color: designTokens.colors.cyan,
-    fontWeight: 700,
-    textDecoration: "none",
-    wordBreak: "break-all",
-  },
-  inlineActions: {
-    display: "flex",
-    gap: 8,
-    flexWrap: "wrap",
-  },
-  inlineForm: {
-    display: "grid",
-    gridTemplateColumns: "minmax(0, 1fr) auto",
-    gap: 10,
-    alignItems: "center",
-  },
-  qrPanel: {
-    display: "flex",
-    gap: 18,
-    alignItems: "center",
-    flexWrap: "wrap",
-  },
-  qrText: {
-    flex: 1,
-    minWidth: 220,
-  },
-  qrHeadline: {
-    margin: "0 0 6px",
-    fontSize: "1.05rem",
-    fontWeight: 800,
-  },
-  qrDescription: {
-    margin: "0 0 14px",
-    color: "var(--sl-content)",
-    lineHeight: 1.6,
-  },
-  linkList: {
-    display: "grid",
-    gap: 10,
-  },
-  linkListItem: {
-    border: "1px solid var(--sl-surface-border)",
-    borderRadius: 18,
-    background: "var(--sl-surface-soft)",
-    color: designTokens.colors.ink,
-    padding: 16,
-    textAlign: "left",
-    cursor: "pointer",
-    transition: "transform 180ms ease, border-color 180ms ease, background 180ms ease",
-  },
-  linkListItemActive: {
-    border: `1px solid ${designTokens.colors.blue}`,
-    borderRadius: 18,
-    background: "var(--sl-surface-accent)",
-    color: designTokens.colors.ink,
-    padding: 16,
-    textAlign: "left",
-    cursor: "pointer",
-    boxShadow: designTokens.shadows.blueGlow,
-  },
-  linkListTopRow: {
-    display: "flex",
-    justifyContent: "space-between",
-    gap: 10,
-    alignItems: "center",
-    flexWrap: "wrap",
-  },
-  linkShortCode: {
-    fontWeight: 800,
-    fontSize: 15,
-    letterSpacing: "0.03em",
-  },
-  linkOriginal: {
-    margin: "10px 0",
-    color: "var(--sl-content)",
-    lineHeight: 1.55,
-    wordBreak: "break-word",
-  },
-  linkListFooter: {
-    display: "flex",
-    justifyContent: "space-between",
-    gap: 12,
-    color: "var(--sl-muted-content)",
-    fontSize: 12,
-    flexWrap: "wrap",
-  },
-  panelCard: {
-    background: "var(--sl-surface)",
-    border: "1px solid var(--sl-surface-border)",
-    borderRadius: 26,
-    padding: 20,
-    display: "grid",
-    gap: 16,
-    boxShadow: "inset 0 1px 0 rgba(255, 255, 255, 0.05)",
-  },
-  docsQuickPanel: {
-    display: "grid",
-    gap: 14,
-    padding: 18,
-    borderRadius: 22,
-    background: "var(--sl-surface)",
-    border: "1px solid var(--sl-surface-border)",
-  },
-  docsQuickList: {
-    display: "grid",
-    gap: 10,
-  },
-  docsQuickItem: {
-    display: "grid",
-    gap: 5,
-    padding: 12,
-    borderRadius: 14,
-    background: "var(--sl-surface-soft)",
-    border: "1px solid var(--sl-surface-border)",
-    color: designTokens.colors.text,
-    fontSize: 13,
-    lineHeight: 1.45,
-  },
-  subscriptionCard: {
-    display: "grid",
-    gap: 10,
-    padding: 16,
-    borderRadius: 18,
-    background: "var(--sl-surface-accent)",
-    border: "1px solid var(--sl-surface-border)",
-  },
-  subscriptionTitle: {
-    margin: 0,
-    color: "var(--sl-heading)",
-    fontSize: "1.65rem",
-    lineHeight: 1,
-    fontWeight: 950,
-  },
-  billingStatsGrid: {
-    display: "grid",
-    gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
-    gap: 12,
-  },
-  billingStatCard: {
-    padding: 16,
-    borderRadius: 18,
-    background: "var(--sl-surface-soft)",
-    border: "1px solid var(--sl-surface-border)",
-  },
-  billingStatLabel: {
-    margin: 0,
-    color: designTokens.colors.muted,
-    fontSize: 12,
-    letterSpacing: "0.05em",
-    textTransform: "uppercase",
-  },
-  billingStatValue: {
-    margin: "10px 0 0",
-    fontSize: "1.35rem",
-    fontWeight: 800,
-    lineHeight: 1.2,
-  },
-  billingStatValueSmall: {
-    margin: "10px 0 0",
-    fontSize: "0.95rem",
-    fontWeight: 700,
-    lineHeight: 1.5,
-  },
-  planGrid: {
-    display: "grid",
-    gap: 12,
-  },
-  compactPlanGrid: {
-    display: "grid",
-    gap: 10,
-  },
-  planCard: {
-    display: "grid",
-    gap: 14,
-    padding: 18,
-    borderRadius: 24,
-    background: "var(--sl-surface)",
-    border: "1px solid var(--sl-surface-border)",
-    boxShadow: designTokens.shadows.panel,
-  },
-  compactPlanCard: {
-    display: "grid",
-    gap: 10,
-    padding: 14,
-    borderRadius: 18,
-    background: "var(--sl-surface-soft)",
-    border: "1px solid var(--sl-surface-border)",
-  },
-  planCardFeatured: {
-    border: `1px solid ${designTokens.colors.borderBright}`,
-    boxShadow: "0 22px 70px rgba(76, 85, 255, 0.22), inset 0 1px 0 rgba(255, 255, 255, 0.08)",
-  },
-  planHeader: {
-    display: "flex",
-    justifyContent: "space-between",
-    gap: 12,
-    alignItems: "center",
-    flexWrap: "wrap",
-  },
-  planName: {
-    fontSize: "1rem",
-  },
-  planPrice: {
-    margin: 0,
-    fontSize: "1.7rem",
-    fontWeight: 900,
-    lineHeight: 1,
-    color: "var(--sl-heading)",
-  },
-  compactPlanPrice: {
-    margin: 0,
-    fontSize: "1.25rem",
-    fontWeight: 900,
-    lineHeight: 1.1,
-    color: "var(--sl-heading)",
-  },
-  planFeatureList: {
-    display: "grid",
-    gap: 8,
-  },
-  planFeatureItem: {
-    margin: 0,
-    color: designTokens.colors.text,
-    lineHeight: 1.5,
-  },
-  paymentCard: {
-    display: "grid",
-    gap: 8,
-    padding: 16,
-    borderRadius: 18,
-    background: "var(--sl-surface-soft)",
-    border: "1px solid var(--sl-surface-border)",
-  },
-  usageGrid: {
-    display: "grid",
-    gap: 12,
-  },
-  usageBar: {
-    display: "grid",
-    gap: 8,
-  },
-  usageBarHeader: {
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "space-between",
-    gap: 10,
-  },
-  usageBarLabel: {
-    color: designTokens.colors.text,
-    fontSize: 13,
-    fontWeight: 800,
-  },
-  usageBarCount: {
-    color: designTokens.colors.muted,
-    fontSize: 12,
-    fontWeight: 700,
-    whiteSpace: "nowrap",
-  },
-  usageBarTrack: {
-    height: 8,
-    borderRadius: 999,
-    background: "rgba(148, 163, 184, 0.16)",
-    overflow: "hidden",
-  },
-  usageBarFill: {
-    height: "100%",
-    borderRadius: 999,
-    transition: "width 180ms ease",
-  },
-  invoiceList: {
-    display: "grid",
-    gap: 10,
-  },
-  invoiceRow: {
-    display: "flex",
-    justifyContent: "space-between",
-    gap: 12,
-    alignItems: "center",
-    padding: 12,
-    borderRadius: 14,
-    background: "var(--sl-surface)",
-    border: "1px solid var(--sl-surface-border)",
-  },
-  inlineLink: {
-    color: designTokens.colors.blue,
-    fontSize: 13,
-    fontWeight: 800,
-    textDecoration: "none",
-  },
-  domainList: {
-    display: "grid",
-    gap: 12,
-  },
-  domainCard: {
-    display: "grid",
-    gap: 12,
-    padding: 16,
-    borderRadius: 18,
-    background: "var(--sl-surface-soft)",
-    border: "1px solid var(--sl-surface-border)",
-  },
-  dnsGrid: {
-    display: "grid",
-    gap: 10,
-  },
-  codeLine: {
-    margin: "4px 0 0",
-    padding: "8px 10px",
-    borderRadius: 10,
-    background: "rgba(0, 0, 0, 0.42)",
-    color: designTokens.colors.ice,
-    fontFamily: "ui-monospace, SFMono-Regular, Consolas, monospace",
-    fontSize: 12,
-    lineHeight: 1.5,
-    wordBreak: "break-all",
-  },
-  routeList: {
-    display: "grid",
-    gap: 12,
-  },
-  routeCard: {
-    display: "flex",
-    justifyContent: "space-between",
-    gap: 12,
-    alignItems: "flex-start",
-    flexWrap: "wrap",
-    padding: 16,
-    borderRadius: 18,
-    background: "var(--sl-surface-soft)",
-    border: "1px solid var(--sl-surface-border)",
-  },
-  routeLabel: {
-    margin: "0 0 6px",
-    fontSize: 13,
-    fontWeight: 800,
-    color: "var(--sl-heading)",
-    letterSpacing: "0.03em",
-    textTransform: "uppercase",
-  },
-  routeUrl: {
-    margin: 0,
-    color: "var(--sl-content)",
-    wordBreak: "break-all",
-  },
-  routeMeta: {
-    display: "grid",
-    gap: 8,
-    justifyItems: "end",
-  },
-  routeTime: {
-    fontSize: 12,
-    color: "var(--sl-muted-content)",
-  },
-  deviceBar: {
-    display: "grid",
-    gap: 8,
-  },
-  deviceBarHeader: {
-    display: "flex",
-    justifyContent: "space-between",
-    alignItems: "center",
-  },
-  deviceBarLabel: {
-    fontWeight: 700,
-    textTransform: "capitalize",
-  },
-  deviceBarCount: {
-    color: "var(--sl-content)",
-  },
-  deviceBarTrack: {
-    height: 10,
-    borderRadius: 999,
-    background: "rgba(100, 116, 139, 0.18)",
-    overflow: "hidden",
-  },
-  deviceBarFill: {
-    height: "100%",
-    borderRadius: 999,
-    background: "linear-gradient(90deg, #ffffff 0%, #4c55ff 70%, #79e6ff 100%)",
-    boxShadow: "0 0 18px rgba(76, 85, 255, 0.35)",
-  },
-  eventList: {
-    display: "grid",
-    gap: 12,
-  },
-  eventCard: {
-    padding: 16,
-    borderRadius: 18,
-    background: "var(--sl-surface-soft)",
-    border: "1px solid var(--sl-surface-border)",
-  },
-  eventTopRow: {
-    display: "flex",
-    justifyContent: "space-between",
-    gap: 12,
-    alignItems: "center",
-    flexWrap: "wrap",
-  },
-  eventTitle: {
-    fontSize: 15,
-  },
-  eventMeta: {
-    margin: "8px 0 6px",
-    color: "var(--sl-content)",
-  },
-  eventTarget: {
-    margin: "0 0 6px",
-    color: designTokens.colors.blue,
-    wordBreak: "break-all",
-  },
-  eventReferrer: {
-    margin: 0,
-    color: "var(--sl-muted-content)",
-    wordBreak: "break-word",
-  },
-  emptyState: {
-    margin: 0,
-    color: "#cbd5e1",
-    lineHeight: 1.6,
-  },
-};
+export default App;

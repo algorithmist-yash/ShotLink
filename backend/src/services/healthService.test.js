@@ -3,12 +3,42 @@ const assert = require("node:assert/strict");
 const { EventEmitter } = require("node:events");
 
 const {
+  HEALTH_REFRESH_LEASE_MS,
   HEALTH_TTL_MS,
   checkDestinationHealth,
   needsHealthRefresh,
+  refreshUrlHealth,
+  refreshUrlHealthWithLease,
   selectRedirectTarget,
   validatePublicDestination,
 } = require("./healthService");
+
+test("health changes invalidate cached redirect targets after persistence", async () => {
+  const events = [];
+  const url = {
+    originalUrl: "https://primary.example.com",
+    primaryHealth: {},
+    fallbackUrls: [],
+    async save() {
+      events.push("saved");
+    },
+  };
+
+  await refreshUrlHealth(url, {
+    checkHealth: async () => ({
+      status: "healthy",
+      statusCode: 200,
+      checkedAt: new Date("2026-07-20T12:00:00.000Z"),
+      failureReason: "",
+    }),
+    invalidateRoute: async (persistedUrl) => {
+      assert.equal(persistedUrl, url);
+      events.push("invalidated");
+    },
+  });
+
+  assert.deepEqual(events, ["saved", "invalidated"]);
+});
 
 function createRequestStub(statusCodes, onRequest) {
   const remainingStatusCodes = [...statusCodes];
@@ -155,4 +185,71 @@ test("checkDestinationHealth reuses validated DNS answers for its GET fallback",
         addresses.length === 1 && addresses[0].address === "93.184.216.34"
     )
   );
+});
+
+test("refreshUrlHealthWithLease allows only one concurrent refresh per URL", async () => {
+  const url = { _id: "url-1" };
+  let leaseClaimed = false;
+  let refreshCalls = 0;
+  let releaseCalls = 0;
+  let resolveRefresh;
+  const refreshFinished = new Promise((resolve) => {
+    resolveRefresh = resolve;
+  });
+  const dependencies = {
+    now: () => new Date("2026-07-16T12:00:00.000Z"),
+    createLeaseToken: () => "lease-1",
+    claimLease: async (_filter, update) => {
+      if (leaseClaimed) return null;
+      leaseClaimed = true;
+      assert.equal(
+        update.$set["healthRefreshLease.expiresAt"].getTime(),
+        new Date("2026-07-16T12:00:00.000Z").getTime() +
+          HEALTH_REFRESH_LEASE_MS
+      );
+      return url;
+    },
+    refresh: async (leasedUrl) => {
+      refreshCalls += 1;
+      assert.equal(leasedUrl, url);
+      await refreshFinished;
+    },
+    releaseLease: async (filter) => {
+      releaseCalls += 1;
+      assert.equal(filter["healthRefreshLease.token"], "lease-1");
+    },
+  };
+
+  const firstRefresh = refreshUrlHealthWithLease("url-1", dependencies);
+  const secondRefresh = await refreshUrlHealthWithLease("url-1", dependencies);
+
+  assert.equal(secondRefresh, false);
+  assert.equal(refreshCalls, 1);
+  assert.equal(releaseCalls, 0);
+
+  resolveRefresh();
+  assert.equal(await firstRefresh, true);
+  assert.equal(releaseCalls, 1);
+});
+
+test("refreshUrlHealthWithLease releases its lease after a failed refresh", async () => {
+  let released = false;
+
+  await assert.rejects(
+    () =>
+      refreshUrlHealthWithLease("url-2", {
+        now: () => new Date("2026-07-16T12:00:00.000Z"),
+        createLeaseToken: () => "lease-2",
+        claimLease: async () => ({ _id: "url-2" }),
+        refresh: async () => {
+          throw new Error("health request failed");
+        },
+        releaseLease: async () => {
+          released = true;
+        },
+      }),
+    /health request failed/
+  );
+
+  assert.equal(released, true);
 });

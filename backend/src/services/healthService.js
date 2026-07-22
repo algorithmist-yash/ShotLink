@@ -1,12 +1,16 @@
 const dns = require("node:dns").promises;
+const crypto = require("node:crypto");
 const http = require("node:http");
 const https = require("node:https");
 const net = require("node:net");
 
 const { isBlockedHostname } = require("../utils/urlUtils");
+const Url = require("../models/Url");
+const { invalidateUrlRoute } = require("./cacheInvalidationService");
 
 const HEALTH_TTL_MS = 5 * 60 * 1000;
 const HEALTH_TIMEOUT_MS = 2500;
+const HEALTH_REFRESH_LEASE_MS = 2 * 60 * 1000;
 
 function isHealthyStatusCode(statusCode) {
   if (!statusCode) return false;
@@ -187,12 +191,14 @@ function applyFallbackHealth(fallback, snapshot) {
   fallback.lastFailureReason = snapshot.failureReason;
 }
 
-async function refreshUrlHealth(url) {
-  const primarySnapshot = await checkDestinationHealth(url.originalUrl);
+async function refreshUrlHealth(url, dependencies = {}) {
+  const checkHealth = dependencies.checkHealth || checkDestinationHealth;
+  const invalidateRoute = dependencies.invalidateRoute || invalidateUrlRoute;
+  const primarySnapshot = await checkHealth(url.originalUrl);
   applyPrimaryHealth(url, primarySnapshot);
 
   const fallbackSnapshots = await Promise.all(
-    (url.fallbackUrls || []).map((fallback) => checkDestinationHealth(fallback.url))
+    (url.fallbackUrls || []).map((fallback) => checkHealth(fallback.url))
   );
 
   fallbackSnapshots.forEach((snapshot, index) => {
@@ -200,8 +206,61 @@ async function refreshUrlHealth(url) {
   });
 
   await url.save();
+  await invalidateRoute(url);
 
   return url;
+}
+
+async function refreshUrlHealthWithLease(urlId, dependencies = {}) {
+  const now = dependencies.now ? dependencies.now() : new Date();
+  const leaseToken = dependencies.createLeaseToken
+    ? dependencies.createLeaseToken()
+    : crypto.randomUUID();
+  const claimLease =
+    dependencies.claimLease ||
+    ((filter, update, options) => Url.findOneAndUpdate(filter, update, options));
+  const releaseLease =
+    dependencies.releaseLease ||
+    ((filter, update) => Url.updateOne(filter, update));
+  const refresh = dependencies.refresh || refreshUrlHealth;
+  const leasedUrl = await claimLease(
+    {
+      _id: urlId,
+      $or: [
+        { "healthRefreshLease.expiresAt": null },
+        { "healthRefreshLease.expiresAt": { $lte: now } },
+      ],
+    },
+    {
+      $set: {
+        "healthRefreshLease.token": leaseToken,
+        "healthRefreshLease.expiresAt": new Date(
+          now.getTime() + HEALTH_REFRESH_LEASE_MS
+        ),
+      },
+    },
+    { returnDocument: "after" }
+  );
+
+  if (!leasedUrl) return false;
+
+  try {
+    await refresh(leasedUrl);
+    return true;
+  } finally {
+    await releaseLease(
+      {
+        _id: urlId,
+        "healthRefreshLease.token": leaseToken,
+      },
+      {
+        $set: {
+          "healthRefreshLease.token": "",
+          "healthRefreshLease.expiresAt": null,
+        },
+      }
+    );
+  }
 }
 
 function getDestinationSummaries(url) {
@@ -262,11 +321,13 @@ function selectRedirectTarget(url) {
 }
 
 module.exports = {
+  HEALTH_REFRESH_LEASE_MS,
   HEALTH_TTL_MS,
   checkDestinationHealth,
   getDestinationSummaries,
   needsHealthRefresh,
   refreshUrlHealth,
+  refreshUrlHealthWithLease,
   selectRedirectTarget,
   validatePublicDestination,
 };

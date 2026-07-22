@@ -83,6 +83,26 @@ a {
   color: #2a5bd7;
 }
 
+.sl-brand-symbol { display:block; object-fit:contain; width:58px; height:58px; }
+.sl-status-pill { display:inline-flex; align-items:center; padding:6px 12px; border-radius:999px; font-size:12px; font-weight:700; letter-spacing:.04em; text-transform:uppercase; }
+.sl-checkbox-row { display:grid; grid-template-columns:20px minmax(0,1fr); gap:10px; align-items:start; color:var(--sl-content); font-size:13px; line-height:1.5; cursor:pointer; }
+.sl-checkbox-row > input { width:16px; height:16px; margin-top:2px; accent-color:var(--sl-blue); }
+.sl-feedback { margin:0; padding:12px 14px; border-radius:8px; line-height:1.5; font-size:14px; font-weight:700; }
+.sl-feedback[data-tone="error"] { color:#912018; background:#fee4e2; border:1px solid #fecdca; }
+.sl-feedback[data-tone="success"] { color:#05603a; background:#dcf8ee; border:1px solid #a6f4d0; }
+.sl-device-bar,.sl-usage-bar { display:grid; gap:8px; }
+.sl-metric-bar-header { display:flex; align-items:center; justify-content:space-between; gap:10px; }
+.sl-device-label { font-weight:700; text-transform:capitalize; }
+.sl-usage-label { color:var(--sl-content); font-size:13px; font-weight:800; }
+.sl-usage-count { color:var(--sl-muted-content); font-size:12px; font-weight:700; white-space:nowrap; }
+.sl-metric-bar-track { height:9px; border-radius:999px; background:rgba(100,116,139,.18); overflow:hidden; }
+.sl-device-bar-fill,.sl-usage-bar-fill { height:100%; border-radius:999px; transition:width 180ms ease; }
+.sl-device-bar-fill { background:linear-gradient(90deg,#fff 0%,#4c55ff 70%,#79e6ff 100%); box-shadow:0 0 18px rgba(76,85,255,.35); }
+.sl-usage-bar-fill[data-tone="normal"] { background:var(--sl-blue); }
+.sl-usage-bar-fill[data-tone="warning"] { background:var(--sl-yellow); }
+.sl-usage-bar-fill[data-tone="danger"] { background:#ef4444; }
+.sl-usage-remaining { margin:6px 0 0; color:var(--sl-muted-content); font-size:12px; }
+
 button,
 a,
 input,
@@ -423,6 +443,11 @@ html[data-shotlink-theme="light"] body {
 }
 
 @media (max-width: 720px) {
+  .sl-dashboard-header {
+    gap: 14px !important;
+    padding: 14px !important;
+  }
+
   .sl-header-actions {
     flex-basis: 100% !important;
     justify-content: flex-start !important;
@@ -431,6 +456,21 @@ html[data-shotlink-theme="light"] body {
   .sl-header-actions > * {
     flex: 0 1 auto;
     text-align: center;
+  }
+
+  .sl-header-shortcut {
+    display: none !important;
+  }
+
+  .sl-command-strip {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: 10px !important;
+  }
+
+  .sl-command-card {
+    min-width: 0;
+    gap: 6px !important;
+    padding: 14px !important;
   }
 
   .sl-dashboard-nav {

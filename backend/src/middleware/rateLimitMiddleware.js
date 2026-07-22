@@ -20,7 +20,7 @@ async function consumeRateLimit({ bucketId, expiresAt }) {
       $setOnInsert: { expiresAt },
     },
     {
-      new: true,
+      returnDocument: "after",
       setDefaultsOnInsert: false,
       upsert: true,
     }

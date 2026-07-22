@@ -1,0 +1,74 @@
+groups:
+  - name: shotlink-service
+    rules:
+      - alert: ShotlinkApiDown
+        expr: up{job="shotlink-api"} == 0
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: Shotlink API metrics target is unavailable
+          runbook: DISASTER_RECOVERY.md
+
+      - alert: ShotlinkHighServerErrorRate
+        expr: sum(rate(shotlink_http_requests_total{status_class="5xx"}[10m])) / clamp_min(sum(rate(shotlink_http_requests_total[10m])), 0.001) > 0.02
+        for: 10m
+        labels:
+          severity: critical
+        annotations:
+          summary: Shotlink server errors exceed 2 percent
+          runbook: ops/monitoring/README.md
+
+      - alert: ShotlinkHighP95Latency
+        expr: histogram_quantile(0.95, sum by (le) (rate(shotlink_http_request_duration_seconds_bucket[10m]))) > 0.5
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: Shotlink p95 API latency exceeds 500 ms
+          runbook: PERFORMANCE_SLOS.md
+
+      - alert: ShotlinkDeadHealthJobs
+        expr: shotlink_background_queue_depth{queue="url_health",status="dead"} > 0
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: URL health jobs reached the dead-letter state
+          runbook: ops/monitoring/README.md
+
+      - alert: ShotlinkHealthQueueBacklog
+        expr: shotlink_background_queue_depth{queue="url_health",status="pending"} > 1000
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: URL health queue backlog is above 1000 jobs
+          runbook: ops/monitoring/README.md
+
+      - alert: ShotlinkDeadRedirectEventJobs
+        expr: shotlink_background_queue_depth{queue="redirect_event",status="dead"} > 0
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: Redirect analytics jobs reached the dead-letter state
+          runbook: ops/monitoring/README.md
+
+      - alert: ShotlinkRedirectEventBacklog
+        expr: shotlink_background_queue_depth{queue="redirect_event",status="pending"} > 1000
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: Redirect analytics queue backlog is above 1000 jobs
+          runbook: ops/monitoring/README.md
+
+      - alert: ShotlinkCacheErrors
+        expr: sum(rate(shotlink_cache_operations_total{result="error"}[10m])) > 0.1
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: Shotlink Redis cache errors are sustained
+          runbook: ops/monitoring/README.md

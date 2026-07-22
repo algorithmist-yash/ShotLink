@@ -70,6 +70,7 @@ const workspaceSchema = new mongoose.Schema(
         default: "",
       },
       subscriptionCreationStartedAt: { type: Date, default: null },
+      linkCreationVersion: { type: Number, default: 0, min: 0 },
     },
     members: {
       type: [workspaceMemberSchema],
@@ -84,5 +85,10 @@ const workspaceSchema = new mongoose.Schema(
 );
 
 workspaceSchema.index({ "customDomains.hostname": 1 }, { unique: true, sparse: true });
+
+workspaceSchema.post("save", async function invalidateCachedEntitlement(workspace) {
+  const { invalidateWorkspaceEntitlement } = require("../services/cacheInvalidationService");
+  await invalidateWorkspaceEntitlement(workspace._id);
+});
 
 module.exports = mongoose.model("Workspace", workspaceSchema);
