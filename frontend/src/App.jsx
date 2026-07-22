@@ -27,11 +27,12 @@ const PUBLIC_NAV_ITEMS = [
 ];
 
 const DASHBOARD_NAV_ITEMS = [
-  { id: "builder-panel", label: "Create" },
-  { id: "analytics-panel", label: "Analytics" },
-  { id: "billing-panel", label: "Billing" },
-  { id: "domains-panel", label: "Domains" },
-  { id: "docs-panel", label: "Docs" },
+  { id: "builder-panel", label: "Create link", index: "01" },
+  { id: "links-panel", label: "Link library", index: "02" },
+  { id: "analytics-panel", label: "Analytics", index: "03" },
+  { id: "domains-panel", label: "Domains", index: "04" },
+  { id: "billing-panel", label: "Billing", index: "05" },
+  { id: "docs-panel", label: "Operator guide", index: "06" },
 ];
 
 const HOME_FEATURES = [
@@ -1576,10 +1577,9 @@ function App() {
                     value={authForm.name}
                     autoComplete="name"
                     required
-                    onChange={(event) =>
-                      setAuthForm((current) => ({ ...current, name: event.target.value }))
-                    }
-                    placeholder="Enter your full name"
+                  onChange={(event) =>
+                    setAuthForm((current) => ({ ...current, name: event.target.value }))
+                  }
                   />
                 </label>
               ) : null}
@@ -1595,7 +1595,6 @@ function App() {
                   onChange={(event) =>
                     setAuthForm((current) => ({ ...current, email: event.target.value }))
                   }
-                  placeholder="Enter your email address"
                 />
               </label>
 
@@ -1611,7 +1610,6 @@ function App() {
                   onChange={(event) =>
                     setAuthForm((current) => ({ ...current, password: event.target.value }))
                   }
-                  placeholder="Create a strong password"
                 />
               </label>
 
@@ -1624,12 +1622,11 @@ function App() {
                     autoComplete="organization"
                     required
                     onChange={(event) =>
-                      setAuthForm((current) => ({
-                        ...current,
-                        workspaceName: event.target.value,
-                      }))
-                    }
-                    placeholder="Enter your workspace or company name"
+                    setAuthForm((current) => ({
+                      ...current,
+                      workspaceName: event.target.value,
+                    }))
+                  }
                   />
                 </label>
               ) : null}
@@ -1687,24 +1684,34 @@ function App() {
     );
   }
 
+  const workspaceInitials = session.workspace.name
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0])
+    .join("")
+    .toUpperCase();
+  const userFirstName = session.user.name.split(/\s+/).filter(Boolean)[0] || session.user.name;
+
   return (
     <div className="sl-page" style={{ ...styles.page, ...modeStyles.page }}>
       <div className="sl-grid-overlay" style={{ ...styles.backgroundGrid, ...modeStyles.backgroundGrid }} />
       <div className="sl-glow sl-glow-top" style={{ ...styles.backgroundGlowTop, ...modeStyles.backgroundGlowTop }} />
       <div className="sl-glow sl-glow-bottom" style={{ ...styles.backgroundGlowBottom, ...modeStyles.backgroundGlowBottom }} />
 
-      <div style={styles.dashboardShell}>
+      <div className="sl-dashboard-shell" style={styles.dashboardShell}>
         <header
           className="sl-dashboard-header"
           style={{ ...styles.headerBar, ...modeStyles.headerBar }}
         >
           <div className="sl-dashboard-brand" style={styles.dashboardBrandBlock}>
-            <BrandLogo compact style={styles.dashboardLogo} />
-            <div>
-              <p style={styles.sectionEyebrow}>Workspace</p>
+            <BrandLogo style={styles.dashboardLogo} />
+            <span style={styles.headerDivider} aria-hidden="true" />
+            <div style={styles.workspaceHeadingBlock}>
+              <p style={styles.sectionEyebrow}>Workspace command center</p>
               <h1 style={styles.dashboardTitle}>{session.workspace.name}</h1>
               <p style={styles.workspaceMeta}>
-                {session.user.name} - {currentPlan.effectivePlanName} plan - {session.workspace.slug}
+                Welcome back, {userFirstName}. Your links, routing health, and growth signals are ready.
               </p>
             </div>
           </div>
@@ -1712,50 +1719,40 @@ function App() {
             <StatusPill label={`${activeLinkCount}/${activeLinkLimit} active links`} tone="accent" />
             <StatusPill label={formatLabel(currentPlan.billingStatus)} tone={getBillingTone(currentPlan.billingStatus)} />
             <button
-              className="sl-header-shortcut"
-              style={{ ...styles.navActionButton, ...modeStyles.billingButton }}
-              onClick={() => scrollToDashboardSection("billing-panel")}
-            >
-              Billing
-            </button>
-            <button
-              className="sl-header-shortcut"
-              style={{ ...styles.navActionButton, ...modeStyles.docsButton }}
-              onClick={() => {
-                setShowDocsPanel(true);
-                window.setTimeout(() => scrollToDashboardSection("docs-panel"), 50);
-              }}
-            >
-              Docs
-            </button>
-            <button
               style={{ ...styles.navActionButton, ...modeStyles.themeButton }}
               onClick={() => setColorMode((currentMode) => (currentMode === "dark" ? "light" : "dark"))}
             >
-              {colorMode === "dark" ? "Light mode" : "Dark mode"}
+              {colorMode === "dark" ? "Use light theme" : "Use dark theme"}
             </button>
             <button style={styles.secondaryButton} onClick={logout}>Sign out</button>
           </div>
         </header>
 
         <section className="sl-command-strip" style={styles.commandStrip}>
-          <article className="sl-lift sl-command-card" style={{ ...styles.commandCard, ...modeStyles.commandCard }}>
-            <p style={styles.metricLabel}>Short links</p>
+          <div style={styles.commandStripHeading}>
+            <div>
+              <p style={styles.sectionEyebrow}>Live overview</p>
+              <h2 style={styles.overviewTitle}>Your workspace at a glance</h2>
+            </div>
+            <span style={styles.overviewTimestamp}>Updated from live workspace data</span>
+          </div>
+          <article className="sl-lift sl-command-card" data-accent="blue" style={{ ...styles.commandCard, ...modeStyles.commandCard }}>
+            <div style={styles.commandCardTop}><span style={styles.commandIndex}>01</span><p style={styles.metricLabel}>Active links</p></div>
             <strong style={styles.commandValue}>{activeLinkCount}</strong>
             <span style={styles.metricHint}>{remainingLinkSlots} slots available</span>
           </article>
-          <article className="sl-lift sl-command-card" style={{ ...styles.commandCard, ...modeStyles.commandCard }}>
-            <p style={styles.metricLabel}>Tracked clicks</p>
+          <article className="sl-lift sl-command-card" data-accent="green" style={{ ...styles.commandCard, ...modeStyles.commandCard }}>
+            <div style={styles.commandCardTop}><span style={styles.commandIndex}>02</span><p style={styles.metricLabel}>Tracked clicks</p></div>
             <strong style={styles.commandValue}>{analytics?.clicks ?? 0}</strong>
             <span style={styles.metricHint}>selected link telemetry</span>
           </article>
-          <article className="sl-lift sl-command-card" style={{ ...styles.commandCard, ...modeStyles.commandCard }}>
-            <p style={styles.metricLabel}>Domains</p>
+          <article className="sl-lift sl-command-card" data-accent="amber" style={{ ...styles.commandCard, ...modeStyles.commandCard }}>
+            <div style={styles.commandCardTop}><span style={styles.commandIndex}>03</span><p style={styles.metricLabel}>Domains</p></div>
             <strong style={styles.commandValue}>{customDomains.length}/{domainLimit}</strong>
             <span style={styles.metricHint}>branded link surfaces</span>
           </article>
-          <article className="sl-lift sl-command-card" style={{ ...styles.commandCard, ...modeStyles.commandCard }}>
-            <p style={styles.metricLabel}>Current plan</p>
+          <article className="sl-lift sl-command-card" data-accent="violet" style={{ ...styles.commandCard, ...modeStyles.commandCard }}>
+            <div style={styles.commandCardTop}><span style={styles.commandIndex}>04</span><p style={styles.metricLabel}>Current plan</p></div>
             <strong style={styles.commandValue}>{currentPlan.effectivePlanName}</strong>
             <span style={styles.metricHint}>{formatLabel(currentPlan.billingStatus)}</span>
           </article>
@@ -1766,30 +1763,47 @@ function App() {
           style={{ ...styles.dashboardNavCard, ...modeStyles.panelCard }}
           aria-label="Workspace navigation"
         >
-          {DASHBOARD_NAV_ITEMS.map((item) => (
-            <button
-              key={item.id}
-              style={styles.dashboardNavItem}
-              onClick={() => {
-                if (item.id === "docs-panel") {
-                  setShowDocsPanel(true);
-                  window.setTimeout(() => scrollToDashboardSection(item.id), 50);
-                  return;
-                }
-                scrollToDashboardSection(item.id);
-              }}
-            >
-              {item.label}
-            </button>
-          ))}
+          <div className="sl-dashboard-nav-intro" style={styles.dashboardNavIntro}>
+            <span style={styles.workspaceAvatar}>{workspaceInitials || "SL"}</span>
+            <div style={styles.navWorkspaceCopy}>
+              <strong style={styles.navWorkspaceName}>{session.workspace.name}</strong>
+              <span style={styles.navWorkspaceSlug}>/{session.workspace.slug}</span>
+            </div>
+          </div>
+          <div className="sl-dashboard-nav-items" style={styles.dashboardNavItems}>
+            {DASHBOARD_NAV_ITEMS.map((item) => (
+              <button
+                key={item.id}
+                style={styles.dashboardNavItem}
+                onClick={() => {
+                  if (item.id === "docs-panel") {
+                    setShowDocsPanel(true);
+                    window.setTimeout(() => scrollToDashboardSection(item.id), 50);
+                    return;
+                  }
+                  scrollToDashboardSection(item.id);
+                }}
+              >
+                <span style={styles.dashboardNavIndex}>{item.index}</span>
+                <span>{item.label}</span>
+              </button>
+            ))}
+          </div>
+          <div className="sl-dashboard-nav-plan" style={styles.dashboardNavPlan}>
+            <p style={styles.navPlanLabel}>{currentPlan.effectivePlanName} plan</p>
+            <strong style={styles.navPlanValue}>{remainingLinkSlots}</strong>
+            <span style={styles.navPlanHint}>link slots remaining</span>
+            <button style={styles.navPlanButton} onClick={() => scrollToDashboardSection("billing-panel")}>Manage plan</button>
+          </div>
         </nav>
 
-        <main style={styles.dashboardGrid}>
-          <section id="builder-panel" style={{ ...styles.builderCard, ...modeStyles.builderCard }}>
+        <main className="sl-dashboard-main" style={styles.dashboardGrid}>
+          <section id="builder-panel" style={{ ...styles.builderCard, ...modeStyles.builderCard, gridArea: "builder" }}>
             <div style={styles.panelTitleRow}>
               <div>
-                <p style={styles.sectionEyebrow}>Shorten</p>
-                <h2 style={styles.panelTitle}>Create a short link</h2>
+                <p style={styles.sectionEyebrow}>Create</p>
+                <h2 style={styles.panelTitle}>Publish a short link</h2>
+                <p style={styles.panelLead}>Set the destination, branded path, expiry, and failover behavior.</p>
               </div>
               <StatusPill label={currentPlan.effectivePlanName} tone={getPlanTone(currentPlan.effectivePlanId)} />
             </div>
@@ -1834,39 +1848,46 @@ function App() {
                   </select>
                 </label>
               </div>
-              <label style={styles.label}>
-                Primary destination
+              <div style={styles.label}>
+                <label htmlFor="primary-destination">Primary destination</label>
                 <input
+                  id="primary-destination"
                   style={styles.input}
                   type="url"
                   autoComplete="url"
-                  placeholder="Paste a long URL, e.g. https://example.com/summer-campaign"
+                  aria-describedby="primary-destination-help"
                   value={url}
                   onChange={(event) => setUrl(event.target.value)}
                 />
-              </label>
-              <label style={styles.label}>
-                Custom alias
+                <span id="primary-destination-help" style={styles.miniHelperText}>The HTTPS page visitors should reach.</span>
+              </div>
+              <div style={styles.label}>
+                <label htmlFor="custom-alias">Custom alias</label>
                 <div className="sl-alias-group" style={styles.aliasInputGroup}>
                   <span className="sl-alias-prefix" style={styles.aliasPrefix}>{selectedDomainHost || "shot.link"}/</span>
                   <input
+                    id="custom-alias"
                     style={{ ...styles.input, ...styles.aliasInput }}
-                    placeholder="summer-sale"
+                    aria-describedby="custom-alias-help"
                     value={customAlias}
                     onChange={(event) => setCustomAlias(event.target.value)}
                   />
                 </div>
-                <span style={styles.miniHelperText}>Optional. Use 3-48 letters, numbers, hyphens, or underscores.</span>
-              </label>
-              <label style={styles.label}>
-                Fallback destinations
+                <span id="custom-alias-help" style={styles.miniHelperText}>Optional. Use 3-48 letters, numbers, hyphens, or underscores.</span>
+              </div>
+              <div style={styles.label}>
+                <label htmlFor="fallback-destinations">
+                  Fallback destinations <span aria-hidden="true" style={styles.optionalLabel}>Optional</span>
+                </label>
                 <textarea
+                  id="fallback-destinations"
                   style={styles.textarea}
-                  placeholder={"Optional: paste backup URLs, one per line\nhttps://backup-1.yourcompany.in\nhttps://backup-2.yourcompany.in"}
+                  aria-describedby="fallback-destinations-help"
                   value={fallbackInput}
                   onChange={(event) => setFallbackInput(event.target.value)}
                 />
-              </label>
+                <span id="fallback-destinations-help" style={styles.miniHelperText}>Add one HTTPS backup destination per line, in failover order.</span>
+              </div>
               <div className="sl-consent-box" style={styles.consentBox}>
                 <p style={styles.consentIntro}>
                   Link policy version {LINK_POLICY_VERSION}. Required for every link so abusive or illegal destinations can be suspended with a clear audit trail.
@@ -1926,14 +1947,14 @@ function App() {
             ) : null}
           </section>
 
-          <section id="analytics-panel" style={styles.analyticsPanel}>
+          <section id="analytics-panel" style={{ ...styles.analyticsPanel, ...modeStyles.panelCard, gridArea: "analytics" }}>
             <div style={styles.analyticsHeader}>
               <div>
                 <p style={styles.sectionEyebrow}>Analytics console</p>
                 <h2 style={styles.panelTitle}>Protected workspace analytics</h2>
               </div>
               <StatusPill
-                label={analytics?.isActive ? "active" : selectedShortCode ? "expired" : "waiting"}
+                label={analytics?.isActive ? "active" : selectedShortCode ? "expired" : "select a link"}
                 tone={analytics?.isActive ? "healthy" : selectedShortCode ? "danger" : "neutral"}
               />
             </div>
@@ -1941,11 +1962,11 @@ function App() {
             <div style={styles.metricsGrid}>
               <div style={{ ...styles.metricCard, ...modeStyles.metricCard }}><p style={styles.metricLabel}>Total clicks</p><p style={styles.metricValue}>{analytics?.clicks ?? 0}</p></div>
               <div style={{ ...styles.metricCard, ...modeStyles.metricCard }}><p style={styles.metricLabel}>Last click</p><p style={styles.metricValueSmall}>{formatDate(analytics?.lastClickedAt)}</p></div>
-              <div style={{ ...styles.metricCard, ...modeStyles.metricCard }}><p style={styles.metricLabel}>Expires in</p><p style={styles.metricValueSmall}>{countdown || "Not started"}</p></div>
+              <div style={{ ...styles.metricCard, ...modeStyles.metricCard }}><p style={styles.metricLabel}>Expires in</p><p style={styles.metricValueSmall}>{countdown || "Select a link"}</p></div>
               <div style={{ ...styles.metricCard, ...modeStyles.metricCard }}>
                 <p style={styles.metricLabel}>Current target</p>
                 <p style={styles.metricValueSmall}>
-                  {analytics?.currentTarget?.kind === "fallback" ? analytics.currentTarget.label : analytics?.currentTarget ? "Primary destination" : "Unavailable"}
+                  {analytics?.currentTarget?.kind === "fallback" ? analytics.currentTarget.label : analytics?.currentTarget ? "Primary destination" : "Select a link"}
                 </p>
               </div>
             </div>
@@ -1962,8 +1983,8 @@ function App() {
                       <p style={styles.routeUrl}>{analytics?.originalUrl || "Select a link to inspect route health"}</p>
                     </div>
                     <div style={styles.routeMeta}>
-                      <StatusPill label={analytics?.primaryHealth?.status || "unknown"} tone={getHealthTone(analytics?.primaryHealth?.status)} />
-                      <span style={styles.routeTime}>{analytics?.primaryHealth?.lastCheckedAt ? formatDate(analytics.primaryHealth.lastCheckedAt) : "Not checked yet"}</span>
+                      <StatusPill label={analytics?.primaryHealth?.status || "not monitored"} tone={getHealthTone(analytics?.primaryHealth?.status)} />
+                      <span style={styles.routeTime}>{analytics?.primaryHealth?.lastCheckedAt ? formatDate(analytics.primaryHealth.lastCheckedAt) : "Awaiting first health check"}</span>
                     </div>
                   </div>
                   {(analytics?.fallbackUrls || []).map((fallback) => (
@@ -1971,7 +1992,7 @@ function App() {
                       <div><p style={styles.routeLabel}>{fallback.label}</p><p style={styles.routeUrl}>{fallback.url}</p></div>
                       <div style={styles.routeMeta}>
                         <StatusPill label={fallback.lastStatus} tone={getHealthTone(fallback.lastStatus)} />
-                        <span style={styles.routeTime}>{fallback.lastCheckedAt ? formatDate(fallback.lastCheckedAt) : "Not checked yet"}</span>
+                        <span style={styles.routeTime}>{fallback.lastCheckedAt ? formatDate(fallback.lastCheckedAt) : "Awaiting first health check"}</span>
                       </div>
                     </div>
                   ))}
@@ -2015,12 +2036,12 @@ function App() {
                     </div>
                   ))}
                 </div>
-              ) : <p style={styles.emptyState}>No click events yet. Open the selected short URL from another tab to populate this feed.</p>}
+              ) : <p style={styles.emptyState}>Click activity will appear here after the selected link receives traffic.</p>}
             </div>
             {analytics?.isActive ? <button style={styles.dangerButton} onClick={() => window.confirm("Expire this short link now?") && expireCurrentLink()}>Expire this short link</button> : null}
           </section>
 
-          <section id="links-panel" style={{ ...styles.panelCard, ...modeStyles.panelCard }}>
+          <section id="links-panel" style={{ ...styles.panelCard, ...styles.linksPanel, ...modeStyles.panelCard, gridArea: "links" }}>
             <div style={styles.panelTitleRow}>
               <div>
                 <p style={styles.sectionEyebrow}>Links</p>
@@ -2040,18 +2061,22 @@ function App() {
                   </button>
                 ))}
               </div>
-            ) : <p style={styles.emptyState}>No links yet. Create your first short link from the builder.</p>}
+            ) : <p style={styles.emptyState}>Your published links will appear here.</p>}
           </section>
 
-          <section id="domains-panel" style={{ ...styles.panelCard, ...modeStyles.panelCard }}>
+          <section id="domains-panel" style={{ ...styles.panelCard, ...modeStyles.panelCard, gridArea: "domains" }}>
             <div style={styles.panelTitleRow}>
               <div><p style={styles.sectionEyebrow}>Domains</p><h2 style={styles.panelTitle}>Branded customer links</h2></div>
               <StatusPill label={`${customDomains.length}/${domainLimit} domains`} tone={domainLimit ? "accent" : "neutral"} />
             </div>
             <FeedbackMessage message={domainError} />
             <FeedbackMessage message={domainMessage} tone="success" />
-            <div style={styles.inlineForm}>
-              <input style={styles.input} placeholder="Enter your branded domain, e.g. go.yourcompany.in" value={customDomainInput} onChange={(event) => setCustomDomainInput(event.target.value)} disabled={domainSaving || customDomains.length >= domainLimit} />
+            <div className="sl-inline-form" style={styles.inlineForm}>
+              <div style={styles.inlineFieldLabel}>
+                <label htmlFor="custom-domain">Branded subdomain</label>
+                <input id="custom-domain" style={styles.input} aria-describedby="custom-domain-help" value={customDomainInput} onChange={(event) => setCustomDomainInput(event.target.value)} disabled={domainSaving || customDomains.length >= domainLimit} />
+                <span id="custom-domain-help" style={styles.miniHelperText}>Enter the subdomain you will point to Shotlink.</span>
+              </div>
               <button style={domainSaving || customDomains.length >= domainLimit ? { ...styles.secondaryButton, opacity: 0.6, cursor: "not-allowed" } : styles.primaryButton} onClick={addCustomDomain} disabled={domainSaving || customDomains.length >= domainLimit}>
                 {domainSaving ? "Adding..." : "Add domain"}
               </button>
@@ -2078,7 +2103,7 @@ function App() {
             ) : <p style={styles.emptyState}>Add a customer subdomain, publish the DNS records, then verify it here.</p>}
           </section>
 
-          <section id="billing-panel" style={{ ...styles.panelCard, ...modeStyles.panelCard }}>
+          <section id="billing-panel" style={{ ...styles.panelCard, ...modeStyles.panelCard, gridArea: "billing" }}>
             <div style={styles.panelTitleRow}>
               <div><p style={styles.sectionEyebrow}>Billing</p><h2 style={styles.panelTitle}>Active subscription</h2></div>
               <button style={{ ...styles.secondaryButton, opacity: billingLoading ? 0.7 : 1, cursor: billingLoading ? "progress" : "pointer" }} onClick={() => refreshBillingSummary("Billing status refreshed.")} disabled={billingLoading}>
@@ -2142,7 +2167,7 @@ function App() {
           </section>
 
           {showDocsPanel ? (
-            <section id="docs-panel" style={{ ...styles.docsQuickPanel, ...modeStyles.docsQuickPanel }}>
+            <section id="docs-panel" style={{ ...styles.docsQuickPanel, ...modeStyles.docsQuickPanel, gridArea: "docs" }}>
               <div style={styles.panelTitleRow}><div><p style={styles.sectionEyebrow}>Docs</p><h2 style={styles.panelTitle}>Quick operator guide</h2></div><button style={styles.secondaryButton} onClick={() => setShowDocsPanel(false)}>Hide</button></div>
               <div style={styles.docsQuickList}>
                 {DOC_SECTIONS.slice(0, 3).map((section) => <div key={section.title} style={styles.docsQuickItem}><strong>{section.title}</strong><span>{section.body}</span></div>)}
