@@ -68,7 +68,47 @@ test("public navigation, auth validation, and WCAG guardrails work", async ({ pa
   await openPublicHomepage(page);
 
   await expect(page).toHaveTitle("Shotlink | Branded short links and fallback routing");
-  await expect(page.getByRole("navigation", { name: "Public pages" })).toBeVisible();
+  const publicNavigation = page.getByRole("navigation", { name: "Public pages" });
+  const publicHeader = page.getByRole("banner");
+  await expect(publicNavigation).toBeVisible();
+  expect(
+    await publicHeader.evaluate((header) => {
+      const styles = window.getComputedStyle(header);
+      return {
+        backgroundColor: styles.backgroundColor,
+        position: styles.position,
+        top: styles.top,
+      };
+    })
+  ).toEqual({
+    backgroundColor: "rgba(255, 255, 255, 0.85)",
+    position: "sticky",
+    top: "0px",
+  });
+  expect(
+    await page.locator(".sl-public-page").evaluate((root) => window.getComputedStyle(root).fontFamily)
+  ).toContain("Plus Jakarta Sans");
+  expect(
+    await publicHeader
+      .getByRole("button", { name: "Get started", exact: true })
+      .evaluate((button) => {
+        const styles = window.getComputedStyle(button);
+        return {
+          backgroundColor: styles.backgroundColor,
+          borderRadius: styles.borderRadius,
+          fontWeight: styles.fontWeight,
+        };
+      })
+  ).toEqual({
+    backgroundColor: "rgb(8, 127, 91)",
+    borderRadius: "10px",
+    fontWeight: "600",
+  });
+  await page.evaluate(() => window.scrollTo(0, 900));
+  await expect
+    .poll(() => publicHeader.evaluate((header) => header.getBoundingClientRect().top))
+    .toBe(0);
+  await page.evaluate(() => window.scrollTo(0, 0));
   await expectNoWcagViolations(page, testInfo);
 
   const publicDestinations = [
@@ -89,6 +129,23 @@ test("public navigation, auth validation, and WCAG guardrails work", async ({ pa
 
   await page.getByRole("button", { name: "Sign in", exact: true }).click();
   await expect(page.getByRole("heading", { level: 1, name: "Sign in" })).toBeVisible();
+  expect(
+    await page.locator(".sl-auth-page").evaluate((root) => window.getComputedStyle(root).fontFamily)
+  ).toContain("Inter");
+  expect(
+    await page.locator("form").evaluate((form) => {
+      const styles = window.getComputedStyle(form);
+      return {
+        backgroundColor: styles.backgroundColor,
+        borderRadius: styles.borderRadius,
+        maxWidth: styles.maxWidth,
+      };
+    })
+  ).toEqual({
+    backgroundColor: "rgba(255, 255, 255, 0.95)",
+    borderRadius: "16px",
+    maxWidth: "500px",
+  });
 
   const loginForm = page.locator("form");
   await loginForm.getByRole("button", { name: "Sign in", exact: true }).click();
@@ -146,6 +203,26 @@ test("real registration, cookie session, link redirect, analytics, and logout wo
 
   await expect(page.getByRole("heading", { level: 1, name: workspaceName })).toBeVisible();
   await expect(page.getByText("Welcome back, Browser.", { exact: false })).toBeVisible();
+  await expect(page.getByRole("button", { name: /theme/i })).toHaveCount(0);
+  expect(
+    await page
+      .locator(".sl-dashboard-page")
+      .evaluate((root) => window.getComputedStyle(root).fontFamily)
+  ).toContain("Inter");
+  expect(
+    await page.getByRole("button", { name: "Accept link policy to create" }).evaluate((button) => {
+      const styles = window.getComputedStyle(button);
+      return {
+        backgroundColor: styles.backgroundColor,
+        borderRadius: styles.borderRadius,
+        fontWeight: styles.fontWeight,
+      };
+    })
+  ).toEqual({
+    backgroundColor: "rgb(4, 119, 92)",
+    borderRadius: "10px",
+    fontWeight: "600",
+  });
   expect((await page.context().cookies()).some((cookie) => cookie.name === "shotlink_session")).toBe(
     true
   );

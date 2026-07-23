@@ -13,7 +13,7 @@ import {
   formatPlanPrice,
   formatPriceInInr,
 } from "./utils/formatters";
-import { darkModeStyles, lightModeStyles, styles } from "./styles";
+import { enterpriseDashboardStyles, styles } from "./styles";
 
 const LEGACY_SESSION_STORAGE_KEY = "url-shortener-session-token";
 const ACCOUNT_POLICY_VERSION = "2026-05-19";
@@ -442,7 +442,6 @@ function App() {
   const [selectedDomainHost, setSelectedDomainHost] = useState("");
   const [linkComplianceAccepted, setLinkComplianceAccepted] = useState(false);
   const isMobile = useResponsiveLayout();
-  const [colorMode, setColorMode] = useState(() => localStorage.getItem("shotlink-color-mode") || "light");
   const [showDocsPanel, setShowDocsPanel] = useState(false);
   const isAuthenticated = Boolean(session);
 
@@ -537,11 +536,6 @@ function App() {
     const page = document.querySelector(".sl-page");
     if (page) page.scrollTop = 0;
   }, [session]);
-
-  useEffect(() => {
-    localStorage.setItem("shotlink-color-mode", colorMode);
-    document.documentElement.dataset.shotlinkTheme = session ? colorMode : "light";
-  }, [colorMode, session]);
 
   useEffect(() => {
     if (session) return undefined;
@@ -1624,8 +1618,6 @@ function App() {
   const authSubmitDisabled =
     authSubmitting || (authMode === "register" && !requiredAccountConsentsAccepted);
   const linkSubmitDisabled = loading || remainingLinkSlots <= 0 || !linkComplianceAccepted;
-  const modeStyles = colorMode === "light" ? lightModeStyles : darkModeStyles;
-
   if (authLoading) {
     return (
       <div className="sl-page sl-dashboard-page" style={styles.page}>
@@ -1923,15 +1915,15 @@ function App() {
   const userFirstName = session.user.name.split(/\s+/).filter(Boolean)[0] || session.user.name;
 
   return (
-    <div className="sl-page sl-dashboard-page" style={{ ...styles.page, ...modeStyles.page }}>
-      <div className="sl-grid-overlay" style={{ ...styles.backgroundGrid, ...modeStyles.backgroundGrid }} />
-      <div className="sl-glow sl-glow-top" style={{ ...styles.backgroundGlowTop, ...modeStyles.backgroundGlowTop }} />
-      <div className="sl-glow sl-glow-bottom" style={{ ...styles.backgroundGlowBottom, ...modeStyles.backgroundGlowBottom }} />
+    <div className="sl-page sl-dashboard-page" style={{ ...styles.page, ...enterpriseDashboardStyles.page }}>
+      <div className="sl-grid-overlay" style={{ ...styles.backgroundGrid, ...enterpriseDashboardStyles.backgroundGrid }} />
+      <div className="sl-glow sl-glow-top" style={{ ...styles.backgroundGlowTop, ...enterpriseDashboardStyles.backgroundGlowTop }} />
+      <div className="sl-glow sl-glow-bottom" style={{ ...styles.backgroundGlowBottom, ...enterpriseDashboardStyles.backgroundGlowBottom }} />
 
       <div className="sl-dashboard-shell" style={styles.dashboardShell}>
         <header
           className="sl-dashboard-header"
-          style={{ ...styles.headerBar, ...modeStyles.headerBar }}
+          style={{ ...styles.headerBar, ...enterpriseDashboardStyles.headerBar }}
         >
           <div className="sl-dashboard-brand" style={styles.dashboardBrandBlock}>
             <BrandLogo style={styles.dashboardLogo} />
@@ -1947,12 +1939,6 @@ function App() {
           <div className="sl-header-actions" style={styles.headerActions}>
             <StatusPill label={`${activeLinkCount}/${activeLinkLimit} active links`} tone="accent" />
             <StatusPill label={formatLabel(currentPlan.billingStatus)} tone={getBillingTone(currentPlan.billingStatus)} />
-            <button
-              style={{ ...styles.navActionButton, ...modeStyles.themeButton }}
-              onClick={() => setColorMode((currentMode) => (currentMode === "dark" ? "light" : "dark"))}
-            >
-              {colorMode === "dark" ? "Use light theme" : "Use dark theme"}
-            </button>
             <button style={styles.secondaryButton} onClick={logout}>Sign out</button>
           </div>
         </header>
@@ -1965,22 +1951,22 @@ function App() {
             </div>
             <span style={styles.overviewTimestamp}>Updated from live workspace data</span>
           </div>
-          <article className="sl-lift sl-command-card" data-accent="blue" style={{ ...styles.commandCard, ...modeStyles.commandCard }}>
+          <article className="sl-lift sl-command-card" data-accent="blue" style={{ ...styles.commandCard, ...enterpriseDashboardStyles.commandCard }}>
             <div style={styles.commandCardTop}><span style={styles.commandIndex}>01</span><p style={styles.metricLabel}>Active links</p></div>
             <strong style={styles.commandValue}>{activeLinkCount}</strong>
             <span style={styles.metricHint}>{remainingLinkSlots} slots available</span>
           </article>
-          <article className="sl-lift sl-command-card" data-accent="green" style={{ ...styles.commandCard, ...modeStyles.commandCard }}>
+          <article className="sl-lift sl-command-card" data-accent="green" style={{ ...styles.commandCard, ...enterpriseDashboardStyles.commandCard }}>
             <div style={styles.commandCardTop}><span style={styles.commandIndex}>02</span><p style={styles.metricLabel}>Tracked clicks</p></div>
             <strong style={styles.commandValue}>{analytics?.clicks ?? 0}</strong>
             <span style={styles.metricHint}>selected link telemetry</span>
           </article>
-          <article className="sl-lift sl-command-card" data-accent="amber" style={{ ...styles.commandCard, ...modeStyles.commandCard }}>
+          <article className="sl-lift sl-command-card" data-accent="amber" style={{ ...styles.commandCard, ...enterpriseDashboardStyles.commandCard }}>
             <div style={styles.commandCardTop}><span style={styles.commandIndex}>03</span><p style={styles.metricLabel}>Domains</p></div>
             <strong style={styles.commandValue}>{customDomains.length}/{domainLimit}</strong>
             <span style={styles.metricHint}>branded link surfaces</span>
           </article>
-          <article className="sl-lift sl-command-card" data-accent="violet" style={{ ...styles.commandCard, ...modeStyles.commandCard }}>
+          <article className="sl-lift sl-command-card" data-accent="violet" style={{ ...styles.commandCard, ...enterpriseDashboardStyles.commandCard }}>
             <div style={styles.commandCardTop}><span style={styles.commandIndex}>04</span><p style={styles.metricLabel}>Current plan</p></div>
             <strong style={styles.commandValue}>{currentPlan.effectivePlanName}</strong>
             <span style={styles.metricHint}>{formatLabel(currentPlan.billingStatus)}</span>
@@ -1989,7 +1975,7 @@ function App() {
 
         <nav
           className="sl-dashboard-nav"
-          style={{ ...styles.dashboardNavCard, ...modeStyles.panelCard }}
+          style={{ ...styles.dashboardNavCard, ...enterpriseDashboardStyles.panelCard }}
           aria-label="Workspace navigation"
         >
           <div className="sl-dashboard-nav-intro" style={styles.dashboardNavIntro}>
@@ -2027,7 +2013,7 @@ function App() {
         </nav>
 
         <main className="sl-dashboard-main" style={styles.dashboardGrid}>
-          <section id="builder-panel" style={{ ...styles.builderCard, ...modeStyles.builderCard, gridArea: "builder" }}>
+          <section id="builder-panel" style={{ ...styles.builderCard, ...enterpriseDashboardStyles.builderCard, gridArea: "builder" }}>
             <div style={styles.panelTitleRow}>
               <div>
                 <p style={styles.sectionEyebrow}>Create</p>
@@ -2142,7 +2128,7 @@ function App() {
               <FeedbackMessage message={copied} tone="success" />
             </form>
             {analytics?.shortUrl && analytics.isActive ? (
-              <div style={{ ...styles.resultCard, ...modeStyles.panelCard }}>
+              <div style={{ ...styles.resultCard, ...enterpriseDashboardStyles.panelCard }}>
                 <div style={styles.resultTopRow}>
                   <div>
                     <p style={styles.mutedLabel}>Selected short URL</p>
@@ -2176,7 +2162,7 @@ function App() {
             ) : null}
           </section>
 
-          <section id="analytics-panel" style={{ ...styles.analyticsPanel, ...modeStyles.panelCard, gridArea: "analytics" }}>
+          <section id="analytics-panel" style={{ ...styles.analyticsPanel, ...enterpriseDashboardStyles.panelCard, gridArea: "analytics" }}>
             <div style={styles.analyticsHeader}>
               <div>
                 <p style={styles.sectionEyebrow}>Analytics console</p>
@@ -2189,10 +2175,10 @@ function App() {
             </div>
             <FeedbackMessage message={analyticsError} />
             <div style={styles.metricsGrid}>
-              <div style={{ ...styles.metricCard, ...modeStyles.metricCard }}><p style={styles.metricLabel}>Total clicks</p><p style={styles.metricValue}>{analytics?.clicks ?? 0}</p></div>
-              <div style={{ ...styles.metricCard, ...modeStyles.metricCard }}><p style={styles.metricLabel}>Last click</p><p style={styles.metricValueSmall}>{formatDate(analytics?.lastClickedAt)}</p></div>
-              <div style={{ ...styles.metricCard, ...modeStyles.metricCard }}><p style={styles.metricLabel}>Expires in</p><p style={styles.metricValueSmall}>{countdown || "Select a link"}</p></div>
-              <div style={{ ...styles.metricCard, ...modeStyles.metricCard }}>
+              <div style={{ ...styles.metricCard, ...enterpriseDashboardStyles.metricCard }}><p style={styles.metricLabel}>Total clicks</p><p style={styles.metricValue}>{analytics?.clicks ?? 0}</p></div>
+              <div style={{ ...styles.metricCard, ...enterpriseDashboardStyles.metricCard }}><p style={styles.metricLabel}>Last click</p><p style={styles.metricValueSmall}>{formatDate(analytics?.lastClickedAt)}</p></div>
+              <div style={{ ...styles.metricCard, ...enterpriseDashboardStyles.metricCard }}><p style={styles.metricLabel}>Expires in</p><p style={styles.metricValueSmall}>{countdown || "Select a link"}</p></div>
+              <div style={{ ...styles.metricCard, ...enterpriseDashboardStyles.metricCard }}>
                 <p style={styles.metricLabel}>Current target</p>
                 <p style={styles.metricValueSmall}>
                   {analytics?.currentTarget?.kind === "fallback" ? analytics.currentTarget.label : analytics?.currentTarget ? "Primary destination" : "Select a link"}
@@ -2200,7 +2186,7 @@ function App() {
               </div>
             </div>
             <div style={styles.analyticsDetailGrid}>
-              <div style={{ ...styles.panelCard, ...modeStyles.panelCard }}>
+              <div style={{ ...styles.panelCard, ...enterpriseDashboardStyles.panelCard }}>
                 <div style={styles.panelTitleRow}>
                   <h3 style={styles.panelTitle}>Destination health</h3>
                   {analytics?.primaryHealth ? <StatusPill label={analytics.primaryHealth.status} tone={getHealthTone(analytics.primaryHealth.status)} /> : null}
@@ -2227,12 +2213,12 @@ function App() {
                   ))}
                 </div>
               </div>
-              <div style={{ ...styles.panelCard, ...modeStyles.panelCard }}>
+              <div style={{ ...styles.panelCard, ...enterpriseDashboardStyles.panelCard }}>
                 <div style={styles.panelTitleRow}><h3 style={styles.panelTitle}>Device mix</h3><span style={styles.metricHint}>{totalDeviceClicks} tracked events</span></div>
                 {analytics?.deviceBreakdown?.length ? analytics.deviceBreakdown.map((item) => <DeviceBar key={item.deviceType} item={item} total={totalDeviceClicks} />) : <p style={styles.emptyState}>Clicks will appear here after people open the selected short URL.</p>}
               </div>
             </div>
-            <div style={{ ...styles.panelCard, ...modeStyles.panelCard }}>
+            <div style={{ ...styles.panelCard, ...enterpriseDashboardStyles.panelCard }}>
               <div style={styles.panelTitleRow}>
                 <h3 style={styles.panelTitle}>Recent click events</h3>
                 {selectedShortCode ? (
@@ -2270,7 +2256,7 @@ function App() {
             {analytics?.isActive ? <button style={styles.dangerButton} onClick={() => window.confirm("Expire this short link now?") && expireCurrentLink()}>Expire this short link</button> : null}
           </section>
 
-          <section id="links-panel" style={{ ...styles.panelCard, ...styles.linksPanel, ...modeStyles.panelCard, gridArea: "links" }}>
+          <section id="links-panel" style={{ ...styles.panelCard, ...styles.linksPanel, ...enterpriseDashboardStyles.panelCard, gridArea: "links" }}>
             <div style={styles.panelTitleRow}>
               <div>
                 <p style={styles.sectionEyebrow}>Links</p>
@@ -2293,7 +2279,7 @@ function App() {
             ) : <p style={styles.emptyState}>Your published links will appear here.</p>}
           </section>
 
-          <section id="domains-panel" style={{ ...styles.panelCard, ...modeStyles.panelCard, gridArea: "domains" }}>
+          <section id="domains-panel" style={{ ...styles.panelCard, ...enterpriseDashboardStyles.panelCard, gridArea: "domains" }}>
             <div style={styles.panelTitleRow}>
               <div><p style={styles.sectionEyebrow}>Domains</p><h2 style={styles.panelTitle}>Branded customer links</h2></div>
               <StatusPill label={`${customDomains.length}/${domainLimit} domains`} tone={domainLimit ? "accent" : "neutral"} />
@@ -2332,7 +2318,7 @@ function App() {
             ) : <p style={styles.emptyState}>Add a customer subdomain, publish the DNS records, then verify it here.</p>}
           </section>
 
-          <section id="billing-panel" style={{ ...styles.panelCard, ...modeStyles.panelCard, gridArea: "billing" }}>
+          <section id="billing-panel" style={{ ...styles.panelCard, ...enterpriseDashboardStyles.panelCard, gridArea: "billing" }}>
             <div style={styles.panelTitleRow}>
               <div><p style={styles.sectionEyebrow}>Billing</p><h2 style={styles.panelTitle}>Active subscription</h2></div>
               <button style={{ ...styles.secondaryButton, opacity: billingLoading ? 0.7 : 1, cursor: billingLoading ? "progress" : "pointer" }} onClick={() => refreshBillingSummary("Billing status refreshed.", { syncProvider: true })} disabled={billingLoading}>
@@ -2342,7 +2328,7 @@ function App() {
             <FeedbackMessage message={billingError} />
             <FeedbackMessage message={billingMessage} tone="success" />
             <div style={styles.billingOverviewGrid}>
-              <div style={{ ...styles.subscriptionCard, ...modeStyles.subscriptionCard }}>
+              <div style={{ ...styles.subscriptionCard, ...enterpriseDashboardStyles.subscriptionCard }}>
                 <div><p style={styles.mutedLabel}>Current subscription</p><h3 style={styles.subscriptionTitle}>{currentPlan.effectivePlanName}</h3></div>
                 <StatusPill label={formatLabel(currentPlan.billingStatus)} tone={getBillingTone(currentPlan.billingStatus)} />
                 <p style={styles.helperText}>{activeLinkCount}/{activeLinkLimit} active links used. {remainingLinkSlots} slots still available.</p>
@@ -2362,7 +2348,7 @@ function App() {
                   const isCurrentPlan = currentPlan.effectivePlanId === plan.id;
                   const isCheckoutLoading = checkoutLoadingPlanId === plan.id;
                   return (
-                    <div key={plan.id} style={{ ...styles.compactPlanCard, ...modeStyles.compactPlanCard }}>
+                    <div key={plan.id} style={{ ...styles.compactPlanCard, ...enterpriseDashboardStyles.compactPlanCard }}>
                       <div style={styles.planHeader}><strong style={styles.planName}>{plan.name}</strong><span style={styles.compactPlanPrice}>{formatPlanPrice(plan)}</span></div>
                       <p style={styles.miniHelperText}>{plan.id === "enterprise" ? "Custom security, support, and scale." : `${plan.linkLimit} links and ${plan.domainLimit} branded ${plan.domainLimit === 1 ? "domain" : "domains"}.`}</p>
                       <button style={isCurrentPlan || isCheckoutLoading ? { ...styles.secondaryButton, opacity: 0.65, cursor: "not-allowed" } : styles.primaryButton} onClick={() => startPlanCheckout(plan)} disabled={isCurrentPlan || Boolean(checkoutLoadingPlanId)}>
@@ -2396,7 +2382,7 @@ function App() {
           </section>
 
           {showDocsPanel ? (
-            <section id="docs-panel" style={{ ...styles.docsQuickPanel, ...modeStyles.docsQuickPanel, gridArea: "docs" }}>
+            <section id="docs-panel" style={{ ...styles.docsQuickPanel, ...enterpriseDashboardStyles.docsQuickPanel, gridArea: "docs" }}>
               <div style={styles.panelTitleRow}><div><p style={styles.sectionEyebrow}>Docs</p><h2 style={styles.panelTitle}>Quick operator guide</h2></div><button style={styles.secondaryButton} onClick={() => setShowDocsPanel(false)}>Hide</button></div>
               <div style={styles.docsQuickList}>
                 {DOC_SECTIONS.slice(0, 3).map((section) => <div key={section.title} style={styles.docsQuickItem}><strong>{section.title}</strong><span>{section.body}</span></div>)}
