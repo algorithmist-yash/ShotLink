@@ -11,6 +11,7 @@ const BILLING_PLANS = {
     teamMemberLimit: 1,
     apiCallLimit: 0,
     qrCodeLimit: 5,
+    analyticsRetentionDays: 90,
     features: [
       "Up to 10 active links",
       "Basic click analytics",
@@ -30,6 +31,7 @@ const BILLING_PLANS = {
     teamMemberLimit: 3,
     apiCallLimit: 10000,
     qrCodeLimit: 250,
+    analyticsRetentionDays: 180,
     razorpayPlanIdEnvKey: "RAZORPAY_PLAN_ID_PRO_MONTHLY",
     features: [
       "Up to 500 active links",
@@ -51,6 +53,7 @@ const BILLING_PLANS = {
     teamMemberLimit: 25,
     apiCallLimit: 250000,
     qrCodeLimit: 5000,
+    analyticsRetentionDays: 400,
     razorpayPlanIdEnvKey: "RAZORPAY_PLAN_ID_BUSINESS_MONTHLY",
     features: [
       "Up to 10000 active links",
@@ -72,6 +75,7 @@ const BILLING_PLANS = {
     teamMemberLimit: 1000,
     apiCallLimit: 10000000,
     qrCodeLimit: 100000,
+    analyticsRetentionDays: 730,
     features: [
       "Custom link and click volume",
       "SSO, SCIM, RBAC, and audit logs",
@@ -98,6 +102,7 @@ function listPublicPlans() {
     teamMemberLimit: plan.teamMemberLimit,
     apiCallLimit: plan.apiCallLimit,
     qrCodeLimit: plan.qrCodeLimit,
+    analyticsRetentionDays: plan.analyticsRetentionDays,
     features: plan.features,
   }));
 }
@@ -139,6 +144,7 @@ function serializeBillingSnapshot(workspace) {
     teamMemberLimit: effectivePlan.teamMemberLimit,
     apiCallLimit: effectivePlan.apiCallLimit,
     qrCodeLimit: effectivePlan.qrCodeLimit,
+    analyticsRetentionDays: effectivePlan.analyticsRetentionDays,
   };
 }
 
