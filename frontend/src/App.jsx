@@ -4,6 +4,7 @@ import { apiFetch } from "./apiClient";
 import { BrandLogo } from "./components/BrandLogo";
 import { ConsentCheckbox, FeedbackMessage } from "./components/FormFeedback";
 import { DeviceBar, UsageBar } from "./components/MetricBars";
+import { PublicFooter, PublicHeader, PublicLanding } from "./components/PublicMarketing";
 import { StatusPill } from "./components/StatusPill";
 import { usePublicPage } from "./hooks/usePublicPage";
 import { useResponsiveLayout } from "./hooks/useResponsiveLayout";
@@ -19,13 +20,6 @@ const LEGACY_SESSION_STORAGE_KEY = "url-shortener-session-token";
 const ACCOUNT_POLICY_VERSION = "2026-05-19";
 const LINK_POLICY_VERSION = "2026-05-19";
 
-const PUBLIC_NAV_ITEMS = [
-  { id: "home", label: "Platform", href: "/" },
-  { id: "pricing", label: "Pricing", href: "/pricing" },
-  { id: "docs", label: "Resources", href: "/docs" },
-  { id: "legal", label: "Trust", href: "/trust" },
-];
-
 const DASHBOARD_NAV_ITEMS = [
   { id: "builder-panel", label: "Create link", index: "01" },
   { id: "links-panel", label: "Link library", index: "02" },
@@ -33,13 +27,6 @@ const DASHBOARD_NAV_ITEMS = [
   { id: "domains-panel", label: "Domains", index: "04" },
   { id: "billing-panel", label: "Billing", index: "05" },
   { id: "docs-panel", label: "Operator guide", index: "06" },
-];
-
-const HOME_FEATURES = [
-  "Short links",
-  "Custom aliases",
-  "QR codes",
-  "Analytics",
 ];
 
 const DOC_SECTIONS = [
@@ -77,71 +64,6 @@ const LEGAL_SECTIONS = [
   {
     title: "Support",
     body: "For help, takedowns, or privacy requests, contact support@shotlink.in.",
-  },
-];
-
-const LANDING_METRICS = [
-  { label: "Routing policy", value: "Health-aware", hint: "primary + ordered fallbacks" },
-  { label: "Link controls", value: "Live", hint: "expiry, aliases, and disable" },
-  { label: "Data captured", value: "9+", hint: "device, referrer, geo signals" },
-  { label: "Launch region", value: "India", hint: "built for local teams first" },
-];
-
-const PRODUCT_FEATURES = [
-  {
-    title: "URL shortener",
-    body: "Paste a destination, reserve a readable alias, and publish a short link in seconds.",
-    signal: "Shorten",
-  },
-  {
-    title: "Branded links",
-    body: "Use verified domains and human-friendly paths that customers can recognize.",
-    signal: "Brand",
-  },
-  {
-    title: "Analytics",
-    body: "Track clicks, scans, devices, referrers, route health, and campaign performance.",
-    signal: "Insights",
-  },
-  {
-    title: "QR codes",
-    body: "Generate a scannable QR code for every active short link and download it instantly.",
-    signal: "Scan",
-  },
-];
-
-const TRUST_SIGNALS = [
-  "Encrypted account sessions",
-  "Abuse policy and takedown flow",
-  "Fallback destinations",
-  "Consent-backed analytics",
-];
-
-const LANDING_FAQS = [
-  {
-    question: "Can I use Shotlink for free?",
-    answer:
-      "Yes. The Free plan includes 10 active links, basic analytics, and QR codes with no card required.",
-  },
-  {
-    question: "Can I use my own short domain?",
-    answer:
-      "Pro and Business workspaces can verify branded domains with CNAME and TXT records before publishing links.",
-  },
-  {
-    question: "What happens when a destination goes down?",
-    answer:
-      "Shotlink can route visitors through your ordered fallback destinations when the primary route is unavailable.",
-  },
-  {
-    question: "What analytics are included?",
-    answer:
-      "Workspace analytics cover clicks, devices, browsers, operating systems, referrers, route health, and recent events.",
-  },
-  {
-    question: "Can I cancel a paid subscription?",
-    answer:
-      "Workspace owners can schedule cancellation from Billing. Access continues through the paid billing period.",
   },
 ];
 
@@ -333,22 +255,6 @@ function ShortenerPreview({ onStart }) {
     </div>
   );
 }
-function MiniTrafficChart() {
-  const bars = [32, 52, 44, 78, 62, 91, 72, 96, 84, 104, 92, 116];
-
-  return (
-    <div style={styles.chartPreview} role="img" aria-label="Traffic chart preview">
-      {bars.map((height, index) => (
-        <span
-          key={`${height}-${index}`}
-          className="sl-chart-bar"
-          style={{ ...styles.chartBar, height }}
-        />
-      ))}
-    </div>
-  );
-}
-
 function getHealthTone(status) {
   if (status === "healthy") return "healthy";
   if (status === "unhealthy") return "danger";
@@ -1095,157 +1001,7 @@ function App() {
       );
     }
 
-    return (
-      <div className="sl-reveal sl-marketing-home" style={styles.homeStack}>
-        <section className="sl-marketing-hero" style={styles.heroPanel}>
-          <div style={styles.heroCopy}>
-            <p style={styles.freePlanBadge}>Free plan available · No credit card required</p>
-            <h1 style={styles.title}>
-              URL shortener with <span style={styles.titleAccent}>smart fallback routing</span>
-            </h1>
-            <p style={styles.subtitle}>
-              Create branded short links, track every click, generate QR codes, and keep campaigns
-              online with health-aware backup destinations.
-            </p>
-            <div className="sl-hero-actions" style={styles.heroActions}>
-              <button
-                className="sl-action"
-                style={styles.marketingPrimaryButton}
-                onClick={openRegistrationPanel}
-              >
-                Create free account
-              </button>
-              <a className="sl-action-secondary" href="/pricing" style={styles.marketingSecondaryButton}>
-                View pricing
-              </a>
-            </div>
-            <div style={styles.heroFeatureRow} aria-label="Included capabilities">
-              {HOME_FEATURES.map((feature) => (
-                <span key={feature} style={styles.heroFeatureItem}>✓ {feature}</span>
-              ))}
-            </div>
-          </div>
-          <ShortenerPreview onStart={openRegistrationPanel} />
-        </section>
-
-        <section className="sl-benefit-strip" style={styles.metricStrip} aria-label="Plan highlights">
-          {LANDING_METRICS.map((metric) => (
-            <article key={metric.label} style={styles.metricStripCard}>
-              <strong style={styles.metricStripValue}>{metric.value}</strong>
-              <div>
-                <p style={styles.metricLabel}>{metric.label}</p>
-                <span style={styles.metricHint}>{metric.hint}</span>
-              </div>
-            </article>
-          ))}
-        </section>
-
-        <section className="sl-marketing-section sl-feature-section" style={styles.marketingSection}>
-          <div style={styles.sectionHeading}>
-            <p style={styles.sectionEyebrow}>Everything in one workspace</p>
-            <h2 style={styles.marketingSectionTitle}>Everything you need to manage links</h2>
-            <p style={styles.marketingSectionLead}>
-              Publish, protect, measure, and automate every campaign route without stitching
-              together separate tools.
-            </p>
-          </div>
-          <div style={styles.showcaseGrid}>
-            {PRODUCT_FEATURES.map((feature) => (
-              <article key={feature.title} className="sl-lift" style={styles.showcaseCard}>
-                <span style={styles.signalBadge}>{feature.signal}</span>
-                <h3 style={styles.showcaseTitle}>{feature.title}</h3>
-                <p style={styles.featureText}>{feature.body}</p>
-                <button type="button" style={styles.textAction} onClick={openRegistrationPanel}>
-                  Get started <span aria-hidden="true">→</span>
-                </button>
-              </article>
-            ))}
-          </div>
-        </section>
-
-        <section className="sl-product-split" style={styles.productSplit}>
-          <div style={styles.productSplitCopy}>
-            <p style={styles.sectionEyebrow}>Real-time analytics</p>
-            <h2 style={styles.marketingSectionTitle}>Understand every click and route decision.</h2>
-            <p style={styles.marketingSectionLead}>
-              See devices, referrers, traffic velocity, and destination health from a single
-              campaign view.
-            </p>
-            <div style={styles.checkList}>
-              <span>✓ Live click activity</span>
-              <span>✓ Device and browser breakdown</span>
-              <span>✓ Primary and fallback route health</span>
-            </div>
-          </div>
-          <div className="sl-lift" style={styles.analyticsPreviewCard}>
-            <div style={styles.previewMetricRow}>
-              <div><p style={styles.mutedLabel}>Total clicks</p><strong style={styles.previewMetricValue}>24,892</strong></div>
-              <StatusPill label="+18.4%" tone="healthy" />
-            </div>
-            <MiniTrafficChart />
-          </div>
-        </section>
-
-        <section className="sl-product-split sl-product-split-reverse" style={styles.productSplit}>
-          <div className="sl-lift" style={styles.apiPreviewCard}>
-            <div
-              aria-label="Example API request"
-              role="region"
-              style={styles.codePanel}
-              tabIndex={0}
-            >
-              {API_SNIPPET_LINES.slice(0, 7).map((line) => (
-                <code key={line} style={styles.codeRow}>
-                  {line}
-                </code>
-              ))}
-            </div>
-          </div>
-          <div style={styles.productSplitCopy}>
-            <p style={styles.sectionEyebrow}>Developer API</p>
-            <h2 style={styles.marketingSectionTitle}>Built for automation from day one.</h2>
-            <p style={styles.marketingSectionLead}>
-              Create links from your products and workflows through a versioned API with secure
-              sessions, request validation, and bounded rates.
-            </p>
-            <a href="/docs" style={styles.textLink}>Explore the API <span aria-hidden="true">→</span></a>
-          </div>
-        </section>
-
-        <section className="sl-marketing-section" style={styles.faqSection}>
-          <div style={styles.sectionHeading}>
-            <p style={styles.sectionEyebrow}>Frequently asked questions</p>
-            <h2 style={styles.marketingSectionTitle}>Questions, answered.</h2>
-          </div>
-          <div style={styles.faqList}>
-            {LANDING_FAQS.map((item) => (
-              <details key={item.question} style={styles.faqItem}>
-                <summary style={styles.faqQuestion}>{item.question}</summary>
-                <p style={styles.faqAnswer}>{item.answer}</p>
-              </details>
-            ))}
-          </div>
-        </section>
-
-        <section className="sl-final-cta" style={styles.finalCta}>
-          <div>
-            <p style={styles.finalCtaEyebrow}>Start free today</p>
-            <h2 style={styles.finalCtaTitle}>Ready to make every link work harder?</h2>
-            <p style={styles.finalCtaText}>
-              Create your Shotlink workspace in under a minute. No card required.
-            </p>
-          </div>
-          <button style={styles.finalCtaButton} onClick={openRegistrationPanel}>
-            Get started for free
-          </button>
-          <div style={styles.trustGrid}>
-            {TRUST_SIGNALS.map((signal) => (
-              <span key={signal} style={styles.trustPill}>{signal}</span>
-            ))}
-          </div>
-        </section>
-      </div>
-    );
+    return <PublicLanding onStart={openRegistrationPanel} />;
   };
 
   const updateAuthConsent = (field, checked) => {
@@ -1842,64 +1598,14 @@ function App() {
 
     return (
       <div className="sl-page sl-public-page" style={{ ...styles.page, ...styles.publicPageRoot }}>
-        <div style={styles.publicShell}>
-          <header className="sl-public-header" style={styles.publicNav}>
-            <a href="/" style={styles.brandLink} aria-label="Shotlink home">
-              <BrandLogo style={styles.navLogo} />
-            </a>
-            <nav className="sl-public-nav-links" style={styles.publicNavLinks} aria-label="Public pages">
-              {PUBLIC_NAV_ITEMS.map((item) => (
-                <a
-                  key={item.id}
-                  href={item.href}
-                  aria-current={publicPage === item.id ? "page" : undefined}
-                  style={
-                    publicPage === item.id
-                      ? { ...styles.publicNavLink, ...styles.publicNavLinkActive }
-                      : styles.publicNavLink
-                  }
-                >
-                  {item.label}
-                </a>
-              ))}
-            </nav>
-            <div style={styles.publicNavActions}>
-              <button type="button" style={styles.publicSignInButton} onClick={openLoginPanel}>
-                Sign in
-              </button>
-              <button type="button" style={styles.publicGetStartedButton} onClick={openRegistrationPanel}>
-                Get started
-              </button>
-            </div>
-          </header>
+        <div className="mk-public-shell">
+          <PublicHeader onLogin={openLoginPanel} onStart={openRegistrationPanel} />
 
           <main style={styles.publicMain}>
             {renderPublicContent()}
           </main>
 
-          <footer className="sl-public-footer" style={styles.publicFooter}>
-            <div style={styles.publicFooterBrand}>
-              <BrandLogo style={styles.footerLogo} />
-              <p>Branded short links, QR codes, analytics, and resilient routing for modern teams.</p>
-              <a href="mailto:support@shotlink.in">support@shotlink.in</a>
-            </div>
-            <div style={styles.publicFooterColumn}>
-              <strong>Product</strong>
-              <a href="/pricing">Pricing</a>
-              <a href="/docs">Resources</a>
-              <button type="button" onClick={openRegistrationPanel}>Create account</button>
-            </div>
-            <div style={styles.publicFooterColumn}>
-              <strong>Company</strong>
-              <a href="/trust">Trust and safety</a>
-              <a href="/trust">Privacy</a>
-              <a href="mailto:support@shotlink.in">Contact</a>
-            </div>
-            <div style={styles.publicFooterBottom}>
-              <span>© 2026 Shotlink. All rights reserved.</span>
-              <span>Built for reliable links.</span>
-            </div>
-          </footer>
+          <PublicFooter onStart={openRegistrationPanel} />
         </div>
       </div>
     );
