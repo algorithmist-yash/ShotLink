@@ -184,6 +184,7 @@ processes without asking Playwright to manage their process trees.
 - `GET /api/v1/billing/summary`
 - `GET /api/v1/workspace/audit-events`
 - `POST /api/v1/billing/subscriptions`
+- `POST /api/v1/billing/subscriptions/sync`
 - `POST /api/v1/billing/subscriptions/cancel`
 - `POST /api/v1/billing/webhooks/razorpay`
 - `GET /live`

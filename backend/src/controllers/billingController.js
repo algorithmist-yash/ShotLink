@@ -19,6 +19,16 @@ const { recordAuditEvent } = require("../services/auditLogService");
 
 const BLOCKING_BILLING_STATUSES = ["pending", "active", "past_due"];
 const REUSABLE_CHECKOUT_STATUSES = ["created"];
+const PROVIDER_SUBSCRIPTION_STATUSES = new Set([
+  "created",
+  "authenticated",
+  "active",
+  "pending",
+  "halted",
+  "cancelled",
+  "completed",
+  "expired",
+]);
 
 function getAppBaseUrl() {
   return (process.env.APP_BASE_URL || process.env.ALLOWED_ORIGINS?.split(",")[0] || "").replace(
@@ -584,7 +594,13 @@ async function applySubscriptionState(record, subscription, payment, invoice, pa
   record.nextChargeAt = unixToDate(subscription?.charge_at) || record.nextChargeAt;
 
   if (["active", "paid"].includes(record.status) && !record.paidAt) {
-    record.paidAt = unixToDate(payment?.created_at || invoice?.paid_at || payload.created_at) || new Date();
+    record.paidAt =
+      unixToDate(
+        payment?.created_at ||
+          invoice?.paid_at ||
+          subscription?.current_start ||
+          payload.created_at
+      ) || new Date();
   }
 
   if (!workspace) return;
@@ -628,6 +644,113 @@ async function applySubscriptionState(record, subscription, payment, invoice, pa
     await releaseSubscriptionCreation(record.workspaceId, record.referenceId);
   }
 }
+
+exports.syncSubscription = async (req, res) => {
+  try {
+    const subscriptionId = String(
+      req.auth.workspace.billing?.providerSubscriptionId || ""
+    ).trim();
+
+    if (!subscriptionId) {
+      return res.status(400).json({
+        error: "No pending or active Razorpay subscription is available to verify",
+      });
+    }
+
+    const record = await BillingRecord.findOne({
+      workspaceId: req.auth.workspace._id,
+      subscriptionId,
+    });
+
+    if (!record) {
+      return res.status(404).json({
+        error: "The Razorpay subscription is not linked to this workspace",
+      });
+    }
+
+    const plan = getPlanDefinition(record.planId);
+    const expectedProviderPlanId = getRazorpayPlanId(plan);
+    if (!plan || !expectedProviderPlanId) {
+      return res.status(500).json({
+        error: "The subscription plan is not configured on the server",
+      });
+    }
+
+    const response = await fetch(
+      `https://api.razorpay.com/v1/subscriptions/${encodeURIComponent(subscriptionId)}`,
+      {
+        method: "GET",
+        headers: {
+          Authorization: getRazorpayBasicAuthHeader(),
+          Accept: "application/json",
+        },
+      }
+    );
+    const subscription = await response.json();
+
+    if (!response.ok) {
+      return res.status(502).json({
+        error:
+          subscription?.error?.description ||
+          subscription?.error?.reason ||
+          "Could not verify the subscription with Razorpay",
+      });
+    }
+
+    const providerStatus = String(subscription?.status || "").trim().toLowerCase();
+    if (
+      subscription?.id !== subscriptionId ||
+      subscription?.plan_id !== expectedProviderPlanId ||
+      !PROVIDER_SUBSCRIPTION_STATUSES.has(providerStatus)
+    ) {
+      return res.status(502).json({
+        error: "Razorpay returned subscription details that do not match this checkout",
+      });
+    }
+
+    if (providerStatus === "active" && Number(subscription.paid_count || 0) < 1) {
+      return res.status(409).json({
+        error: "Razorpay has not recorded a paid billing cycle for this subscription yet",
+        providerStatus,
+      });
+    }
+
+    record.status = providerStatus;
+    record.rawLastEvent = "subscription.synced";
+    await applySubscriptionState(record, subscription, null, null, {
+      created_at: subscription.current_start || subscription.created_at,
+    });
+    await record.save();
+
+    await recordAuditEvent(req, {
+      action: "billing.subscription_synced",
+      targetType: "subscription",
+      targetId: subscriptionId,
+      metadata: { planId: record.planId, providerStatus },
+    });
+
+    const messages = {
+      active: "Payment verified with Razorpay and the paid plan is now active.",
+      authenticated:
+        "Razorpay authenticated the payment method; the first subscription charge is still pending.",
+      created: "The Razorpay checkout has not completed yet.",
+      pending: "The subscription payment is pending in Razorpay.",
+      halted: "Razorpay halted the subscription after payment failures.",
+      cancelled: "The Razorpay subscription is cancelled.",
+      completed: "The Razorpay subscription has completed.",
+      expired: "The Razorpay subscription checkout has expired.",
+    };
+
+    return res.json({
+      synced: true,
+      providerStatus,
+      message: messages[providerStatus],
+    });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ error: "Server error" });
+  }
+};
 
 exports.handleRazorpayWebhook = async (req, res) => {
   try {

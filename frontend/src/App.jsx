@@ -117,6 +117,34 @@ const TRUST_SIGNALS = [
   "Consent-backed analytics",
 ];
 
+const LANDING_FAQS = [
+  {
+    question: "Can I use Shotlink for free?",
+    answer:
+      "Yes. The Free plan includes 10 active links, basic analytics, and QR codes with no card required.",
+  },
+  {
+    question: "Can I use my own short domain?",
+    answer:
+      "Pro and Business workspaces can verify branded domains with CNAME and TXT records before publishing links.",
+  },
+  {
+    question: "What happens when a destination goes down?",
+    answer:
+      "Shotlink can route visitors through your ordered fallback destinations when the primary route is unavailable.",
+  },
+  {
+    question: "What analytics are included?",
+    answer:
+      "Workspace analytics cover clicks, devices, browsers, operating systems, referrers, route health, and recent events.",
+  },
+  {
+    question: "Can I cancel a paid subscription?",
+    answer:
+      "Workspace owners can schedule cancellation from Billing. Access continues through the paid billing period.",
+  },
+];
+
 const API_SNIPPET_LINES = [
   "POST /api/v1/links",
   "Authorization: Bearer <session-token>",
@@ -367,7 +395,13 @@ function toBrowserSession(data) {
 }
 
 function App() {
-  const [authMode, setAuthMode] = useState("register");
+  const initialAuthPath = window.location.pathname.replace(/\/$/, "") || "/";
+  const [authMode, setAuthMode] = useState(
+    initialAuthPath === "/login" ? "login" : "register"
+  );
+  const [authViewOpen, setAuthViewOpen] = useState(
+    initialAuthPath === "/login" || initialAuthPath === "/register"
+  );
   const [publicPage, setPublicPage] = usePublicPage();
   const [session, setSession] = useState(null);
   const [authForm, setAuthForm] = useState({
@@ -508,6 +542,24 @@ function App() {
     localStorage.setItem("shotlink-color-mode", colorMode);
     document.documentElement.dataset.shotlinkTheme = session ? colorMode : "light";
   }, [colorMode, session]);
+
+  useEffect(() => {
+    if (session) return undefined;
+
+    const syncAuthRoute = () => {
+      const path = window.location.pathname.replace(/\/$/, "") || "/";
+      if (path === "/login" || path === "/register") {
+        setAuthMode(path === "/login" ? "login" : "register");
+        setAuthViewOpen(true);
+        return;
+      }
+
+      setAuthViewOpen(false);
+    };
+
+    window.addEventListener("popstate", syncAuthRoute);
+    return () => window.removeEventListener("popstate", syncAuthRoute);
+  }, [session]);
 
   useEffect(() => {
     let cancelled = false;
@@ -757,16 +809,39 @@ function App() {
     });
   }, [session?.workspace?.customDomains]);
 
-  const refreshBillingSummary = async (message = "") => {
+  const refreshBillingSummary = async (message = "", { syncProvider = false } = {}) => {
     setBillingLoading(true);
     setBillingError("");
 
     try {
+      let resolvedMessage = message;
+      const billingStatus =
+        billingSummary?.currentPlan?.billingStatus ||
+        session?.workspace?.billing?.billingStatus ||
+        "";
+
+      if (syncProvider && billingStatus === "pending") {
+        const syncResponse = await authorizedFetch(
+          "/api/v1/billing/subscriptions/sync",
+          {
+            method: "POST",
+            body: JSON.stringify({}),
+          }
+        );
+        const syncData = await syncResponse.json();
+
+        if (!syncResponse.ok) {
+          throw new Error(syncData.error || "Could not verify the payment with Razorpay");
+        }
+
+        resolvedMessage = syncData.message || message;
+      }
+
       const data = await fetchBillingSummary();
       applyBillingSummary(data);
 
-      if (message) {
-        setBillingMessage(message);
+      if (resolvedMessage) {
+        setBillingMessage(resolvedMessage);
       }
 
       return data;
@@ -895,14 +970,22 @@ function App() {
     });
   };
 
-  const openRegistrationPanel = () => {
+  const openAuthView = (mode) => {
+    setPublicPage("home");
+    setAuthMode(mode);
+    setAuthViewOpen(true);
+    window.history.pushState({}, "", mode === "login" ? "/login" : "/register");
+    window.scrollTo({ top: 0, left: 0, behavior: "auto" });
+  };
+
+  const openRegistrationPanel = () => openAuthView("register");
+  const openLoginPanel = () => openAuthView("login");
+
+  const closeAuthView = () => {
+    setAuthViewOpen(false);
     setPublicPage("home");
     window.history.pushState({}, "", "/");
-    setAuthMode("register");
-    window.setTimeout(
-      () => document.getElementById("auth-panel")?.scrollIntoView({ behavior: "smooth" }),
-      0
-    );
+    window.scrollTo({ top: 0, left: 0, behavior: "auto" });
   };
 
   const renderPublicPricing = ({ compact = false } = {}) => (
@@ -1019,93 +1102,153 @@ function App() {
     }
 
     return (
-      <div className="sl-reveal" style={styles.homeStack}>
-        <section style={styles.heroPanel}>
+      <div className="sl-reveal sl-marketing-home" style={styles.homeStack}>
+        <section className="sl-marketing-hero" style={styles.heroPanel}>
           <div style={styles.heroCopy}>
-            <StatusPill label="Intelligent routing infrastructure" tone="accent" />
-            <h1 style={styles.title}>High-speed links for serious internet teams.</h1>
+            <p style={styles.freePlanBadge}>Free plan available · No credit card required</p>
+            <h1 style={styles.title}>
+              URL shortener with <span style={styles.titleAccent}>smart fallback routing</span>
+            </h1>
             <p style={styles.subtitle}>
-              Shotlink turns every short URL into a measurable, branded, fallback-aware route.
+              Create branded short links, track every click, generate QR codes, and keep campaigns
+              online with health-aware backup destinations.
             </p>
-            <div style={styles.heroActions}>
+            <div className="sl-hero-actions" style={styles.heroActions}>
               <button
                 className="sl-action"
-                style={styles.primaryButton}
+                style={styles.marketingPrimaryButton}
                 onClick={openRegistrationPanel}
               >
-                Start routing
+                Create free account
               </button>
-              <a className="sl-action-secondary" href="/docs" style={styles.secondaryLinkButton}>
-                View docs
+              <a className="sl-action-secondary" href="/pricing" style={styles.marketingSecondaryButton}>
+                View pricing
               </a>
             </div>
-            <div style={styles.compactFeatureGrid}>
+            <div style={styles.heroFeatureRow} aria-label="Included capabilities">
               {HOME_FEATURES.map((feature) => (
-                <div key={feature} className="sl-lift" style={styles.compactFeatureCard}>
-                  {feature}
-                </div>
+                <span key={feature} style={styles.heroFeatureItem}>✓ {feature}</span>
               ))}
             </div>
           </div>
           <ShortenerPreview onStart={openRegistrationPanel} />
         </section>
 
-        <section style={styles.metricStrip}>
+        <section className="sl-benefit-strip" style={styles.metricStrip} aria-label="Plan highlights">
           {LANDING_METRICS.map((metric) => (
-            <article key={metric.label} className="sl-lift" style={styles.metricStripCard}>
-              <p style={styles.metricLabel}>{metric.label}</p>
+            <article key={metric.label} style={styles.metricStripCard}>
               <strong style={styles.metricStripValue}>{metric.value}</strong>
-              <span style={styles.metricHint}>{metric.hint}</span>
+              <div>
+                <p style={styles.metricLabel}>{metric.label}</p>
+                <span style={styles.metricHint}>{metric.hint}</span>
+              </div>
             </article>
           ))}
         </section>
 
-        <section style={styles.showcaseGrid}>
-          {PRODUCT_FEATURES.map((feature) => (
-            <article key={feature.title} className="sl-lift" style={styles.showcaseCard}>
-              <span style={styles.signalBadge}>{feature.signal}</span>
-              <h2 style={styles.showcaseTitle}>{feature.title}</h2>
-              <p style={styles.featureText}>{feature.body}</p>
-            </article>
-          ))}
-        </section>
-
-        <section className="sl-lift" style={styles.analyticsPreviewCard}>
-          <div>
-            <p style={styles.sectionEyebrow}>Analytics preview</p>
-            <h2 style={styles.publicSectionTitle}>Traffic intelligence, not vanity clicks.</h2>
-            <p style={styles.helperText}>
-              Read device mix, route health, and click velocity from one control surface.
+        <section className="sl-marketing-section sl-feature-section" style={styles.marketingSection}>
+          <div style={styles.sectionHeading}>
+            <p style={styles.sectionEyebrow}>Everything in one workspace</p>
+            <h2 style={styles.marketingSectionTitle}>Everything you need to manage links</h2>
+            <p style={styles.marketingSectionLead}>
+              Publish, protect, measure, and automate every campaign route without stitching
+              together separate tools.
             </p>
           </div>
-          <MiniTrafficChart />
-        </section>
-
-        <section className="sl-lift" style={styles.apiPreviewCard}>
-          <div>
-            <p style={styles.sectionEyebrow}>Developer API</p>
-            <h2 style={styles.publicSectionTitle}>Designed for automation.</h2>
-          </div>
-          <div
-            aria-label="Example API request"
-            role="region"
-            style={styles.codePanel}
-            tabIndex={0}
-          >
-            {API_SNIPPET_LINES.slice(0, 5).map((line) => (
-              <code key={line} style={styles.codeRow}>
-                {line}
-              </code>
+          <div style={styles.showcaseGrid}>
+            {PRODUCT_FEATURES.map((feature) => (
+              <article key={feature.title} className="sl-lift" style={styles.showcaseCard}>
+                <span style={styles.signalBadge}>{feature.signal}</span>
+                <h3 style={styles.showcaseTitle}>{feature.title}</h3>
+                <p style={styles.featureText}>{feature.body}</p>
+                <button type="button" style={styles.textAction} onClick={openRegistrationPanel}>
+                  Get started <span aria-hidden="true">→</span>
+                </button>
+              </article>
             ))}
           </div>
         </section>
 
-        <section style={styles.trustGrid}>
-          {TRUST_SIGNALS.map((signal) => (
-            <span key={signal} style={styles.trustPill}>
-              {signal}
-            </span>
-          ))}
+        <section className="sl-product-split" style={styles.productSplit}>
+          <div style={styles.productSplitCopy}>
+            <p style={styles.sectionEyebrow}>Real-time analytics</p>
+            <h2 style={styles.marketingSectionTitle}>Understand every click and route decision.</h2>
+            <p style={styles.marketingSectionLead}>
+              See devices, referrers, traffic velocity, and destination health from a single
+              campaign view.
+            </p>
+            <div style={styles.checkList}>
+              <span>✓ Live click activity</span>
+              <span>✓ Device and browser breakdown</span>
+              <span>✓ Primary and fallback route health</span>
+            </div>
+          </div>
+          <div className="sl-lift" style={styles.analyticsPreviewCard}>
+            <div style={styles.previewMetricRow}>
+              <div><p style={styles.mutedLabel}>Total clicks</p><strong style={styles.previewMetricValue}>24,892</strong></div>
+              <StatusPill label="+18.4%" tone="healthy" />
+            </div>
+            <MiniTrafficChart />
+          </div>
+        </section>
+
+        <section className="sl-product-split sl-product-split-reverse" style={styles.productSplit}>
+          <div className="sl-lift" style={styles.apiPreviewCard}>
+            <div
+              aria-label="Example API request"
+              role="region"
+              style={styles.codePanel}
+              tabIndex={0}
+            >
+              {API_SNIPPET_LINES.slice(0, 7).map((line) => (
+                <code key={line} style={styles.codeRow}>
+                  {line}
+                </code>
+              ))}
+            </div>
+          </div>
+          <div style={styles.productSplitCopy}>
+            <p style={styles.sectionEyebrow}>Developer API</p>
+            <h2 style={styles.marketingSectionTitle}>Built for automation from day one.</h2>
+            <p style={styles.marketingSectionLead}>
+              Create links from your products and workflows through a versioned API with secure
+              sessions, request validation, and bounded rates.
+            </p>
+            <a href="/docs" style={styles.textLink}>Explore the API <span aria-hidden="true">→</span></a>
+          </div>
+        </section>
+
+        <section className="sl-marketing-section" style={styles.faqSection}>
+          <div style={styles.sectionHeading}>
+            <p style={styles.sectionEyebrow}>Frequently asked questions</p>
+            <h2 style={styles.marketingSectionTitle}>Questions, answered.</h2>
+          </div>
+          <div style={styles.faqList}>
+            {LANDING_FAQS.map((item) => (
+              <details key={item.question} style={styles.faqItem}>
+                <summary style={styles.faqQuestion}>{item.question}</summary>
+                <p style={styles.faqAnswer}>{item.answer}</p>
+              </details>
+            ))}
+          </div>
+        </section>
+
+        <section className="sl-final-cta" style={styles.finalCta}>
+          <div>
+            <p style={styles.finalCtaEyebrow}>Start free today</p>
+            <h2 style={styles.finalCtaTitle}>Ready to make every link work harder?</h2>
+            <p style={styles.finalCtaText}>
+              Create your Shotlink workspace in under a minute. No card required.
+            </p>
+          </div>
+          <button style={styles.finalCtaButton} onClick={openRegistrationPanel}>
+            Get started for free
+          </button>
+          <div style={styles.trustGrid}>
+            {TRUST_SIGNALS.map((signal) => (
+              <span key={signal} style={styles.trustPill}>{signal}</span>
+            ))}
+          </div>
         </section>
       </div>
     );
@@ -1143,6 +1286,8 @@ function App() {
       }
 
       setSession(toBrowserSession(data));
+      setAuthViewOpen(false);
+      window.history.replaceState({}, "", "/");
       setAuthForm({
         name: "",
         email: authForm.email,
@@ -1166,6 +1311,10 @@ function App() {
       // The local session cleanup below is enough for the UI.
     } finally {
       clearSession();
+      setAuthViewOpen(false);
+      setAuthMode("login");
+      setPublicPage("home");
+      window.history.replaceState({}, "", "/");
     }
   };
 
@@ -1479,7 +1628,7 @@ function App() {
 
   if (authLoading) {
     return (
-      <div className="sl-page" style={styles.page}>
+      <div className="sl-page sl-dashboard-page" style={styles.page}>
         <div className="sl-grid-overlay" style={styles.backgroundGrid} />
         <div className="sl-glow sl-glow-top" style={styles.backgroundGlowTop} />
         <div className="sl-glow sl-glow-bottom" style={styles.backgroundGlowBottom} />
@@ -1493,18 +1642,220 @@ function App() {
   }
 
   if (!session) {
-    return (
-      <div className="sl-page" style={styles.page}>
-        <div className="sl-grid-overlay" style={styles.backgroundGrid} />
-        <div className="sl-glow sl-glow-top" style={styles.backgroundGlowTop} />
-        <div className="sl-glow sl-glow-bottom" style={styles.backgroundGlowBottom} />
+    if (authViewOpen) {
+      return (
+        <div className="sl-page sl-auth-page" style={{ ...styles.page, ...styles.publicPageRoot }}>
+          <header className="sl-auth-header" style={styles.authPageHeader}>
+            <a
+              href="/"
+              style={styles.brandLink}
+              aria-label="Back to Shotlink home"
+              onClick={(event) => {
+                event.preventDefault();
+                closeAuthView();
+              }}
+            >
+              <BrandLogo style={styles.navLogo} />
+            </a>
+            <div style={styles.authHeaderSwitch}>
+              <span>{authMode === "register" ? "Already have an account?" : "New to Shotlink?"}</span>
+              <button
+                type="button"
+                style={styles.authHeaderButton}
+                onClick={authMode === "register" ? openLoginPanel : openRegistrationPanel}
+              >
+                {authMode === "register" ? "Sign in" : "Create account"}
+              </button>
+            </div>
+          </header>
 
+          <main className="sl-auth-layout" style={styles.authPageMain}>
+            <section id="auth-panel" style={styles.authFormPane}>
+              <form
+                style={styles.authBody}
+                onSubmit={(event) => {
+                  event.preventDefault();
+                  if (!authSubmitDisabled) submitAuth();
+                }}
+              >
+                <div>
+                  <p style={styles.sectionEyebrow}>
+                    {authMode === "register" ? "Start for free" : "Welcome back"}
+                  </p>
+                  <h1 style={styles.authTitle}>
+                    {authMode === "register" ? "Create your Shotlink workspace" : "Sign in"}
+                  </h1>
+                  <p style={styles.authSubtitle}>
+                    {authMode === "register"
+                      ? "Publish your first branded, measurable short link in under a minute."
+                      : "Continue to your links, analytics, domains, and billing."}
+                  </p>
+                </div>
+
+                {authMode === "register" ? (
+                  <label style={styles.label}>
+                    Full name
+                    <input
+                      style={styles.input}
+                      value={authForm.name}
+                      autoComplete="name"
+                      required
+                      onChange={(event) =>
+                        setAuthForm((current) => ({ ...current, name: event.target.value }))
+                      }
+                    />
+                  </label>
+                ) : null}
+
+                <label style={styles.label}>
+                  Email
+                  <input
+                    style={styles.input}
+                    type="email"
+                    value={authForm.email}
+                    autoComplete="email"
+                    required
+                    onChange={(event) =>
+                      setAuthForm((current) => ({ ...current, email: event.target.value }))
+                    }
+                  />
+                </label>
+
+                <label style={styles.label}>
+                  Password
+                  <input
+                    style={styles.input}
+                    type="password"
+                    value={authForm.password}
+                    autoComplete={authMode === "register" ? "new-password" : "current-password"}
+                    minLength={8}
+                    required
+                    onChange={(event) =>
+                      setAuthForm((current) => ({ ...current, password: event.target.value }))
+                    }
+                  />
+                </label>
+
+                {authMode === "register" ? (
+                  <label style={styles.label}>
+                    Workspace name
+                    <input
+                      style={styles.input}
+                      value={authForm.workspaceName}
+                      autoComplete="organization"
+                      required
+                      onChange={(event) =>
+                        setAuthForm((current) => ({
+                          ...current,
+                          workspaceName: event.target.value,
+                        }))
+                      }
+                    />
+                  </label>
+                ) : null}
+
+                {authMode === "register" ? (
+                  <div className="sl-consent-box" style={styles.consentBox}>
+                    <div>
+                      <p style={styles.sectionEyebrow}>Required consent</p>
+                      <p style={styles.consentIntro}>
+                        We keep a timestamped consent record for security and compliance.
+                      </p>
+                    </div>
+
+                    {REQUIRED_AUTH_CONSENTS.map((item) => (
+                      <ConsentCheckbox
+                        key={item.id}
+                        checked={Boolean(authForm.consents[item.id])}
+                        onChange={(checked) => updateAuthConsent(item.id, checked)}
+                      >
+                        {item.label}
+                      </ConsentCheckbox>
+                    ))}
+
+                    <ConsentCheckbox
+                      checked={Boolean(authForm.consents.marketingOptIn)}
+                      onChange={(checked) => updateAuthConsent("marketingOptIn", checked)}
+                    >
+                      Optional: send me product updates and launch offers by email.
+                    </ConsentCheckbox>
+                  </div>
+                ) : (
+                  <p style={styles.authSecurityNote}>
+                    Secure cookie session · CSRF protected · Automatic session expiry
+                  </p>
+                )}
+
+                <FeedbackMessage message={authError} />
+
+                <button
+                  type="submit"
+                  style={
+                    authSubmitDisabled
+                      ? { ...styles.authSubmitButton, opacity: 0.6, cursor: "not-allowed" }
+                      : styles.authSubmitButton
+                  }
+                  disabled={authSubmitDisabled}
+                >
+                  {authSubmitting
+                    ? "Working..."
+                    : authMode === "register"
+                      ? "Create workspace"
+                      : "Sign in"}
+                </button>
+
+                <p style={styles.authInlineSwitch}>
+                  {authMode === "register" ? "Already use Shotlink?" : "Need a workspace?"}{" "}
+                  <button
+                    type="button"
+                    style={styles.inlineTextButton}
+                    onClick={authMode === "register" ? openLoginPanel : openRegistrationPanel}
+                  >
+                    {authMode === "register" ? "Sign in" : "Create one for free"}
+                  </button>
+                </p>
+              </form>
+            </section>
+
+            <aside className="sl-auth-visual" style={styles.authVisualPane}>
+              <div style={styles.authVisualCopy}>
+                <p style={styles.freePlanBadge}>Link intelligence built in</p>
+                <h2 style={styles.authVisualTitle}>
+                  Create, protect, and measure every campaign route.
+                </h2>
+                <p style={styles.authVisualText}>
+                  Branded links, QR codes, click analytics, and fallback destinations live in one
+                  clean workspace.
+                </p>
+              </div>
+              <ShortenerPreview onStart={openRegistrationPanel} />
+              <div style={styles.authVisualStats}>
+                <div><strong>9+</strong><span>analytics signals</span></div>
+                <div><strong>3</strong><span>routing layers</span></div>
+                <div><strong>24/7</strong><span>health checks</span></div>
+              </div>
+            </aside>
+          </main>
+
+          <footer style={styles.authFooter}>
+            <span>© 2026 Shotlink. All rights reserved.</span>
+            <nav aria-label="Legal links" style={styles.authFooterLinks}>
+              <a href="/trust">Privacy and terms</a>
+              <a href="mailto:support@shotlink.in">Support</a>
+            </nav>
+          </footer>
+        </div>
+      );
+    }
+
+    return (
+      <div className="sl-page sl-public-page" style={{ ...styles.page, ...styles.publicPageRoot }}>
         <div style={styles.publicShell}>
-          <header style={styles.publicNav}>
+          <header className="sl-public-header" style={styles.publicNav}>
             <a href="/" style={styles.brandLink} aria-label="Shotlink home">
               <BrandLogo style={styles.navLogo} />
             </a>
-            <nav style={styles.publicNavLinks} aria-label="Public pages">
+            <nav className="sl-public-nav-links" style={styles.publicNavLinks} aria-label="Public pages">
               {PUBLIC_NAV_ITEMS.map((item) => (
                 <a
                   key={item.id}
@@ -1520,165 +1871,43 @@ function App() {
                 </a>
               ))}
             </nav>
-          </header>
-
-          <div
-            style={{
-              ...styles.publicContentGrid,
-              gridTemplateColumns: isMobile
-                ? "1fr"
-                : publicPage === "home"
-                  ? "minmax(0, 1fr) minmax(320px, 420px)"
-                  : "minmax(0, 1fr) minmax(300px, 380px)",
-            }}
-          >
-            {renderPublicContent()}
-
-          <section id="auth-panel" style={styles.authCard}>
-            <div style={styles.authTabs}>
-              <button
-                type="button"
-                style={authMode === "register" ? styles.authTabActive : styles.authTab}
-                onClick={() => setAuthMode("register")}
-              >
-                Create account
-              </button>
-              <button
-                type="button"
-                style={authMode === "login" ? styles.authTabActive : styles.authTab}
-                onClick={() => setAuthMode("login")}
-              >
+            <div style={styles.publicNavActions}>
+              <button type="button" style={styles.publicSignInButton} onClick={openLoginPanel}>
                 Sign in
               </button>
-            </div>
-
-            <form
-              style={styles.authBody}
-              onSubmit={(event) => {
-                event.preventDefault();
-                if (!authSubmitDisabled) submitAuth();
-              }}
-            >
-              <BrandLogo compact style={styles.authLogo} />
-              <h2 style={styles.authTitle}>
-                {authMode === "register" ? "Create account" : "Sign in"}
-              </h2>
-              <p style={styles.authSubtitle}>
-                {authMode === "register"
-                  ? "Start using Shotlink in under a minute."
-                  : "Continue to your Shotlink dashboard."}
-              </p>
-
-              {authMode === "register" ? (
-                <label style={styles.label}>
-                  Full name
-                  <input
-                    style={styles.input}
-                    value={authForm.name}
-                    autoComplete="name"
-                    required
-                  onChange={(event) =>
-                    setAuthForm((current) => ({ ...current, name: event.target.value }))
-                  }
-                  />
-                </label>
-              ) : null}
-
-              <label style={styles.label}>
-                Email
-                <input
-                  style={styles.input}
-                  type="email"
-                  value={authForm.email}
-                  autoComplete="email"
-                  required
-                  onChange={(event) =>
-                    setAuthForm((current) => ({ ...current, email: event.target.value }))
-                  }
-                />
-              </label>
-
-              <label style={styles.label}>
-                Password
-                <input
-                  style={styles.input}
-                  type="password"
-                  value={authForm.password}
-                  autoComplete={authMode === "register" ? "new-password" : "current-password"}
-                  minLength={8}
-                  required
-                  onChange={(event) =>
-                    setAuthForm((current) => ({ ...current, password: event.target.value }))
-                  }
-                />
-              </label>
-
-              {authMode === "register" ? (
-                <label style={styles.label}>
-                  Workspace name
-                  <input
-                    style={styles.input}
-                    value={authForm.workspaceName}
-                    autoComplete="organization"
-                    required
-                    onChange={(event) =>
-                    setAuthForm((current) => ({
-                      ...current,
-                      workspaceName: event.target.value,
-                    }))
-                  }
-                  />
-                </label>
-              ) : null}
-
-              {authMode === "register" ? (
-                <div className="sl-consent-box" style={styles.consentBox}>
-                  <div>
-                    <p style={styles.sectionEyebrow}>Required consent</p>
-                    <p style={styles.consentIntro}>
-                      We keep a timestamped consent record for security and compliance.
-                    </p>
-                  </div>
-
-                  {REQUIRED_AUTH_CONSENTS.map((item) => (
-                    <ConsentCheckbox
-                      key={item.id}
-                      checked={Boolean(authForm.consents[item.id])}
-                      onChange={(checked) => updateAuthConsent(item.id, checked)}
-                    >
-                      {item.label}
-                    </ConsentCheckbox>
-                  ))}
-
-                  <ConsentCheckbox
-                    checked={Boolean(authForm.consents.marketingOptIn)}
-                    onChange={(checked) => updateAuthConsent("marketingOptIn", checked)}
-                  >
-                    Optional: send me product updates and launch offers by email.
-                  </ConsentCheckbox>
-                </div>
-              ) : null}
-
-              <FeedbackMessage message={authError} />
-
-              <button
-                type="submit"
-                style={
-                  authSubmitDisabled
-                    ? { ...styles.primaryButton, opacity: 0.6, cursor: "not-allowed" }
-                    : styles.primaryButton
-                }
-                disabled={authSubmitDisabled}
-              >
-                {authSubmitting
-                  ? "Working..."
-                  : authMode === "register"
-                    ? "Create workspace"
-                    : "Sign in"}
+              <button type="button" style={styles.publicGetStartedButton} onClick={openRegistrationPanel}>
+                Get started
               </button>
-            </form>
-          </section>
-          </div>
+            </div>
+          </header>
+
+          <main style={styles.publicMain}>
+            {renderPublicContent()}
+          </main>
+
+          <footer className="sl-public-footer" style={styles.publicFooter}>
+            <div style={styles.publicFooterBrand}>
+              <BrandLogo style={styles.footerLogo} />
+              <p>Branded short links, QR codes, analytics, and resilient routing for modern teams.</p>
+              <a href="mailto:support@shotlink.in">support@shotlink.in</a>
+            </div>
+            <div style={styles.publicFooterColumn}>
+              <strong>Product</strong>
+              <a href="/pricing">Pricing</a>
+              <a href="/docs">Resources</a>
+              <button type="button" onClick={openRegistrationPanel}>Create account</button>
+            </div>
+            <div style={styles.publicFooterColumn}>
+              <strong>Company</strong>
+              <a href="/trust">Trust and safety</a>
+              <a href="/trust">Privacy</a>
+              <a href="mailto:support@shotlink.in">Contact</a>
+            </div>
+            <div style={styles.publicFooterBottom}>
+              <span>© 2026 Shotlink. All rights reserved.</span>
+              <span>Built for reliable links.</span>
+            </div>
+          </footer>
         </div>
       </div>
     );
@@ -1694,7 +1923,7 @@ function App() {
   const userFirstName = session.user.name.split(/\s+/).filter(Boolean)[0] || session.user.name;
 
   return (
-    <div className="sl-page" style={{ ...styles.page, ...modeStyles.page }}>
+    <div className="sl-page sl-dashboard-page" style={{ ...styles.page, ...modeStyles.page }}>
       <div className="sl-grid-overlay" style={{ ...styles.backgroundGrid, ...modeStyles.backgroundGrid }} />
       <div className="sl-glow sl-glow-top" style={{ ...styles.backgroundGlowTop, ...modeStyles.backgroundGlowTop }} />
       <div className="sl-glow sl-glow-bottom" style={{ ...styles.backgroundGlowBottom, ...modeStyles.backgroundGlowBottom }} />
@@ -2106,8 +2335,8 @@ function App() {
           <section id="billing-panel" style={{ ...styles.panelCard, ...modeStyles.panelCard, gridArea: "billing" }}>
             <div style={styles.panelTitleRow}>
               <div><p style={styles.sectionEyebrow}>Billing</p><h2 style={styles.panelTitle}>Active subscription</h2></div>
-              <button style={{ ...styles.secondaryButton, opacity: billingLoading ? 0.7 : 1, cursor: billingLoading ? "progress" : "pointer" }} onClick={() => refreshBillingSummary("Billing status refreshed.")} disabled={billingLoading}>
-                {billingLoading ? "Refreshing..." : "Refresh billing"}
+              <button style={{ ...styles.secondaryButton, opacity: billingLoading ? 0.7 : 1, cursor: billingLoading ? "progress" : "pointer" }} onClick={() => refreshBillingSummary("Billing status refreshed.", { syncProvider: true })} disabled={billingLoading}>
+                {billingLoading ? "Refreshing..." : currentPlan.billingStatus === "pending" ? "Verify payment" : "Refresh billing"}
               </button>
             </div>
             <FeedbackMessage message={billingError} />

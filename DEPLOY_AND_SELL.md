@@ -132,10 +132,11 @@ Start in this order:
 For the current codebase, this is how billing works:
 
 - logged-in workspace owner clicks a paid plan
-- backend creates a Razorpay Payment Link
+- backend creates a Razorpay Subscription checkout
 - user pays on Razorpay hosted page
 - Razorpay webhook calls your backend
 - backend upgrades the workspace plan automatically
+- an owner can use Verify Payment to reconcile a delayed or missed webhook
 
 Webhook URL:
 
@@ -143,10 +144,15 @@ Webhook URL:
 
 Webhook events:
 
-- `payment_link.paid`
-- `payment_link.cancelled`
-- `payment_link.expired`
-- `payment_link.partially_paid`
+- `subscription.authenticated`
+- `subscription.activated`
+- `subscription.charged`
+- `subscription.pending`
+- `subscription.halted`
+- `subscription.cancelled`
+- `subscription.completed`
+- `subscription.expired`
+- `invoice.paid`
 
 ## 7.1. Branded customer domain setup
 

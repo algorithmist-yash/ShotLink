@@ -100,6 +100,9 @@
     "/api/v1/billing/subscriptions": {
       "post": { "tags": ["Billing"], "summary": "Create a subscription checkout", "security": [{ "sessionCookie": [], "csrfToken": [] }, { "sessionBearer": [] }], "requestBody": { "$ref": "#/components/requestBodies/PlanRequest" }, "responses": { "200": { "$ref": "#/components/responses/JsonSuccess" }, "201": { "$ref": "#/components/responses/JsonSuccess" }, "409": { "$ref": "#/components/responses/JsonError" }, "502": { "$ref": "#/components/responses/JsonError" } } }
     },
+    "/api/v1/billing/subscriptions/sync": {
+      "post": { "tags": ["Billing"], "summary": "Verify and reconcile the current Razorpay subscription", "security": [{ "sessionCookie": [], "csrfToken": [] }, { "sessionBearer": [] }], "responses": { "200": { "$ref": "#/components/responses/JsonSuccess" }, "400": { "$ref": "#/components/responses/JsonError" }, "404": { "$ref": "#/components/responses/JsonError" }, "409": { "$ref": "#/components/responses/JsonError" }, "502": { "$ref": "#/components/responses/JsonError" } } }
+    },
     "/api/v1/billing/subscriptions/cancel": {
       "post": { "tags": ["Billing"], "summary": "Cancel subscription at cycle end", "security": [{ "sessionCookie": [], "csrfToken": [] }, { "sessionBearer": [] }], "requestBody": { "content": { "application/json": { "schema": { "type": "object", "properties": { "cancelAtCycleEnd": { "type": "boolean", "default": true } } } } } }, "responses": { "200": { "$ref": "#/components/responses/JsonSuccess" }, "400": { "$ref": "#/components/responses/JsonError" }, "502": { "$ref": "#/components/responses/JsonError" } } }
     },

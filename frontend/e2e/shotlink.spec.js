@@ -34,6 +34,14 @@ function violationFingerprints(results) {
 }
 
 async function expectNoWcagViolations(page, testInfo) {
+  await page.waitForFunction(
+    () =>
+      document
+        .getAnimations()
+        .filter((animation) => animation.effect?.getComputedTiming().activeDuration !== Infinity)
+        .every((animation) => animation.playState === "finished")
+  );
+
   const results = await new AxeBuilder({ page })
     .withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa"])
     .analyze();
@@ -50,7 +58,7 @@ async function openPublicHomepage(page) {
   await expect(
     page.getByRole("heading", {
       level: 1,
-      name: "High-speed links for serious internet teams.",
+      name: "URL shortener with smart fallback routing",
     })
   ).toBeVisible();
 }
@@ -67,17 +75,20 @@ test("public navigation, auth validation, and WCAG guardrails work", async ({ pa
     ["Pricing", "/pricing", "Infrastructure pricing without enterprise fog."],
     ["Resources", "/docs", "Build on the Shotlink routing layer."],
     ["Trust", "/trust", "Trust rules for public link infrastructure."],
-    ["Platform", "/", "High-speed links for serious internet teams."],
+    ["Platform", "/", "URL shortener with smart fallback routing"],
   ];
 
   for (const [linkName, path, heading] of publicDestinations) {
-    await page.getByRole("link", { name: linkName, exact: true }).click();
+    await page
+      .getByRole("navigation", { name: "Public pages" })
+      .getByRole("link", { name: linkName, exact: true })
+      .click();
     await expect(page).toHaveURL(new RegExp(`${path === "/" ? "/$" : `${path}$`}`));
     await expect(page.getByRole("heading", { level: 1, name: heading })).toBeVisible();
   }
 
   await page.getByRole("button", { name: "Sign in", exact: true }).click();
-  await expect(page.getByRole("heading", { level: 2, name: "Sign in" })).toBeVisible();
+  await expect(page.getByRole("heading", { level: 1, name: "Sign in" })).toBeVisible();
 
   const loginForm = page.locator("form");
   await loginForm.getByRole("button", { name: "Sign in", exact: true }).click();
@@ -109,6 +120,10 @@ test("real registration, cookie session, link redirect, analytics, and logout wo
   const destination = "https://example.com/e2e-campaign";
 
   await openPublicHomepage(page);
+  await page
+    .getByRole("banner")
+    .getByRole("button", { name: "Get started", exact: true })
+    .click();
   await page.getByRole("textbox", { name: "Full name" }).fill("Browser E2E Owner");
   await page.getByRole("textbox", { name: "Email" }).fill(email);
   await page.getByLabel("Password").fill("StrongPass123");
@@ -130,7 +145,7 @@ test("real registration, cookie session, link redirect, analytics, and logout wo
   expect((await registrationResponsePromise).status()).toBe(201);
 
   await expect(page.getByRole("heading", { level: 1, name: workspaceName })).toBeVisible();
-  await expect(page.getByText("Browser E2E Owner", { exact: false })).toBeVisible();
+  await expect(page.getByText("Welcome back, Browser.", { exact: false })).toBeVisible();
   expect((await page.context().cookies()).some((cookie) => cookie.name === "shotlink_session")).toBe(
     true
   );
@@ -187,7 +202,7 @@ test("real registration, cookie session, link redirect, analytics, and logout wo
   await expect(
     page.getByRole("heading", {
       level: 1,
-      name: "High-speed links for serious internet teams.",
+      name: "URL shortener with smart fallback routing",
     })
   ).toBeVisible();
   expect((await page.context().cookies()).some((cookie) => cookie.name === "shotlink_session")).toBe(
@@ -208,7 +223,10 @@ test("@mobile public and sign-in layouts fit a 390px viewport", async ({ page },
   await openPublicHomepage(page);
 
   expect(page.viewportSize()).toEqual({ width: 390, height: 844 });
-  await expect(page.getByRole("navigation", { name: "Public pages" })).toBeVisible();
+  await expect(page.getByRole("banner")).toBeVisible();
+  await expect(
+    page.getByRole("banner").getByRole("button", { name: "Get started", exact: true })
+  ).toBeVisible();
   expect(
     await page.evaluate(
       () => document.documentElement.scrollWidth <= document.documentElement.clientWidth
@@ -216,7 +234,7 @@ test("@mobile public and sign-in layouts fit a 390px viewport", async ({ page },
   ).toBe(true);
 
   await page.getByRole("button", { name: "Sign in", exact: true }).click();
-  await expect(page.getByRole("heading", { level: 2, name: "Sign in" })).toBeVisible();
+  await expect(page.getByRole("heading", { level: 1, name: "Sign in" })).toBeVisible();
   await expect(page.getByRole("textbox", { name: "Email" })).toBeVisible();
   await expectNoWcagViolations(page, testInfo);
   expect(

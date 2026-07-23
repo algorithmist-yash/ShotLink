@@ -49,6 +49,7 @@ function getRequestPath(input) {
 describe("Shotlink frontend workflows", () => {
   beforeEach(() => {
     window.localStorage.clear();
+    window.history.replaceState({}, "", "/");
     vi.stubGlobal("fetch", vi.fn());
     vi.spyOn(window, "scrollTo").mockImplementation(() => {});
   });
@@ -60,10 +61,6 @@ describe("Shotlink frontend workflows", () => {
 
   test("turns the landing preview action into a working registration CTA", async () => {
     const user = userEvent.setup();
-    const scrollIntoView = vi
-      .spyOn(window.HTMLElement.prototype, "scrollIntoView")
-      .mockImplementation(() => {});
-
     fetch.mockImplementation(async (input) => {
       const path = getRequestPath(input);
       if (path === "/api/v1/auth/me") return jsonResponse(401, { error: "Authentication required" });
@@ -77,8 +74,10 @@ describe("Shotlink frontend workflows", () => {
 
     await user.click(screen.getByRole("button", { name: "Shorten URL" }));
 
-    expect(screen.getByRole("heading", { name: "Create account" })).toBeInTheDocument();
-    await waitFor(() => expect(scrollIntoView).toHaveBeenCalledTimes(1));
+    expect(
+      screen.getByRole("heading", { name: "Create your Shotlink workspace" })
+    ).toBeInTheDocument();
+    expect(window.location.pathname).toBe("/register");
   });
 
   test("shows a rejected sign-in beside the authentication form", async () => {
@@ -265,6 +264,81 @@ describe("Shotlink frontend workflows", () => {
     expect(within(builderPanel).queryByRole("alert")).not.toBeInTheDocument();
   });
 
+  test("verifies a pending Razorpay subscription before refreshing billing", async () => {
+    const user = userEvent.setup();
+    const pendingBilling = {
+      ...sessionPayload.workspace.billing,
+      billingStatus: "pending",
+      lastPaymentReference: "SUB-TEST",
+    };
+    const activeBilling = {
+      ...pendingBilling,
+      configuredPlanId: "pro",
+      effectivePlanId: "pro",
+      effectivePlanName: "Pro",
+      billingStatus: "active",
+      currentPeriodEndsAt: "2026-08-23T00:00:00.000Z",
+      linkLimit: 500,
+      domainLimit: 1,
+    };
+    const pendingSession = {
+      ...sessionPayload,
+      workspace: {
+        ...sessionPayload.workspace,
+        billing: pendingBilling,
+      },
+    };
+    let providerSynced = false;
+
+    fetch.mockImplementation(async (input, options = {}) => {
+      const path = getRequestPath(input);
+      const method = options.method || "GET";
+
+      if (path === "/api/v1/auth/me") return jsonResponse(200, pendingSession);
+      if (path === "/api/v1/billing/plans") return jsonResponse(200, { plans: [] });
+      if (path === "/api/v1/links") return jsonResponse(200, { links: [] });
+      if (path === "/api/v1/billing/subscriptions/sync" && method === "POST") {
+        const headers = new Headers(options.headers);
+        expect(options.credentials).toBe("include");
+        expect(headers.get("X-CSRF-Token")).toBe(sessionPayload.csrfToken);
+        providerSynced = true;
+        return jsonResponse(200, {
+          synced: true,
+          providerStatus: "active",
+          message: "Payment verified with Razorpay and the paid plan is now active.",
+        });
+      }
+      if (path === "/api/v1/billing/summary") {
+        return jsonResponse(200, {
+          currentPlan: providerSynced ? activeBilling : pendingBilling,
+          plans: [],
+          recentPayments: [],
+        });
+      }
+
+      throw new Error(`Unexpected request: ${method} ${path}`);
+    });
+
+    render(<App />);
+    expect(await screen.findByRole("heading", { name: "Test Workspace" })).toBeInTheDocument();
+
+    const billingPanel = document.querySelector("#billing-panel");
+    const verifyButton = await within(billingPanel).findByRole("button", {
+      name: "Verify payment",
+    });
+    await user.click(verifyButton);
+
+    expect(
+      await within(billingPanel).findByText(
+        "Payment verified with Razorpay and the paid plan is now active."
+      )
+    ).toBeInTheDocument();
+    expect(within(billingPanel).getByRole("heading", { name: "Pro" })).toBeInTheDocument();
+    expect(
+      within(billingPanel).getByRole("button", { name: "Refresh billing" })
+    ).toBeInTheDocument();
+  });
+
   test("signs in with cookie transport without persisting the returned bearer token", async () => {
     const user = userEvent.setup();
     window.localStorage.setItem("url-shortener-session-token", "stale-session-token");
@@ -348,6 +422,10 @@ describe("Shotlink frontend workflows", () => {
 
     await user.click(screen.getByRole("button", { name: "Sign out" }));
 
-    expect(await screen.findByRole("heading", { name: "High-speed links for serious internet teams." })).toBeInTheDocument();
+    expect(
+      await screen.findByRole("heading", {
+        name: "URL shortener with smart fallback routing",
+      })
+    ).toBeInTheDocument();
   });
 });

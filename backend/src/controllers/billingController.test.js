@@ -4,7 +4,11 @@ const test = require("node:test");
 
 const BillingRecord = require("../models/BillingRecord");
 const Workspace = require("../models/Workspace");
-const { createSubscription, handleRazorpayWebhook } = require("./billingController");
+const {
+  createSubscription,
+  handleRazorpayWebhook,
+  syncSubscription,
+} = require("./billingController");
 
 function createResponse() {
   return {
@@ -346,6 +350,91 @@ test("subscription webhooks grant entitlements only after an active or paid stat
   assert.equal(currentWorkspace.billing.subscriptionCreationReference, "");
   assert.equal(currentWorkspace.billing.subscriptionCreationPlanId, "");
   assert.equal(currentWorkspace.billing.subscriptionCreationStartedAt, null);
+});
+
+test("manual subscription sync recovers an active payment when a webhook was missed", async (t) => {
+  const originalFindBillingRecord = BillingRecord.findOne;
+  const originalFindWorkspace = Workspace.findById;
+  const originalFetch = global.fetch;
+  const originalKeyId = process.env.RAZORPAY_KEY_ID;
+  const originalKeySecret = process.env.RAZORPAY_KEY_SECRET;
+  const originalPlanId = process.env.RAZORPAY_PLAN_ID_PRO_MONTHLY;
+  const currentRecord = createBillingRecord();
+  const currentWorkspace = createWorkspace();
+  let providerRequest = null;
+
+  currentRecord.subscriptionId = "sub_test";
+  currentRecord.providerPlanId = "plan_pro_controller";
+  process.env.RAZORPAY_KEY_ID = "rzp_test_controller";
+  process.env.RAZORPAY_KEY_SECRET = "controller-secret";
+  process.env.RAZORPAY_PLAN_ID_PRO_MONTHLY = "plan_pro_controller";
+
+  BillingRecord.findOne = async (query) => {
+    assert.equal(String(query.workspaceId), String(currentWorkspace._id));
+    assert.equal(query.subscriptionId, currentRecord.subscriptionId);
+    return currentRecord;
+  };
+  Workspace.findById = async () => currentWorkspace;
+  global.fetch = async (url, options) => {
+    providerRequest = { url, options };
+    return createProviderResponse({
+      id: "sub_test",
+      entity: "subscription",
+      plan_id: "plan_pro_controller",
+      customer_id: "customer_test",
+      status: "active",
+      paid_count: 1,
+      current_start: 1_784_200_000,
+      current_end: 1_786_800_000,
+      charge_at: 1_789_400_000,
+      created_at: 1_784_100_000,
+    });
+  };
+
+  t.after(() => {
+    BillingRecord.findOne = originalFindBillingRecord;
+    Workspace.findById = originalFindWorkspace;
+    global.fetch = originalFetch;
+
+    const environment = {
+      RAZORPAY_KEY_ID: originalKeyId,
+      RAZORPAY_KEY_SECRET: originalKeySecret,
+      RAZORPAY_PLAN_ID_PRO_MONTHLY: originalPlanId,
+    };
+    for (const [key, value] of Object.entries(environment)) {
+      if (value === undefined) delete process.env[key];
+      else process.env[key] = value;
+    }
+  });
+
+  const response = createResponse();
+  await syncSubscription(
+    {
+      auth: {
+        workspace: currentWorkspace,
+        user: { _id: "user-1" },
+      },
+      get() {
+        return "";
+      },
+    },
+    response
+  );
+
+  assert.equal(response.statusCode, 200);
+  assert.equal(response.body.synced, true);
+  assert.equal(response.body.providerStatus, "active");
+  assert.equal(providerRequest.options.method, "GET");
+  assert.match(providerRequest.options.headers.Authorization, /^Basic /);
+  assert.equal(currentRecord.status, "active");
+  assert.equal(currentRecord.rawLastEvent, "subscription.synced");
+  assert.ok(currentRecord.paidAt instanceof Date);
+  assert.equal(currentWorkspace.plan, "pro");
+  assert.equal(currentWorkspace.billing.status, "active");
+  assert.equal(
+    currentWorkspace.billing.currentPeriodEndsAt.toISOString(),
+    new Date(1_786_800_000 * 1000).toISOString()
+  );
 });
 
 test("concurrent subscription requests create one provider subscription and reuse its checkout", async (t) => {

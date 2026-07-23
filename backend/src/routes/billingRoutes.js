@@ -7,6 +7,7 @@ const {
   getBillingSummary,
   getPublicPlans,
   handleRazorpayWebhook,
+  syncSubscription,
 } = require("../controllers/billingController");
 const {
   requireAuth,
@@ -45,6 +46,13 @@ router.post(
   writeRateLimit,
   validateRequestBody(cancelSubscriptionContract, { allowEmpty: true }),
   cancelSubscription
+);
+router.post(
+  "/subscriptions/sync",
+  requireWorkspaceOwner,
+  writeRateLimit,
+  validateRequestBody(cancelSubscriptionContract, { allowEmpty: true }),
+  syncSubscription
 );
 
 module.exports = router;

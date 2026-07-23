@@ -148,10 +148,15 @@ https://api.shotlink.in/api/v1/billing/webhooks/razorpay
 
 Subscribe to these events:
 
-- `payment_link.paid`
-- `payment_link.cancelled`
-- `payment_link.expired`
-- `payment_link.partially_paid`
+- `subscription.authenticated`
+- `subscription.activated`
+- `subscription.charged`
+- `subscription.pending`
+- `subscription.halted`
+- `subscription.cancelled`
+- `subscription.completed`
+- `subscription.expired`
+- `invoice.paid`
 
 Copy the webhook secret into:
 
@@ -170,7 +175,7 @@ Run this checklist after deploy:
 5. Confirm the click appears in analytics.
 6. Click the Pro plan.
 7. Pay through Razorpay Test Mode.
-8. Wait a few seconds and click Refresh Billing.
+8. Wait a few seconds and click Verify Payment if billing is still pending.
 9. Confirm the workspace plan upgrades.
 
 ## 8. Going live

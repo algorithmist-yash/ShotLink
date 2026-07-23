@@ -44,6 +44,7 @@ test("every monetary billing action is owner-only", () => {
     ["post", "/payment-links"],
     ["post", "/subscriptions"],
     ["post", "/subscriptions/cancel"],
+    ["post", "/subscriptions/sync"],
   ];
 
   for (const [method, path] of routes) {
