@@ -1,27 +1,28 @@
 const UsageCounter = require("../models/UsageCounter");
-const { invalidateUsageCounter } = require("./cacheInvalidationService");
-const { getUsagePeriodKey } = require("./usageServiceHelpers");
+
+function getUsagePeriodKey(date = new Date()) {
+  const year = date.getUTCFullYear();
+  const month = String(date.getUTCMonth() + 1).padStart(2, "0");
+  return `${year}-${month}`;
+}
 
 async function getCurrentUsageCounter(workspaceId, date = new Date()) {
   return UsageCounter.findOneAndUpdate(
     { workspaceId, periodKey: getUsagePeriodKey(date) },
     { $setOnInsert: { workspaceId, periodKey: getUsagePeriodKey(date) } },
-    { returnDocument: "after", upsert: true }
+    { new: true, upsert: true }
   );
 }
 
 async function incrementUsage(workspaceId, increments, date = new Date()) {
-  const counter = await UsageCounter.findOneAndUpdate(
+  return UsageCounter.findOneAndUpdate(
     { workspaceId, periodKey: getUsagePeriodKey(date) },
     {
       $setOnInsert: { workspaceId, periodKey: getUsagePeriodKey(date) },
       $inc: increments,
     },
-    { returnDocument: "after", upsert: true }
+    { new: true, upsert: true }
   );
-
-  await invalidateUsageCounter(workspaceId, date);
-  return counter;
 }
 
 function buildUsageMetric(key, used, limit) {

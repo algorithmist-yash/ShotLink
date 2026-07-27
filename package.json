@@ -2,26 +2,27 @@
   "name": "shotlink",
   "version": "1.0.0",
   "description": "Shotlink production URL shortener and analytics backend",
-  "main": "backend/src/server.js",
+  "main": "index.js",
   "scripts": {
     "start": "npm --prefix backend start",
     "dev": "npm --prefix backend run dev",
-    "test": "npm --prefix backend test",
-    "test:e2e": "npm --prefix frontend run test:e2e"
+    "test": "npm --prefix backend test"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "type": "commonjs",
   "engines": {
-    "node": ">=24.18.0"
+    "node": ">=18"
   },
   "dependencies": {
     "cors": "^2.8.5",
     "dotenv": "^17.2.3",
     "express": "^5.2.1",
-    "mongoose": "^9.7.4",
+    "mongoose": "^9.1.1",
     "nanoid": "^3.3.8"
   },
-  "devDependencies": {}
+  "devDependencies": {
+    "nodemon": "^3.1.11"
+  }
 }

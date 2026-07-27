@@ -63,14 +63,6 @@ const workspaceSchema = new mongoose.Schema(
       providerCustomerId: { type: String, default: "" },
       providerSubscriptionId: { type: String, default: "" },
       cancelAtCycleEnd: { type: Boolean, default: false },
-      subscriptionCreationReference: { type: String, default: "" },
-      subscriptionCreationPlanId: {
-        type: String,
-        enum: ["", "pro", "business"],
-        default: "",
-      },
-      subscriptionCreationStartedAt: { type: Date, default: null },
-      linkCreationVersion: { type: Number, default: 0, min: 0 },
     },
     members: {
       type: [workspaceMemberSchema],
@@ -85,10 +77,5 @@ const workspaceSchema = new mongoose.Schema(
 );
 
 workspaceSchema.index({ "customDomains.hostname": 1 }, { unique: true, sparse: true });
-
-workspaceSchema.post("save", async function invalidateCachedEntitlement(workspace) {
-  const { invalidateWorkspaceEntitlement } = require("../services/cacheInvalidationService");
-  await invalidateWorkspaceEntitlement(workspace._id);
-});
 
 module.exports = mongoose.model("Workspace", workspaceSchema);

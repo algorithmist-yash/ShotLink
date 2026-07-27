@@ -1,45 +1,58 @@
-const {
-  enqueueRedirectEvent,
-  redirectEventWorker,
-} = require("../services/redirectEventService");
-const {
-  getRedirectEntitlement,
-  resolveUrlForRequest,
-} = require("../services/redirectResolutionService");
+const ClickEvent = require("../models/ClickEvent");
+const Url = require("../models/Url");
+const Workspace = require("../models/Workspace");
+const { resolveEffectivePlan } = require("../config/billingPlans");
+const { getCurrentUsageCounter, incrementUsage } = require("../services/usageService");
 const { buildClickContext } = require("../utils/deviceInfo");
+const {
+  getHostnameFromUrl,
+  getRequestHostname,
+  isLocalHostname,
+} = require("../utils/domainUtils");
 const { renderUnavailablePage } = require("../utils/failoverPage");
 const {
   getDestinationSummaries,
   needsHealthRefresh,
+  refreshUrlHealth,
   selectRedirectTarget,
 } = require("../services/healthService");
 
-function buildRedirectEvent(
-  url,
-  shortCode,
-  clickContext,
-  target,
-  redirectStatus,
-  healthRefreshRequested = false,
-  analyticsRetentionDays = 90
-) {
-  return {
-    urlId: url._id,
-    workspaceId: url.workspaceId || null,
+function isDefaultRedirectHost(hostname) {
+  const baseHost = getHostnameFromUrl(process.env.BASE_URL || "");
+  return !hostname || isLocalHostname(hostname) || hostname === baseHost;
+}
+
+async function findUrlForRequest(req, shortCode) {
+  const requestHost = getRequestHostname(req);
+
+  if (isDefaultRedirectHost(requestHost)) {
+    return Url.findOne({ shortCode });
+  }
+
+  const workspace = await Workspace.findOne({
+    customDomains: {
+      $elemMatch: {
+        hostname: requestHost,
+        status: "verified",
+      },
+    },
+  });
+
+  if (!workspace) {
+    return null;
+  }
+
+  return Url.findOne({
     shortCode,
-    ...clickContext,
-    redirectTarget: target?.url || "",
-    redirectTargetKind: target?.kind || "none",
-    redirectStatus,
-    healthRefreshRequested,
-    analyticsRetentionDays,
-  };
+    workspaceId: workspace._id,
+    customDomainHost: requestHost,
+  });
 }
 
 exports.redirectToOriginal = async (req, res) => {
   try {
     const { shortCode } = req.params;
-    const url = await resolveUrlForRequest(req, shortCode);
+    const url = await findUrlForRequest(req, shortCode);
 
     if (!url) {
       return res.status(404).send("Short URL not found");
@@ -49,39 +62,40 @@ exports.redirectToOriginal = async (req, res) => {
       return res.status(410).send("This link has expired");
     }
 
-    let analyticsRetentionDays = 90;
     if (url.workspaceId) {
-      const entitlement = await getRedirectEntitlement(url.workspaceId);
-      if (entitlement) {
-        analyticsRetentionDays = entitlement.plan.analyticsRetentionDays || 90;
-        if ((entitlement.usage?.clicks || 0) >= entitlement.plan.clickLimit) {
+      const workspace = await Workspace.findById(url.workspaceId);
+      if (workspace) {
+        const effectivePlan = resolveEffectivePlan(workspace);
+        const usageCounter = await getCurrentUsageCounter(workspace._id);
+        if ((usageCounter?.clicks || 0) >= effectivePlan.clickLimit) {
           return res
             .status(402)
-            .send(
-              `This workspace has reached the ${entitlement.plan.name} monthly click limit`
-            );
+            .send(`This workspace has reached the ${effectivePlan.name} monthly click limit`);
         }
       }
     }
 
-    const shouldRefreshHealth = needsHealthRefresh(url);
+    if (needsHealthRefresh(url)) {
+      await refreshUrlHealth(url);
+    }
+
     const selectedTarget = selectRedirectTarget(url);
     const clickContext = buildClickContext(req);
 
     if (!selectedTarget) {
-      await enqueueRedirectEvent(
-        buildRedirectEvent(
-          url,
-          shortCode,
-          clickContext,
-          null,
-          502,
-          shouldRefreshHealth,
-          analyticsRetentionDays
-        )
-      );
+      await ClickEvent.create({
+        urlId: url._id,
+        shortCode,
+        ...clickContext,
+        redirectTarget: "",
+        redirectTargetKind: "none",
+        redirectStatus: 502,
+      });
+      if (url.workspaceId) {
+        await incrementUsage(url.workspaceId, { clicks: 1 });
+      }
 
-      const response = res
+      return res
         .status(502)
         .type("html")
         .send(
@@ -90,31 +104,32 @@ exports.redirectToOriginal = async (req, res) => {
             destinations: getDestinationSummaries(url),
           })
         );
-      redirectEventWorker.wake();
-
-      return response;
     }
 
-    await enqueueRedirectEvent(
-      buildRedirectEvent(
-        url,
+    await Promise.all([
+      ClickEvent.create({
+        urlId: url._id,
         shortCode,
-        clickContext,
-        selectedTarget,
-        302,
-        shouldRefreshHealth,
-        analyticsRetentionDays
-      )
-    );
+        ...clickContext,
+        redirectTarget: selectedTarget.url,
+        redirectTargetKind: selectedTarget.kind,
+        redirectStatus: 302,
+      }),
+      Url.updateOne(
+        { _id: url._id },
+        {
+          $inc: { clicks: 1 },
+          $set: { lastClickedAt: new Date() },
+        }
+      ),
+      url.workspaceId
+        ? incrementUsage(url.workspaceId, { clicks: 1 })
+        : Promise.resolve(),
+    ]);
 
-    const response = res.redirect(302, selectedTarget.url);
-    redirectEventWorker.wake();
-
-    return response;
+    return res.redirect(302, selectedTarget.url);
   } catch (error) {
     console.error(error);
     return res.status(500).send("Server error");
   }
 };
-
-exports.buildRedirectEvent = buildRedirectEvent;

@@ -15,9 +15,7 @@ const RESERVED_SHORT_CODES = new Set([
   "dashboard",
   "docs",
   "health",
-  "live",
   "login",
-  "metrics",
   "pricing",
   "register",
   "settings",
@@ -25,10 +23,6 @@ const RESERVED_SHORT_CODES = new Set([
   "workspace",
 ]);
 const BLOCKED_HOSTNAMES = new Set(["localhost", "localhost.localdomain"]);
-
-function isReservedShortCode(value) {
-  return RESERVED_SHORT_CODES.has(String(value || "").toLowerCase());
-}
 
 function isPrivateIpv4(hostname) {
   const parts = hostname.split(".").map((part) => Number(part));
@@ -56,11 +50,6 @@ function isPrivateIpv4(hostname) {
 
 function isPrivateIpv6(hostname) {
   const normalized = hostname.toLowerCase();
-  const ipv4MappedAddress = normalized.match(/^::ffff:(\d{1,3}(?:\.\d{1,3}){3})$/);
-
-  if (ipv4MappedAddress) {
-    return isPrivateIpv4(ipv4MappedAddress[1]);
-  }
 
   return (
     normalized === "::1" ||
@@ -171,7 +160,7 @@ function normalizeCustomAlias(value) {
     /^[a-z0-9][a-z0-9_-]*[a-z0-9]$/.test(alias) &&
     !alias.includes("--") &&
     !alias.includes("__") &&
-    !isReservedShortCode(alias);
+    !RESERVED_SHORT_CODES.has(alias);
 
   return isValid ? alias : null;
 }
@@ -216,7 +205,6 @@ module.exports = {
   MAX_CUSTOM_ALIAS_LENGTH,
   MIN_CUSTOM_ALIAS_LENGTH,
   isBlockedHostname,
-  isReservedShortCode,
   normalizeCustomAlias,
   normalizeUrl,
   normalizeFallbackUrls,
