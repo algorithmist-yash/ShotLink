@@ -49,10 +49,6 @@ const urlSchema = new mongoose.Schema(
       lastCheckedAt: { type: Date, default: null },
       lastFailureReason: { type: String, default: "" },
     },
-    healthRefreshLease: {
-      token: { type: String, default: "" },
-      expiresAt: { type: Date, default: null },
-    },
     fallbackUrls: {
       type: [fallbackUrlSchema],
       default: [],

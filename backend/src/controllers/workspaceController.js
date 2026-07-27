@@ -4,9 +4,6 @@ const { nanoid } = require("nanoid");
 const { resolveEffectivePlan } = require("../config/billingPlans");
 const Url = require("../models/Url");
 const Workspace = require("../models/Workspace");
-const { invalidateCustomDomain } = require("../services/cacheInvalidationService");
-const AuditEvent = require("../models/AuditEvent");
-const { recordAuditEvent } = require("../services/auditLogService");
 const {
   getDefaultCnameTarget,
   getTxtRecordName,
@@ -60,24 +57,6 @@ exports.getWorkspaceSettings = async (req, res) => {
   return res.json(serializeWorkspaceSettings(req.auth.workspace));
 };
 
-exports.listAuditEvents = async (req, res) => {
-  try {
-    const limit = Math.min(Math.max(Number(req.query.limit) || 50, 1), 100);
-    const events = await AuditEvent.find({ workspaceId: req.auth.workspace._id })
-      .sort({ createdAt: -1 })
-      .limit(limit)
-      .select(
-        "actorUserId action targetType targetId outcome requestId metadata createdAt expiresAt"
-      )
-      .lean();
-
-    return res.json({ events });
-  } catch (error) {
-    console.error(error);
-    return res.status(500).json({ error: "Server error" });
-  }
-};
-
 exports.addCustomDomain = async (req, res) => {
   try {
     const effectivePlan = resolveEffectivePlan(req.auth.workspace);
@@ -119,13 +98,6 @@ exports.addCustomDomain = async (req, res) => {
       isPrimary: existingDomains.length === 0,
     });
     await req.auth.workspace.save();
-    await invalidateCustomDomain(hostname);
-
-    await recordAuditEvent(req, {
-      action: "domain.added",
-      targetType: "custom_domain",
-      targetId: hostname,
-    });
 
     return res.status(201).json(serializeWorkspaceSettings(req.auth.workspace));
   } catch (error) {
@@ -153,7 +125,6 @@ exports.verifyCustomDomain = async (req, res) => {
         domain.status = "pending";
         domain.lastVerificationError = "TXT record was not found yet";
         await req.auth.workspace.save();
-        await invalidateCustomDomain(hostname);
 
         return res.status(400).json({
           error: `TXT record not found. Add ${getTxtRecordName(hostname)} with value ${domain.verificationToken}, wait for DNS, then verify again.`,
@@ -165,20 +136,12 @@ exports.verifyCustomDomain = async (req, res) => {
       domain.verifiedAt = new Date();
       domain.lastVerificationError = "";
       await req.auth.workspace.save();
-      await invalidateCustomDomain(hostname);
-
-      await recordAuditEvent(req, {
-        action: "domain.verified",
-        targetType: "custom_domain",
-        targetId: hostname,
-      });
 
       return res.json(serializeWorkspaceSettings(req.auth.workspace));
     } catch (dnsError) {
       domain.status = "pending";
       domain.lastVerificationError = dnsError.code || "DNS lookup failed";
       await req.auth.workspace.save();
-      await invalidateCustomDomain(hostname);
 
       return res.status(400).json({
         error: "DNS record is not visible yet. Wait a few minutes and verify again.",
@@ -210,13 +173,6 @@ exports.setPrimaryCustomDomain = async (req, res) => {
       customDomain.isPrimary = customDomain.hostname === hostname;
     });
     await req.auth.workspace.save();
-    await invalidateCustomDomain(hostname);
-
-    await recordAuditEvent(req, {
-      action: "domain.primary_changed",
-      targetType: "custom_domain",
-      targetId: hostname,
-    });
 
     return res.json(serializeWorkspaceSettings(req.auth.workspace));
   } catch (error) {
@@ -249,13 +205,6 @@ exports.removeCustomDomain = async (req, res) => {
       req.auth.workspace.customDomains[0].isPrimary = true;
     }
     await req.auth.workspace.save();
-    await invalidateCustomDomain(hostname);
-
-    await recordAuditEvent(req, {
-      action: "domain.removed",
-      targetType: "custom_domain",
-      targetId: hostname,
-    });
 
     return res.json(serializeWorkspaceSettings(req.auth.workspace));
   } catch (error) {
