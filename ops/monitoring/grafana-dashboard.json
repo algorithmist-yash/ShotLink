@@ -1,0 +1,15 @@
+{
+  "title": "Shotlink Production Overview",
+  "uid": "shotlink-overview",
+  "schemaVersion": 39,
+  "refresh": "30s",
+  "time": { "from": "now-6h", "to": "now" },
+  "panels": [
+    { "type": "timeseries", "title": "Request rate", "gridPos": { "h": 8, "w": 8, "x": 0, "y": 0 }, "targets": [{ "expr": "sum(rate(shotlink_http_requests_total[5m]))", "legendFormat": "requests/s" }] },
+    { "type": "timeseries", "title": "Server error ratio", "gridPos": { "h": 8, "w": 8, "x": 8, "y": 0 }, "targets": [{ "expr": "sum(rate(shotlink_http_requests_total{status_class=\"5xx\"}[5m])) / clamp_min(sum(rate(shotlink_http_requests_total[5m])), 0.001)", "legendFormat": "5xx ratio" }] },
+    { "type": "timeseries", "title": "p95 latency", "gridPos": { "h": 8, "w": 8, "x": 16, "y": 0 }, "targets": [{ "expr": "histogram_quantile(0.95, sum by (le) (rate(shotlink_http_request_duration_seconds_bucket[5m])))", "legendFormat": "p95 seconds" }] },
+    { "type": "timeseries", "title": "Redirect event queue", "gridPos": { "h": 8, "w": 8, "x": 0, "y": 8 }, "targets": [{ "expr": "shotlink_background_queue_depth{queue=\"redirect_event\"}", "legendFormat": "{{status}}" }] },
+    { "type": "timeseries", "title": "Health queue", "gridPos": { "h": 8, "w": 8, "x": 8, "y": 8 }, "targets": [{ "expr": "shotlink_background_queue_depth{queue=\"url_health\"}", "legendFormat": "{{status}}" }] },
+    { "type": "timeseries", "title": "Process memory", "gridPos": { "h": 8, "w": 8, "x": 16, "y": 8 }, "targets": [{ "expr": "shotlink_process_resident_memory_bytes", "legendFormat": "RSS" }, { "expr": "shotlink_process_heap_used_bytes", "legendFormat": "heap" }] }
+  ]
+}

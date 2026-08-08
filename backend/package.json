@@ -2,27 +2,39 @@
   "name": "shotlink-backend",
   "version": "1.0.0",
   "description": "Shotlink backend API and redirect service",
-  "main": "index.js",
+  "main": "src/server.js",
   "scripts": {
+    "check": "node scripts/check-source.js",
     "start": "node src/server.js",
-    "dev": "nodemon src/server.js",
-    "test": "node --test src"
+    "dev": "node --watch src/server.js",
+    "migrate:redirect-outbox": "node migrations/20260720-redirect-event-outbox.js",
+    "migrate:health-queue": "node migrations/20260720-health-refresh-queue.js",
+    "migrate:analytics-retention": "node migrations/20260721-analytics-retention.js",
+    "worker:health": "node src/healthWorker.js",
+    "test": "node --test \"src/**/*.test.js\"",
+    "test:e2e:server": "node test/e2e/server.js",
+    "test:integration": "node --test --test-concurrency=1 \"test/integration/**/*.test.js\"",
+    "test:contracts": "node scripts/check-openapi.js",
+    "test:load": "node test/performance/load-smoke.js",
+    "test:coverage": "node --experimental-test-coverage --test-coverage-lines=65 --test-coverage-branches=55 --test-coverage-functions=60 --test \"src/**/*.test.js\"",
+    "test:coverage:controllers": "node --experimental-test-coverage --test-coverage-include=\"src/controllers/**/*.js\" --test-coverage-lines=60 --test-coverage-branches=38 --test-coverage-functions=60 --test --test-concurrency=1 \"src/**/*.test.js\" \"test/integration/**/*.test.js\""
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "type": "commonjs",
   "engines": {
-    "node": ">=18"
+    "node": ">=24.18.0"
   },
   "dependencies": {
     "cors": "^2.8.5",
     "dotenv": "^17.2.3",
     "express": "^5.2.1",
-    "mongoose": "^9.1.1",
-    "nanoid": "^3.3.8"
+    "mongoose": "^9.7.4",
+    "nanoid": "3.3.18",
+    "redis": "^6.1.0"
   },
   "devDependencies": {
-    "nodemon": "^3.1.11"
+    "mongodb-memory-server": "11.2.0"
   }
 }

@@ -7,6 +7,7 @@ This is the shortest path from this repo to a paid, public product.
 - GitHub
 - MongoDB Atlas
 - Railway
+- Railway Redis
 - Vercel
 - Razorpay
 - A domain provider such as Namecheap, GoDaddy, Cloudflare, or Hostinger
@@ -15,9 +16,12 @@ This is the shortest path from this repo to a paid, public product.
 
 Use one domain and three subdomains:
 
-- `shotlink.in` for the dashboard on Vercel
+- `shotlink.in` for the website, dashboard, and every default public short link
 - `api.shotlink.in` for authenticated backend APIs on Railway
-- `go.shotlink.in` for public short-link redirects on Railway
+- `go.shotlink.in` as the direct Railway redirect origin and customer-domain CNAME target
+
+Vercel proxies single-segment short codes such as `shotlink.in/abc123` to the
+Railway backend. The reserved website routes continue to serve the frontend.
 
 ## 3. MongoDB Atlas
 
@@ -39,7 +43,10 @@ MONGO_URI=mongodb+srv://...
 
 ## 4. Railway backend
 
-Create a new Railway service from GitHub.
+Add a Redis database to the Railway project, then create a new backend service
+from GitHub. In the backend service, add a reference variable named `REDIS_URL`
+with value `${{Redis.REDIS_URL}}` (use the actual Redis service name if you named
+it differently).
 
 Use these service settings:
 
@@ -53,21 +60,62 @@ Set these variables:
 ```text
 NODE_ENV=production
 MONGO_URI=mongodb+srv://username:password@cluster.mongodb.net/shotlink?retryWrites=true&w=majority
+REDIS_URL=${{Redis.REDIS_URL}}
 BASE_URL=https://go.shotlink.in
+SHORTLINK_BASE_URL=https://shotlink.in
 APP_BASE_URL=https://shotlink.in
 CUSTOM_DOMAIN_CNAME_TARGET=go.shotlink.in
 IP_HASH_SALT=make-this-long-random-and-private
+CSRF_SECRET=generate-a-different-long-random-secret
 ALLOWED_ORIGINS=https://shotlink.in
 RAZORPAY_KEY_ID=rzp_live_or_test_key
 RAZORPAY_KEY_SECRET=razorpay_secret
 RAZORPAY_WEBHOOK_SECRET=your_webhook_secret
+RAZORPAY_PLAN_ID_PRO_MONTHLY=plan_live_or_test_id
+RAZORPAY_PLAN_ID_BUSINESS_MONTHLY=plan_live_or_test_id
 SUPPORT_EMAIL=support@shotlink.in
+METRICS_TOKEN=generate-a-long-random-monitoring-token
+RAILWAY_DEPLOYMENT_DRAINING_SECONDS=15
 ```
 
 Add these Railway domains to the same backend service:
 
 - `api.shotlink.in`
 - `go.shotlink.in`
+
+Before directing production traffic to this release, run the durable redirect
+outbox, URL-health queue, and analytics-retention migrations once from the Railway backend shell:
+
+```text
+npm run migrate:redirect-outbox
+npm run migrate:health-queue
+npm run migrate:analytics-retention
+```
+
+Create a second Railway service from the same repository for URL-health work:
+
+- Root Directory: `/backend`
+- Config File: `/backend/railway.health-worker.toml`
+- Start Command: leave blank if Railway reads the config file, or set `npm run worker:health`
+- Public domain: none
+- Variables: `NODE_ENV=production` plus references to the backend's `MONGO_URI` and `REDIS_URL`
+
+Deploy at least one worker replica. Scale worker replicas independently from API
+replicas; the queue and URL-level leases coordinate concurrent workers.
+
+After deploy, verify `/health` reports both `mongodb: connected` and
+`redis: connected`. A `degraded` response remains HTTP 200 so redirects can fall
+back to MongoDB, but it is an operational alert and must not be left unresolved.
+Also scrape `/metrics` and alert on sustained
+`shotlink_cache_operations_total{result="error"}` or `{result="bypass"}` growth,
+nonzero redirect-event or URL-health dead letters, and continuously growing pending queues.
+Activate the scraper, dashboard, rules, and test-alert procedure in
+`ops/monitoring/README.md` before accepting production traffic.
+
+Enable managed point-in-time backups and complete an isolated restore rehearsal
+using `ops/backup/backup.ps1` and `ops/backup/restore-drill.ps1`. Record the
+achieved RPO/RTO and evidence according to `DISASTER_RECOVERY.md`; merely enabling
+snapshots is not a completed recovery test.
 
 ## 5. Vercel frontend
 
@@ -104,10 +152,15 @@ https://api.shotlink.in/api/v1/billing/webhooks/razorpay
 
 Subscribe to these events:
 
-- `payment_link.paid`
-- `payment_link.cancelled`
-- `payment_link.expired`
-- `payment_link.partially_paid`
+- `subscription.authenticated`
+- `subscription.activated`
+- `subscription.charged`
+- `subscription.pending`
+- `subscription.halted`
+- `subscription.cancelled`
+- `subscription.completed`
+- `subscription.expired`
+- `invoice.paid`
 
 Copy the webhook secret into:
 
@@ -122,11 +175,11 @@ Run this checklist after deploy:
 1. Open `https://shotlink.in`.
 2. Create a new account.
 3. Create one short link.
-4. Open the generated `https://go.shotlink.in/...` short link.
+4. Open the generated `https://shotlink.in/...` short link.
 5. Confirm the click appears in analytics.
 6. Click the Pro plan.
 7. Pay through Razorpay Test Mode.
-8. Wait a few seconds and click Refresh Billing.
+8. Wait a few seconds and click Verify Payment if billing is still pending.
 9. Confirm the workspace plan upgrades.
 
 ## 8. Going live

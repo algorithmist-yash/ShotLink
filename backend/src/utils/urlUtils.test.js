@@ -3,6 +3,7 @@ const assert = require("node:assert/strict");
 
 const {
   isBlockedHostname,
+  isReservedShortCode,
   normalizeCustomAlias,
   normalizeUrl,
   validateShortenPayload,
@@ -24,6 +25,7 @@ test("normalizeUrl blocks private and local network destinations", () => {
   assert.equal(normalizeUrl("http://10.0.0.2/admin"), null);
   assert.equal(normalizeUrl("http://192.168.1.10/router"), null);
   assert.equal(normalizeUrl("http://[::1]/admin"), null);
+  assert.equal(isBlockedHostname("::ffff:127.0.0.1"), true);
   assert.equal(isBlockedHostname("example.com"), false);
 });
 
@@ -58,6 +60,10 @@ test("normalizeCustomAlias rejects unsafe or reserved aliases", () => {
   assert.equal(normalizeCustomAlias("campaign-"), null);
   assert.equal(normalizeCustomAlias("bad/path"), null);
   assert.equal(normalizeCustomAlias("api"), null);
+  assert.equal(normalizeCustomAlias("live"), null);
+  assert.equal(normalizeCustomAlias("metrics"), null);
+  assert.equal(normalizeCustomAlias("trust"), null);
+  assert.equal(isReservedShortCode("METRICS"), true);
 });
 
 test("validateShortenPayload returns normalized custom alias", () => {

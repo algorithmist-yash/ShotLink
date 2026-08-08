@@ -1,25 +1,41 @@
 const { nanoid } = require("nanoid");
+const mongoose = require("mongoose");
 
 const { resolveEffectivePlan } = require("../config/billingPlans");
 const ClickEvent = require("../models/ClickEvent");
 const Url = require("../models/Url");
+const Workspace = require("../models/Workspace");
 const {
   LINK_POLICY_VERSION,
   buildLinkComplianceRecord,
   validateLinkConsents,
 } = require("../utils/consentUtils");
 const { normalizeHostname } = require("../utils/domainUtils");
-const { validateShortenPayload } = require("../utils/urlUtils");
+const { isReservedShortCode, validateShortenPayload } = require("../utils/urlUtils");
 const {
   needsHealthRefresh,
   refreshUrlHealth,
   selectRedirectTarget,
 } = require("../services/healthService");
 const { incrementUsage } = require("../services/usageService");
+const { invalidateUrlRoute } = require("../services/cacheInvalidationService");
+const { recordAuditEvent } = require("../services/auditLogService");
+
+const GUEST_LINK_MAX_EXPIRY_MINUTES = 30;
+
+class ActiveLinkLimitError extends Error {
+  constructor(plan) {
+    super(
+      `Your ${plan.name} plan allows up to ${plan.linkLimit} active links. Expire unused links or upgrade billing to add more.`
+    );
+    this.name = "ActiveLinkLimitError";
+  }
+}
 
 async function generateUniqueShortCode() {
   for (let attempt = 0; attempt < 5; attempt += 1) {
     const shortCode = nanoid(7);
+    if (isReservedShortCode(shortCode)) continue;
     const existing = await Url.exists({ shortCode });
     if (!existing) return shortCode;
   }
@@ -33,7 +49,9 @@ function buildShortUrl(req, url) {
   }
 
   const baseUrl =
-    process.env.BASE_URL || `${req.protocol || "http"}://${req.get("host")}`;
+    process.env.SHORTLINK_BASE_URL ||
+    process.env.BASE_URL ||
+    `${req.protocol || "http"}://${req.get("host")}`;
 
   return `${baseUrl.replace(/\/$/, "")}/${url.shortCode}`;
 }
@@ -58,6 +76,42 @@ function serializeLinkSummary(req, url) {
 
 async function getOwnedLink(workspaceId, shortCode) {
   return Url.findOne({ workspaceId, shortCode });
+}
+
+async function createUrlWithinPlanLimit({ urlAttributes, workspaceId }) {
+  const session = await mongoose.startSession();
+  let url;
+
+  try {
+    await session.withTransaction(async () => {
+      const workspace = await Workspace.findOneAndUpdate(
+        { _id: workspaceId },
+        { $inc: { "billing.linkCreationVersion": 1 } },
+        { returnDocument: "after", session }
+      );
+
+      if (!workspace) {
+        throw new Error("Workspace disappeared while creating a link");
+      }
+
+      const effectivePlan = resolveEffectivePlan(workspace);
+      const activeLinkCount = await Url.countDocuments({
+        workspaceId,
+        isActive: true,
+        expiresAt: { $gt: new Date() },
+      }).session(session);
+
+      if (activeLinkCount >= effectivePlan.linkLimit) {
+        throw new ActiveLinkLimitError(effectivePlan);
+      }
+
+      [url] = await Url.create([urlAttributes], { session });
+    });
+  } finally {
+    await session.endSession();
+  }
+
+  return url;
 }
 
 async function buildAnalyticsPayload(req, url) {
@@ -102,6 +156,77 @@ exports.listLinks = async (req, res) => {
   }
 };
 
+exports.createGuestLink = async (req, res) => {
+  try {
+    const requestedExpiry =
+      req.body.expiresInMinutes === undefined
+        ? GUEST_LINK_MAX_EXPIRY_MINUTES
+        : Number(req.body.expiresInMinutes);
+
+    if (
+      !Number.isInteger(requestedExpiry) ||
+      requestedExpiry < 1 ||
+      requestedExpiry > GUEST_LINK_MAX_EXPIRY_MINUTES
+    ) {
+      return res.status(400).json({
+        error: `Temporary homepage links must expire between 1 and ${GUEST_LINK_MAX_EXPIRY_MINUTES} minutes`,
+      });
+    }
+
+    if (
+      req.body.customAlias ||
+      req.body.customDomainHost ||
+      (Array.isArray(req.body.fallbackUrls) && req.body.fallbackUrls.length)
+    ) {
+      return res.status(400).json({
+        error:
+          "Create a workspace to use custom aliases, branded domains, or fallback destinations",
+      });
+    }
+
+    const { errors, originalUrl } = validateShortenPayload({
+      originalUrl: req.body.originalUrl,
+      expiresInMinutes: requestedExpiry,
+    });
+
+    if (errors.length) {
+      return res.status(400).json({ error: errors.join(". ") });
+    }
+
+    const consentValidation = validateLinkConsents(req.body);
+    if (!consentValidation.ok) {
+      return res.status(400).json({
+        error:
+          "Confirm that you are authorised to share this destination and accept the anti-abuse checks before creating a temporary link.",
+        missingConsents: consentValidation.missing,
+        policyVersion: LINK_POLICY_VERSION,
+      });
+    }
+
+    const url = await Url.create({
+      workspaceId: null,
+      createdBy: null,
+      originalUrl,
+      shortCode: await generateUniqueShortCode(),
+      expiresAt: new Date(Date.now() + requestedExpiry * 60 * 1000),
+      isActive: true,
+      clicks: 0,
+      fallbackUrls: [],
+      compliance: buildLinkComplianceRecord(req, null),
+    });
+
+    await invalidateUrlRoute(url);
+
+    return res.status(201).json({
+      link: serializeLinkSummary(req, url),
+      limits: { maxExpiryMinutes: GUEST_LINK_MAX_EXPIRY_MINUTES },
+    });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ error: "Server error" });
+  }
+};
+
 exports.createLink = async (req, res) => {
   try {
     const effectivePlan = resolveEffectivePlan(req.auth.workspace);
@@ -113,7 +238,7 @@ exports.createLink = async (req, res) => {
 
     if (existingLinkCount >= effectivePlan.linkLimit) {
       return res.status(403).json({
-        error: `Your ${effectivePlan.name} plan allows up to ${effectivePlan.linkLimit} active links. Expire unused links or upgrade billing to add more.`,
+        error: new ActiveLinkLimitError(effectivePlan).message,
       });
     }
 
@@ -160,26 +285,45 @@ exports.createLink = async (req, res) => {
       }
     }
 
-    const url = await Url.create({
+    const url = await createUrlWithinPlanLimit({
       workspaceId: req.auth.workspace._id,
-      createdBy: req.auth.user._id,
-      originalUrl,
-      shortCode,
-      customDomainHost,
-      expiresAt,
-      isActive: true,
-      clicks: 0,
-      fallbackUrls,
-      compliance: buildLinkComplianceRecord(req, req.auth.user._id),
+      urlAttributes: {
+        workspaceId: req.auth.workspace._id,
+        createdBy: req.auth.user._id,
+        originalUrl,
+        shortCode,
+        customDomainHost,
+        expiresAt,
+        isActive: true,
+        clicks: 0,
+        fallbackUrls,
+        compliance: buildLinkComplianceRecord(req, req.auth.user._id),
+      },
     });
 
+    await invalidateUrlRoute(url);
     await refreshUrlHealth(url);
     await incrementUsage(req.auth.workspace._id, { linksCreated: 1 });
+
+    await recordAuditEvent(req, {
+      action: "link.created",
+      targetType: "link",
+      targetId: url._id,
+      metadata: {
+        shortCode: url.shortCode,
+        customDomainHost: url.customDomainHost || "",
+        expiresAt: url.expiresAt.toISOString(),
+      },
+    });
 
     return res.status(201).json({
       link: serializeLinkSummary(req, url),
     });
   } catch (error) {
+    if (error instanceof ActiveLinkLimitError) {
+      return res.status(403).json({ error: error.message });
+    }
+
     console.error(error);
     return res.status(500).json({ error: "Server error" });
   }
@@ -238,6 +382,14 @@ exports.expireLink = async (req, res) => {
 
     url.isActive = false;
     await url.save();
+    await invalidateUrlRoute(url);
+
+    await recordAuditEvent(req, {
+      action: "link.expired",
+      targetType: "link",
+      targetId: url._id,
+      metadata: { shortCode: url.shortCode },
+    });
 
     return res.json({ message: "URL expired manually" });
   } catch (error) {
@@ -255,6 +407,13 @@ exports.refreshLinkHealth = async (req, res) => {
     }
 
     await refreshUrlHealth(url);
+
+    await recordAuditEvent(req, {
+      action: "link.health_refreshed",
+      targetType: "link",
+      targetId: url._id,
+      metadata: { shortCode: url.shortCode },
+    });
 
     return res.json({
       link: serializeLinkSummary(req, url),

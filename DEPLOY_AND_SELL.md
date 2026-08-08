@@ -23,6 +23,8 @@ Best early customers in India:
 - Frontend: Vercel
 - Backend: Railway
 - Database: MongoDB Atlas
+- Redirect cache: Railway Redis
+- Background URL-health worker: separate Railway service
 - Billing: Razorpay
 - Domains:
   - `shotlink.in`
@@ -31,15 +33,19 @@ Best early customers in India:
 
 ## 3. What each domain does
 
-- `shotlink.in` hosts the dashboard
+- `shotlink.in` hosts the website and every default public short link
 - `api.shotlink.in` serves authenticated API requests
-- `go.shotlink.in` handles public redirects
+- `go.shotlink.in` is the direct redirect origin and CNAME target behind the website proxy
 
 This keeps the system cleaner and makes future scaling easier.
 
 ## 4. Backend deployment on Railway
 
 Deploy the `backend` folder as a service.
+
+Add a Redis database in the same Railway project first. Set the backend's
+`REDIS_URL` to a reference variable for that service, such as
+`${{Redis.REDIS_URL}}`, so traffic stays on Railway's internal network.
 
 Recommended Railway settings:
 
@@ -48,25 +54,43 @@ Recommended Railway settings:
 - Start Command: `npm start`
 - Healthcheck Path: `/health`
 
+Create a second service with Root Directory `/backend`, Config File
+`/backend/railway.health-worker.toml`, no public domain, and the same production
+`MONGO_URI` and `REDIS_URL` references. Set `NODE_ENV=production`; the worker
+does not need API-only billing or session secrets. Its start command is `npm run
+worker:health`.
+
 Environment variables:
 
 - `PORT=5000`
 - `NODE_ENV=production`
 - `MONGO_URI=...`
+- `REDIS_URL=${{Redis.REDIS_URL}}`
 - `BASE_URL=https://go.shotlink.in`
+- `SHORTLINK_BASE_URL=https://shotlink.in`
 - `APP_BASE_URL=https://shotlink.in`
 - `CUSTOM_DOMAIN_CNAME_TARGET=go.shotlink.in`
 - `IP_HASH_SALT=...`
+- `CSRF_SECRET=...`
 - `ALLOWED_ORIGINS=https://shotlink.in`
 - `RAZORPAY_KEY_ID=...`
 - `RAZORPAY_KEY_SECRET=...`
 - `RAZORPAY_WEBHOOK_SECRET=...`
+- `RAZORPAY_PLAN_ID_PRO_MONTHLY=...`
+- `RAZORPAY_PLAN_ID_BUSINESS_MONTHLY=...`
 - `SUPPORT_EMAIL=...`
+- `METRICS_TOKEN=...`
+- `RAILWAY_DEPLOYMENT_DRAINING_SECONDS=15`
 
 After deploy:
 
+- run `npm run migrate:redirect-outbox` and `npm run migrate:health-queue` once
 - add `api.shotlink.in` as a custom domain
 - add `go.shotlink.in` as another custom domain
+- keep the frontend rewrite for `shotlink.in/<code>` pointing to `api.shotlink.in/<code>`
+- confirm `/health` reports MongoDB and Redis as connected
+- alert on a `degraded` health body and cache `error`/`bypass` metrics
+- alert on URL-health dead letters or sustained pending-queue growth
 
 ## 5. Frontend deployment on Vercel
 
@@ -110,10 +134,11 @@ Start in this order:
 For the current codebase, this is how billing works:
 
 - logged-in workspace owner clicks a paid plan
-- backend creates a Razorpay Payment Link
+- backend creates a Razorpay Subscription checkout
 - user pays on Razorpay hosted page
 - Razorpay webhook calls your backend
 - backend upgrades the workspace plan automatically
+- an owner can use Verify Payment to reconcile a delayed or missed webhook
 
 Webhook URL:
 
@@ -121,10 +146,15 @@ Webhook URL:
 
 Webhook events:
 
-- `payment_link.paid`
-- `payment_link.cancelled`
-- `payment_link.expired`
-- `payment_link.partially_paid`
+- `subscription.authenticated`
+- `subscription.activated`
+- `subscription.charged`
+- `subscription.pending`
+- `subscription.halted`
+- `subscription.cancelled`
+- `subscription.completed`
+- `subscription.expired`
+- `invoice.paid`
 
 ## 7.1. Branded customer domain setup
 

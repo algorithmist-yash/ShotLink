@@ -1,18 +1,35 @@
 const express = require("express");
 const cors = require("cors");
+const mongoose = require("mongoose");
 
 const app = express();
+const { getLivenessResponse, getReadinessResponse } = require("./config/readiness");
+const { getRedisState } = require("./config/redis");
+const { getTrustProxySetting } = require("./config/proxy");
+const { noStore } = require("./middleware/cacheControlMiddleware");
+const { errorHandler, notFoundHandler } = require("./middleware/errorMiddleware");
+const { metricsAuth } = require("./middleware/metricsAuthMiddleware");
+const { requestMetrics } = require("./middleware/metricsMiddleware");
+const { requestContext } = require("./middleware/requestContextMiddleware");
+const { requestLogger } = require("./middleware/requestLoggerMiddleware");
 const authRoutes = require("./routes/authRoutes");
 const billingRoutes = require("./routes/billingRoutes");
 const linkRoutes = require("./routes/linkRoutes");
 const workspaceRoutes = require("./routes/workspaceRoutes");
 const urlRoutes = require("./routes/urlRoutes");
+const { metricsRegistry } = require("./services/metricsService");
+const { getRedirectEventQueueDepth } = require("./services/redirectEventService");
+const { getUrlHealthQueueDepth } = require("./services/urlHealthQueueService");
 
 function normalizeOrigin(value) {
   return String(value || "").trim().replace(/\/$/, "");
 }
 
 app.disable("x-powered-by");
+app.use(requestContext);
+app.use(requestLogger);
+app.use(requestMetrics);
+app.use(["/api", "/health", "/live", "/metrics"], noStore);
 app.use(
   "/api/v1/billing/webhooks/razorpay",
   express.raw({ type: "application/json", limit: "256kb" })
@@ -29,9 +46,10 @@ const allowedOrigins = [
 const allowOpenCorsInDevelopment =
   process.env.NODE_ENV !== "production" && allowedOrigins.length === 0;
 
-app.set("trust proxy", true);
+app.set("trust proxy", getTrustProxySetting());
 app.use(
   cors({
+    credentials: true,
     origin(origin, callback) {
       if (
         !origin ||
@@ -41,7 +59,10 @@ app.use(
         return callback(null, true);
       }
 
-      return callback(new Error("CORS origin not allowed"));
+      const error = new Error("CORS origin not allowed");
+      error.status = 403;
+      error.expose = true;
+      return callback(error);
     },
   })
 );
@@ -74,13 +95,49 @@ app.get("/", (req, res) => {
 });
 
 app.get("/health", (req, res) => {
-  res.json({
-    status: "ok",
-    service: "shotlink",
-    timestamp: new Date().toISOString(),
-  });
+  const readiness = getReadinessResponse(
+    mongoose.connection.readyState,
+    new Date(),
+    getRedisState()
+  );
+
+  res.status(readiness.statusCode).json(readiness.body);
+});
+
+app.get("/live", (req, res) => {
+  const liveness = getLivenessResponse();
+
+  res.status(liveness.statusCode).json(liveness.body);
+});
+
+app.get("/metrics", metricsAuth, async (req, res) => {
+  for (const [queue, getDepth] of [
+    ["redirect_event", getRedirectEventQueueDepth],
+    ["url_health", getUrlHealthQueueDepth],
+  ]) {
+    try {
+      const queueDepth = await getDepth();
+      for (const [status, value] of Object.entries(queueDepth)) {
+        metricsRegistry.setQueueDepth({ queue, status, value });
+      }
+    } catch (error) {
+      console.error(
+        JSON.stringify({
+          timestamp: new Date().toISOString(),
+          level: "error",
+          event: `${queue}_queue_metrics_failed`,
+          error: error.message,
+        })
+      );
+    }
+  }
+
+  res.setHeader("Content-Type", "text/plain; version=0.0.4; charset=utf-8");
+  res.send(metricsRegistry.render());
 });
 
 app.use("/", urlRoutes);
+app.use(notFoundHandler);
+app.use(errorHandler);
 
 module.exports = app;

@@ -1,4 +1,5 @@
-const crypto = require("crypto");
+const crypto = require("node:crypto");
+const net = require("node:net");
 
 function detectDeviceType(userAgent = "") {
   const value = userAgent.toLowerCase();
@@ -49,13 +50,31 @@ function detectOs(userAgent = "") {
   return "Unknown";
 }
 
-function extractClientIp(req) {
-  const forwarded = req.headers?.["x-forwarded-for"];
-  if (typeof forwarded === "string" && forwarded.trim()) {
-    return forwarded.split(",")[0].trim();
+function getHeader(req, name) {
+  if (typeof req?.get === "function") {
+    return req.get(name);
   }
 
-  return req?.ip || req?.socket?.remoteAddress || "";
+  return req?.headers?.[name.toLowerCase()];
+}
+
+function normalizeIpAddress(value) {
+  const address = String(value || "").trim();
+  return net.isIP(address) ? address : "";
+}
+
+function extractClientIp(req, env = process.env) {
+  const isRailwayRequest = Boolean(env.RAILWAY_ENVIRONMENT || env.RAILWAY_PROJECT_ID);
+  if (isRailwayRequest) {
+    const railwayClientIp = normalizeIpAddress(getHeader(req, "x-real-ip"));
+    if (railwayClientIp) return railwayClientIp;
+  }
+
+  return (
+    normalizeIpAddress(req?.ip) ||
+    normalizeIpAddress(req?.socket?.remoteAddress) ||
+    ""
+  );
 }
 
 function hashIp(ipAddress) {

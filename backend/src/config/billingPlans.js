@@ -11,6 +11,7 @@ const BILLING_PLANS = {
     teamMemberLimit: 1,
     apiCallLimit: 0,
     qrCodeLimit: 5,
+    analyticsRetentionDays: 90,
     features: [
       "Up to 10 active links",
       "Basic click analytics",
@@ -20,7 +21,7 @@ const BILLING_PLANS = {
   },
   pro: {
     id: "pro",
-    name: "Pro",
+    name: "Creator Pro",
     priceInPaise: 119900,
     currency: "INR",
     intervalMonths: 1,
@@ -30,18 +31,20 @@ const BILLING_PLANS = {
     teamMemberLimit: 3,
     apiCallLimit: 10000,
     qrCodeLimit: 250,
+    analyticsRetentionDays: 180,
     razorpayPlanIdEnvKey: "RAZORPAY_PLAN_ID_PRO_MONTHLY",
     features: [
-      "Up to 500 active links",
+      "Up to 500 active campaign and bio links",
       "1 branded domain",
+      "250 campaign QR codes",
+      "Audience, device, and referrer analytics",
       "Editable destinations and fallback routing",
-      "Advanced analytics",
       "Priority email support",
     ],
   },
   business: {
     id: "business",
-    name: "Business",
+    name: "Studio",
     priceInPaise: 999900,
     currency: "INR",
     intervalMonths: 1,
@@ -51,11 +54,13 @@ const BILLING_PLANS = {
     teamMemberLimit: 25,
     apiCallLimit: 250000,
     qrCodeLimit: 5000,
+    analyticsRetentionDays: 400,
     razorpayPlanIdEnvKey: "RAZORPAY_PLAN_ID_BUSINESS_MONTHLY",
     features: [
-      "Up to 10000 active links",
+      "Up to 10,000 active campaign links",
       "Up to 10 branded domains",
-      "Team workspaces",
+      "Team workspaces for talent and campaign managers",
+      "5,000 campaign QR codes",
       "Campaign analytics and exports",
       "Priority onboarding support",
     ],
@@ -72,9 +77,11 @@ const BILLING_PLANS = {
     teamMemberLimit: 1000,
     apiCallLimit: 10000000,
     qrCodeLimit: 100000,
+    analyticsRetentionDays: 730,
     features: [
       "Custom link and click volume",
-      "SSO, SCIM, RBAC, and audit logs",
+      "Verified institution email-domain governance",
+      "Workspace roles and audit logs",
       "Dedicated success and security review",
       "Custom SLA and procurement support",
     ],
@@ -98,6 +105,7 @@ function listPublicPlans() {
     teamMemberLimit: plan.teamMemberLimit,
     apiCallLimit: plan.apiCallLimit,
     qrCodeLimit: plan.qrCodeLimit,
+    analyticsRetentionDays: plan.analyticsRetentionDays,
     features: plan.features,
   }));
 }
@@ -139,6 +147,7 @@ function serializeBillingSnapshot(workspace) {
     teamMemberLimit: effectivePlan.teamMemberLimit,
     apiCallLimit: effectivePlan.apiCallLimit,
     qrCodeLimit: effectivePlan.qrCodeLimit,
+    analyticsRetentionDays: effectivePlan.analyticsRetentionDays,
   };
 }
 
