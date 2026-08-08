@@ -33,9 +33,9 @@ Best early customers in India:
 
 ## 3. What each domain does
 
-- `shotlink.in` hosts the dashboard
+- `shotlink.in` hosts the website and every default public short link
 - `api.shotlink.in` serves authenticated API requests
-- `go.shotlink.in` handles public redirects
+- `go.shotlink.in` is the direct redirect origin and CNAME target behind the website proxy
 
 This keeps the system cleaner and makes future scaling easier.
 
@@ -67,6 +67,7 @@ Environment variables:
 - `MONGO_URI=...`
 - `REDIS_URL=${{Redis.REDIS_URL}}`
 - `BASE_URL=https://go.shotlink.in`
+- `SHORTLINK_BASE_URL=https://shotlink.in`
 - `APP_BASE_URL=https://shotlink.in`
 - `CUSTOM_DOMAIN_CNAME_TARGET=go.shotlink.in`
 - `IP_HASH_SALT=...`
@@ -86,6 +87,7 @@ After deploy:
 - run `npm run migrate:redirect-outbox` and `npm run migrate:health-queue` once
 - add `api.shotlink.in` as a custom domain
 - add `go.shotlink.in` as another custom domain
+- keep the frontend rewrite for `shotlink.in/<code>` pointing to `api.shotlink.in/<code>`
 - confirm `/health` reports MongoDB and Redis as connected
 - alert on a `degraded` health body and cache `error`/`bypass` metrics
 - alert on URL-health dead letters or sustained pending-queue growth

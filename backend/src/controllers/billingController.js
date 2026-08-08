@@ -317,7 +317,9 @@ exports.createSubscription = async (req, res) => {
     const plan = getPlanDefinition(planId);
 
     if (!plan || plan.id === "free" || plan.id === "enterprise") {
-      return res.status(400).json({ error: "Choose Pro or Business to start a subscription" });
+      return res.status(400).json({
+        error: "Choose Creator Pro or Studio to start a subscription",
+      });
     }
 
     const razorpayPlanId = getRazorpayPlanId(plan);

@@ -80,6 +80,58 @@ describe("Shotlink frontend workflows", () => {
     expect(window.location.pathname).toBe("/register");
   });
 
+  test("creates a temporary homepage link and QR with a maximum 30-minute choice", async () => {
+    const user = userEvent.setup();
+    const temporaryLink = {
+      shortCode: "creator15",
+      shortUrl: "https://shotlink.in/creator15",
+      originalUrl: "https://example.com/creator-post",
+      expiresAt: new Date(Date.now() + 15 * 60 * 1000).toISOString(),
+      isActive: true,
+    };
+
+    fetch.mockImplementation(async (input, options = {}) => {
+      const path = getRequestPath(input);
+      const method = options.method || "GET";
+
+      if (path === "/api/v1/auth/me") {
+        return jsonResponse(401, { error: "Authentication required" });
+      }
+      if (path === "/api/v1/billing/plans") {
+        return jsonResponse(200, { plans: [] });
+      }
+      if (path === "/api/v1/links/guest" && method === "POST") {
+        const payload = JSON.parse(options.body);
+        expect(payload.originalUrl).toBe(temporaryLink.originalUrl);
+        expect(payload.expiresInMinutes).toBe(15);
+        expect(payload.compliance.abusePolicyAccepted).toBe(true);
+        return jsonResponse(201, {
+          link: temporaryLink,
+          limits: { maxExpiryMinutes: 30 },
+        });
+      }
+
+      throw new Error(`Unexpected request: ${method} ${path}`);
+    });
+
+    render(<App />);
+
+    await user.type(
+      await screen.findByLabelText("Destination URL"),
+      temporaryLink.originalUrl
+    );
+    await user.click(
+      screen.getByLabelText(/I am authorised to share this destination/)
+    );
+    await user.click(screen.getByRole("button", { name: /Create short link \+ QR/ }));
+
+    expect(
+      await screen.findByRole("link", { name: temporaryLink.shortUrl })
+    ).toBeInTheDocument();
+    expect(screen.getByTestId("mk-temporary-qr")).toBeInTheDocument();
+    expect(screen.getByRole("option", { name: "30 minutes" })).toBeInTheDocument();
+  });
+
   test("shows a rejected sign-in beside the authentication form", async () => {
     const user = userEvent.setup();
 
@@ -121,7 +173,7 @@ describe("Shotlink frontend workflows", () => {
 
     const createdLink = {
       shortCode: "keyboard-link",
-      shortUrl: "https://shot.link/keyboard-link",
+      shortUrl: "https://shotlink.in/keyboard-link",
       originalUrl: "https://example.com/keyboard-campaign",
       isActive: true,
       expiresAt: null,
@@ -256,7 +308,9 @@ describe("Shotlink frontend workflows", () => {
     const billingPanel = document.querySelector("#billing-panel");
     const builderPanel = document.querySelector("#builder-panel");
 
-    await user.click(within(billingPanel).getByRole("button", { name: "Upgrade to Pro" }));
+    await user.click(
+      within(billingPanel).getByRole("button", { name: "Upgrade to Creator Pro" })
+    );
 
     expect(await within(billingPanel).findByRole("alert")).toHaveTextContent(
       "You do not have permission to perform this workspace action"
@@ -275,7 +329,7 @@ describe("Shotlink frontend workflows", () => {
       ...pendingBilling,
       configuredPlanId: "pro",
       effectivePlanId: "pro",
-      effectivePlanName: "Pro",
+      effectivePlanName: "Creator Pro",
       billingStatus: "active",
       currentPeriodEndsAt: "2026-08-23T00:00:00.000Z",
       linkLimit: 500,
@@ -333,7 +387,9 @@ describe("Shotlink frontend workflows", () => {
         "Payment verified with Razorpay and the paid plan is now active."
       )
     ).toBeInTheDocument();
-    expect(within(billingPanel).getByRole("heading", { name: "Pro" })).toBeInTheDocument();
+    expect(
+      within(billingPanel).getByRole("heading", { name: "Creator Pro" })
+    ).toBeInTheDocument();
     expect(
       within(billingPanel).getByRole("button", { name: "Refresh billing" })
     ).toBeInTheDocument();
@@ -424,7 +480,7 @@ describe("Shotlink frontend workflows", () => {
 
     expect(
       await screen.findByRole("heading", {
-        name: "URL shortener with smart fallback routing",
+        name: /One link layer/,
       })
     ).toBeInTheDocument();
   });

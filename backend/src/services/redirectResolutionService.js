@@ -25,8 +25,10 @@ const USAGE_TTL_SECONDS = 5;
 const inFlightLoads = new Map();
 
 function isDefaultRedirectHost(hostname, env = process.env) {
-  const baseHost = getHostnameFromUrl(env.BASE_URL || "");
-  return !hostname || isLocalHostname(hostname) || hostname === baseHost;
+  const defaultHosts = [env.SHORTLINK_BASE_URL, env.BASE_URL, env.APP_BASE_URL]
+    .map((value) => getHostnameFromUrl(value || ""))
+    .filter(Boolean);
+  return !hostname || isLocalHostname(hostname) || defaultHosts.includes(hostname);
 }
 
 function toDate(value) {

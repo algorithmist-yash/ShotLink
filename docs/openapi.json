@@ -50,6 +50,13 @@
     "/api/v1/auth/logout": {
       "post": { "tags": ["Auth"], "summary": "Revoke current session", "security": [{ "sessionCookie": [], "csrfToken": [] }, { "sessionBearer": [] }], "responses": { "200": { "$ref": "#/components/responses/JsonSuccess" }, "401": { "$ref": "#/components/responses/JsonError" }, "403": { "$ref": "#/components/responses/JsonError" } } }
     },
+    "/api/v1/links/guest": {
+      "post": {
+        "tags": ["Links"], "summary": "Create a public temporary link with a maximum 30-minute lifetime",
+        "requestBody": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/CreateLinkRequest" } } } },
+        "responses": { "201": { "$ref": "#/components/responses/JsonSuccess" }, "400": { "$ref": "#/components/responses/JsonError" }, "429": { "$ref": "#/components/responses/JsonError" } }
+      }
+    },
     "/api/v1/links": {
       "get": { "tags": ["Links"], "summary": "List workspace links", "security": [{ "sessionCookie": [] }, { "sessionBearer": [] }], "responses": { "200": { "$ref": "#/components/responses/JsonSuccess" }, "401": { "$ref": "#/components/responses/JsonError" } } },
       "post": {
@@ -87,6 +94,15 @@
     },
     "/api/v1/workspace/domains/{hostname}": {
       "delete": { "tags": ["Workspace"], "summary": "Remove unused domain", "security": [{ "sessionCookie": [], "csrfToken": [] }, { "sessionBearer": [] }], "parameters": [{ "$ref": "#/components/parameters/Hostname" }], "responses": { "200": { "$ref": "#/components/responses/JsonSuccess" }, "404": { "$ref": "#/components/responses/JsonError" }, "409": { "$ref": "#/components/responses/JsonError" } } }
+    },
+    "/api/v1/workspace/email-domains": {
+      "post": { "tags": ["Workspace"], "summary": "Add an institution email domain", "security": [{ "sessionCookie": [], "csrfToken": [] }, { "sessionBearer": [] }], "requestBody": { "required": true, "content": { "application/json": { "schema": { "type": "object", "required": ["hostname"], "properties": { "hostname": { "type": "string", "maxLength": 253 } } } } } }, "responses": { "201": { "$ref": "#/components/responses/JsonSuccess" }, "400": { "$ref": "#/components/responses/JsonError" }, "403": { "$ref": "#/components/responses/JsonError" }, "409": { "$ref": "#/components/responses/JsonError" } } }
+    },
+    "/api/v1/workspace/email-domains/{hostname}/verify": {
+      "post": { "tags": ["Workspace"], "summary": "Verify institution email-domain ownership", "security": [{ "sessionCookie": [], "csrfToken": [] }, { "sessionBearer": [] }], "parameters": [{ "$ref": "#/components/parameters/Hostname" }], "responses": { "200": { "$ref": "#/components/responses/JsonSuccess" }, "400": { "$ref": "#/components/responses/JsonError" }, "403": { "$ref": "#/components/responses/JsonError" }, "404": { "$ref": "#/components/responses/JsonError" } } }
+    },
+    "/api/v1/workspace/email-domains/{hostname}": {
+      "delete": { "tags": ["Workspace"], "summary": "Remove an institution email domain", "security": [{ "sessionCookie": [], "csrfToken": [] }, { "sessionBearer": [] }], "parameters": [{ "$ref": "#/components/parameters/Hostname" }], "responses": { "200": { "$ref": "#/components/responses/JsonSuccess" }, "403": { "$ref": "#/components/responses/JsonError" }, "404": { "$ref": "#/components/responses/JsonError" } } }
     },
     "/api/v1/billing/plans": {
       "get": { "tags": ["Billing"], "summary": "List public plans", "responses": { "200": { "$ref": "#/components/responses/JsonSuccess" } } }

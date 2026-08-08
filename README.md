@@ -41,6 +41,7 @@ PORT=5000
 MONGO_URI=your_mongodb_connection_string
 REDIS_URL=redis://localhost:6379
 BASE_URL=http://localhost:5000
+SHORTLINK_BASE_URL=https://shotlink.in
 APP_BASE_URL=http://localhost:5173
 FRONTEND_URL=http://localhost:5173
 ALLOWED_ORIGINS=http://localhost:5173

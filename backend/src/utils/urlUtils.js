@@ -22,6 +22,7 @@ const RESERVED_SHORT_CODES = new Set([
   "register",
   "settings",
   "support",
+  "trust",
   "workspace",
 ]);
 const BLOCKED_HOSTNAMES = new Set(["localhost", "localhost.localdomain"]);

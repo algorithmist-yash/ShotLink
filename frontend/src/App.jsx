@@ -144,7 +144,7 @@ const DEFAULT_PUBLIC_PLANS = [
   },
   {
     id: "pro",
-    name: "Pro",
+    name: "Creator Pro",
     priceInPaise: 119900,
     currency: "INR",
     intervalMonths: 1,
@@ -155,16 +155,17 @@ const DEFAULT_PUBLIC_PLANS = [
     apiCallLimit: 10000,
     qrCodeLimit: 250,
     features: [
-      "Up to 500 active links",
+      "Up to 500 active campaign and bio links",
       "1 branded domain",
+      "250 campaign QR codes",
+      "Audience, device, and referrer analytics",
       "Editable destinations and fallback routing",
-      "Advanced analytics",
       "Priority email support",
     ],
   },
   {
     id: "business",
-    name: "Business",
+    name: "Studio",
     priceInPaise: 999900,
     currency: "INR",
     intervalMonths: 1,
@@ -175,9 +176,10 @@ const DEFAULT_PUBLIC_PLANS = [
     apiCallLimit: 250000,
     qrCodeLimit: 5000,
     features: [
-      "Up to 10000 active links",
+      "Up to 10,000 active campaign links",
       "Up to 10 branded domains",
-      "Team workspaces",
+      "Team workspaces for talent and campaign managers",
+      "5,000 campaign QR codes",
       "Campaign analytics and exports",
       "Priority onboarding support",
     ],
@@ -196,7 +198,8 @@ const DEFAULT_PUBLIC_PLANS = [
     qrCodeLimit: 100000,
     features: [
       "Custom link and click volume",
-      "SSO, SCIM, RBAC, and audit logs",
+      "Verified institution email-domain governance",
+      "Workspace roles and audit logs",
       "Dedicated success and security review",
       "Custom SLA and procurement support",
     ],
@@ -208,7 +211,7 @@ function ShortenerPreview({ onStart }) {
     <div className="sl-lift" style={styles.shortenerPreviewCard}>
       <div style={styles.previewHeader}>
         <StatusPill label="Start now" tone="accent" />
-        <span style={styles.previewDomain}>shot.link/summer-sale</span>
+        <span style={styles.previewDomain}>shotlink.in/summer-sale</span>
       </div>
 
       <div style={styles.previewForm}>
@@ -219,7 +222,7 @@ function ShortenerPreview({ onStart }) {
         <label style={styles.previewLabel}>
           Custom alias
           <div style={styles.previewAliasRow}>
-            <span>shot.link/</span>
+            <span>shotlink.in/</span>
             <strong>summer-sale</strong>
           </div>
         </label>
@@ -236,7 +239,7 @@ function ShortenerPreview({ onStart }) {
       <div style={styles.previewResultGrid}>
         <div style={styles.previewQr}>
           <QRCodeCanvas
-            value="https://shot.link/summer-sale"
+            value="https://shotlink.in/summer-sale"
             size={92}
             includeMargin
             aria-label="QR code for the demo short link"
@@ -244,7 +247,7 @@ function ShortenerPreview({ onStart }) {
         </div>
         <div>
           <p style={styles.mutedLabel}>Ready to share</p>
-          <p style={styles.previewShortLink}>shot.link/summer-sale</p>
+          <p style={styles.previewShortLink}>shotlink.in/summer-sale</p>
           <div style={styles.inlineActions}>
             <span style={styles.previewMiniButton}>Copy</span>
             <span style={styles.previewMiniButton}>QR code</span>
@@ -345,10 +348,16 @@ function App() {
   const [domainError, setDomainError] = useState("");
   const [domainSaving, setDomainSaving] = useState(false);
   const [domainVerifying, setDomainVerifying] = useState("");
+  const [managedEmailDomainInput, setManagedEmailDomainInput] = useState("");
+  const [managedEmailDomainMessage, setManagedEmailDomainMessage] = useState("");
+  const [managedEmailDomainError, setManagedEmailDomainError] = useState("");
+  const [managedEmailDomainSaving, setManagedEmailDomainSaving] = useState(false);
+  const [managedEmailDomainVerifying, setManagedEmailDomainVerifying] = useState("");
   const [selectedDomainHost, setSelectedDomainHost] = useState("");
   const [linkComplianceAccepted, setLinkComplianceAccepted] = useState(false);
   const isMobile = useResponsiveLayout();
   const [showDocsPanel, setShowDocsPanel] = useState(false);
+  const [activeDashboardSection, setActiveDashboardSection] = useState("builder-panel");
   const isAuthenticated = Boolean(session);
 
   const clearSession = useCallback(() => {
@@ -366,6 +375,11 @@ function App() {
     setDomainError("");
     setDomainSaving(false);
     setDomainVerifying("");
+    setManagedEmailDomainInput("");
+    setManagedEmailDomainMessage("");
+    setManagedEmailDomainError("");
+    setManagedEmailDomainSaving(false);
+    setManagedEmailDomainVerifying("");
     setSelectedDomainHost("");
     setLinkComplianceAccepted(false);
     setLinkError("");
@@ -892,7 +906,7 @@ function App() {
     <div
       style={{
         ...styles.planGrid,
-        gridTemplateColumns: isMobile || compact ? "1fr" : "repeat(3, minmax(0, 1fr))",
+        gridTemplateColumns: isMobile || compact ? "1fr" : "repeat(4, minmax(0, 1fr))",
       }}
     >
       {publicPlans.map((plan) => (
@@ -934,10 +948,10 @@ function App() {
       return (
         <section className="sl-reveal" style={styles.publicPageCard}>
           <p style={styles.sectionEyebrow}>Pricing</p>
-          <h1 style={styles.publicTitle}>Infrastructure pricing without enterprise fog.</h1>
+          <h1 style={styles.publicTitle}>Plans for creators, studios, and institutions.</h1>
           <p style={styles.publicLead}>
-            Start with a real short-link stack today. Upgrade when branded domains, richer analytics,
-            and campaign scale matter.
+            Start free, choose Creator Pro for an individual profile, Studio for managed talent,
+            or Enterprise for organisation-wide governance.
           </p>
           {renderPublicPricing()}
         </section>
@@ -1198,6 +1212,100 @@ function App() {
     setAnalyticsError("");
   };
 
+  const addManagedEmailDomain = async () => {
+    if (!managedEmailDomainInput.trim()) {
+      setManagedEmailDomainError("Enter an institution email domain before adding it.");
+      return;
+    }
+
+    setManagedEmailDomainSaving(true);
+    setManagedEmailDomainError("");
+    setManagedEmailDomainMessage("");
+
+    try {
+      const response = await authorizedFetch("/api/v1/workspace/email-domains", {
+        method: "POST",
+        body: JSON.stringify({ hostname: managedEmailDomainInput }),
+      });
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || "Could not add institution email domain");
+      }
+
+      applyWorkspaceSettings(data);
+      setManagedEmailDomainInput("");
+      setManagedEmailDomainMessage(
+        "Domain added. Publish the ownership TXT record, then verify it."
+      );
+    } catch (requestError) {
+      setManagedEmailDomainError(
+        requestError.message || "Could not add institution email domain"
+      );
+    } finally {
+      setManagedEmailDomainSaving(false);
+    }
+  };
+
+  const verifyManagedEmailDomain = async (hostname) => {
+    setManagedEmailDomainVerifying(hostname);
+    setManagedEmailDomainError("");
+    setManagedEmailDomainMessage("");
+
+    try {
+      const response = await authorizedFetch(
+        `/api/v1/workspace/email-domains/${encodeURIComponent(hostname)}/verify`,
+        { method: "POST" }
+      );
+      const data = await response.json();
+
+      if (!response.ok) {
+        if (data.workspace) {
+          applyWorkspaceSettings({ workspace: data.workspace });
+        }
+        throw new Error(data.error || "Could not verify institution email domain");
+      }
+
+      applyWorkspaceSettings(data);
+      setManagedEmailDomainMessage(
+        `${hostname} is verified. New self-service workspaces on this domain are now blocked.`
+      );
+    } catch (requestError) {
+      setManagedEmailDomainError(
+        requestError.message || "Could not verify institution email domain"
+      );
+    } finally {
+      setManagedEmailDomainVerifying("");
+    }
+  };
+
+  const removeManagedEmailDomain = async (hostname) => {
+    setManagedEmailDomainVerifying(hostname);
+    setManagedEmailDomainError("");
+    setManagedEmailDomainMessage("");
+
+    try {
+      const response = await authorizedFetch(
+        `/api/v1/workspace/email-domains/${encodeURIComponent(hostname)}`,
+        { method: "DELETE" }
+      );
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || "Could not remove institution email domain");
+      }
+
+      applyWorkspaceSettings(data);
+      setManagedEmailDomainMessage(`${hostname} is no longer governed by this workspace.`);
+    } catch (requestError) {
+      setManagedEmailDomainError(
+        requestError.message || "Could not remove institution email domain"
+      );
+    } finally {
+      setManagedEmailDomainVerifying("");
+    }
+  };
+
   const createLink = async () => {
     if (!url.trim()) {
       setLinkError("Please enter a valid destination URL.");
@@ -1357,9 +1465,11 @@ function App() {
   };
   const billingRecords = billingSummary?.recentPayments || [];
   const customDomains = session?.workspace?.customDomains || [];
+  const managedEmailDomains = session?.workspace?.managedEmailDomains || [];
   const verifiedDomains = customDomains.filter((domain) => domain.status === "verified");
   const domainLimit = currentPlan.domainLimit ?? 0;
   const cnameTarget = session?.workspace?.domainSetup?.cnameTarget || "go.shotlink.in";
+  const institutionGovernanceEnabled = currentPlan.effectivePlanId === "enterprise";
   const activeLinks = links.filter(isUsableLink);
   const expiredLinkCount = Math.max(links.length - activeLinks.length, 0);
   const activeLinkCount =
@@ -1434,8 +1544,8 @@ function App() {
                     {authMode === "register" ? "Create your Shotlink workspace" : "Sign in"}
                   </h1>
                   <p style={styles.authSubtitle}>
-                    {authMode === "register"
-                      ? "Publish your first branded, measurable short link in under a minute."
+                   {authMode === "register"
+                      ? "Create an independent workspace or use your institution-provisioned account."
                       : "Continue to your links, analytics, domains, and billing."}
                   </p>
                 </div>
@@ -1467,6 +1577,11 @@ function App() {
                       setAuthForm((current) => ({ ...current, email: event.target.value }))
                     }
                   />
+                  {authMode === "register" ? (
+                    <span style={styles.miniHelperText}>
+                      Verified institution domains require administrator-provisioned access.
+                    </span>
+                  ) : null}
                 </label>
 
                 <label style={styles.label}>
@@ -1634,17 +1749,24 @@ function App() {
           <div className="sl-dashboard-brand" style={styles.dashboardBrandBlock}>
             <BrandLogo style={styles.dashboardLogo} />
             <span style={styles.headerDivider} aria-hidden="true" />
-            <div style={styles.workspaceHeadingBlock}>
-              <p style={styles.sectionEyebrow}>Workspace command center</p>
-              <h1 style={styles.dashboardTitle}>{session.workspace.name}</h1>
-              <p style={styles.workspaceMeta}>
-                Welcome back, {userFirstName}. Your links, routing health, and growth signals are ready.
-              </p>
+            <div className="sl-header-workspace" style={styles.workspaceHeadingBlock}>
+              <span>Current workspace</span>
+              <strong>{session.workspace.name}</strong>
             </div>
           </div>
           <div className="sl-header-actions" style={styles.headerActions}>
             <StatusPill label={`${activeLinkCount}/${activeLinkLimit} active links`} tone="accent" />
             <StatusPill label={formatLabel(currentPlan.billingStatus)} tone={getBillingTone(currentPlan.billingStatus)} />
+            <button
+              className="sl-header-new-link"
+              style={styles.primaryButton}
+              onClick={() => {
+                setActiveDashboardSection("builder-panel");
+                scrollToDashboardSection("builder-panel");
+              }}
+            >
+              Create link
+            </button>
             <button style={styles.secondaryButton} onClick={logout}>Sign out</button>
           </div>
         </header>
@@ -1652,10 +1774,16 @@ function App() {
         <section className="sl-command-strip" style={styles.commandStrip}>
           <div style={styles.commandStripHeading}>
             <div>
-              <p style={styles.sectionEyebrow}>Live overview</p>
-              <h2 style={styles.overviewTitle}>Your workspace at a glance</h2>
+              <p style={styles.sectionEyebrow}>Welcome back, {userFirstName}</p>
+              <h1 style={styles.overviewTitle}>{session.workspace.name}</h1>
+              <p className="sl-overview-copy">
+                One link layer for every campaign, audience, and official route. Publish faster,
+                monitor every destination, and keep your public identity accountable.
+              </p>
             </div>
-            <span style={styles.overviewTimestamp}>Updated from live workspace data</span>
+            <span className="sl-live-indicator" style={styles.overviewTimestamp}>
+              <span aria-hidden="true" /> Live workspace data
+            </span>
           </div>
           <article className="sl-lift sl-command-card" data-accent="blue" style={{ ...styles.commandCard, ...enterpriseDashboardStyles.commandCard }}>
             <div style={styles.commandCardTop}><span style={styles.commandIndex}>01</span><p style={styles.metricLabel}>Active links</p></div>
@@ -1668,9 +1796,9 @@ function App() {
             <span style={styles.metricHint}>selected link telemetry</span>
           </article>
           <article className="sl-lift sl-command-card" data-accent="amber" style={{ ...styles.commandCard, ...enterpriseDashboardStyles.commandCard }}>
-            <div style={styles.commandCardTop}><span style={styles.commandIndex}>03</span><p style={styles.metricLabel}>Domains</p></div>
-            <strong style={styles.commandValue}>{customDomains.length}/{domainLimit}</strong>
-            <span style={styles.metricHint}>branded link surfaces</span>
+            <div style={styles.commandCardTop}><span style={styles.commandIndex}>03</span><p style={styles.metricLabel}>Governed domains</p></div>
+            <strong style={styles.commandValue}>{customDomains.length + managedEmailDomains.length}</strong>
+            <span style={styles.metricHint}>{customDomains.length} link · {managedEmailDomains.length} email</span>
           </article>
           <article className="sl-lift sl-command-card" data-accent="violet" style={{ ...styles.commandCard, ...enterpriseDashboardStyles.commandCard }}>
             <div style={styles.commandCardTop}><span style={styles.commandIndex}>04</span><p style={styles.metricLabel}>Current plan</p></div>
@@ -1696,7 +1824,10 @@ function App() {
               <button
                 key={item.id}
                 style={styles.dashboardNavItem}
+                data-active={activeDashboardSection === item.id ? "true" : "false"}
+                aria-current={activeDashboardSection === item.id ? "page" : undefined}
                 onClick={() => {
+                  setActiveDashboardSection(item.id);
                   if (item.id === "docs-panel") {
                     setShowDocsPanel(true);
                     window.setTimeout(() => scrollToDashboardSection(item.id), 50);
@@ -1714,7 +1845,15 @@ function App() {
             <p style={styles.navPlanLabel}>{currentPlan.effectivePlanName} plan</p>
             <strong style={styles.navPlanValue}>{remainingLinkSlots}</strong>
             <span style={styles.navPlanHint}>link slots remaining</span>
-            <button style={styles.navPlanButton} onClick={() => scrollToDashboardSection("billing-panel")}>Manage plan</button>
+            <button
+              style={styles.navPlanButton}
+              onClick={() => {
+                setActiveDashboardSection("billing-panel");
+                scrollToDashboardSection("billing-panel");
+              }}
+            >
+              Manage plan
+            </button>
           </div>
         </nav>
 
@@ -1785,7 +1924,7 @@ function App() {
               <div style={styles.label}>
                 <label htmlFor="custom-alias">Custom alias</label>
                 <div className="sl-alias-group" style={styles.aliasInputGroup}>
-                  <span className="sl-alias-prefix" style={styles.aliasPrefix}>{selectedDomainHost || "shot.link"}/</span>
+                  <span className="sl-alias-prefix" style={styles.aliasPrefix}>{selectedDomainHost || "shotlink.in"}/</span>
                   <input
                     id="custom-alias"
                     style={{ ...styles.input, ...styles.aliasInput }}
@@ -1834,7 +1973,7 @@ function App() {
               <FeedbackMessage message={copied} tone="success" />
             </form>
             {analytics?.shortUrl && analytics.isActive ? (
-              <div style={{ ...styles.resultCard, ...enterpriseDashboardStyles.panelCard }}>
+              <div className="sl-dashboard-result" style={{ ...styles.resultCard, ...enterpriseDashboardStyles.panelCard }}>
                 <div style={styles.resultTopRow}>
                   <div>
                     <p style={styles.mutedLabel}>Selected short URL</p>
@@ -1880,7 +2019,7 @@ function App() {
               />
             </div>
             <FeedbackMessage message={analyticsError} />
-            <div style={styles.metricsGrid}>
+            <div className="sl-analytics-metrics" style={styles.metricsGrid}>
               <div style={{ ...styles.metricCard, ...enterpriseDashboardStyles.metricCard }}><p style={styles.metricLabel}>Total clicks</p><p style={styles.metricValue}>{analytics?.clicks ?? 0}</p></div>
               <div style={{ ...styles.metricCard, ...enterpriseDashboardStyles.metricCard }}><p style={styles.metricLabel}>Last click</p><p style={styles.metricValueSmall}>{formatDate(analytics?.lastClickedAt)}</p></div>
               <div style={{ ...styles.metricCard, ...enterpriseDashboardStyles.metricCard }}><p style={styles.metricLabel}>Expires in</p><p style={styles.metricValueSmall}>{countdown || "Select a link"}</p></div>
@@ -1972,7 +2111,7 @@ function App() {
               <StatusPill label={workspaceLoading ? "syncing" : "live"} tone="accent" />
             </div>
             {activeLinks.length ? (
-              <div style={styles.linkList}>
+              <div className="sl-link-library-list" style={styles.linkList}>
                 {activeLinks.map((link) => (
                   <button key={link.shortCode} style={link.shortCode === selectedShortCode ? styles.linkListItemActive : styles.linkListItem} onClick={() => setSelectedShortCode(link.shortCode)}>
                     <div style={styles.linkListTopRow}><span style={styles.linkShortCode}>{link.shortCode}</span><StatusPill label={link.isActive ? "active" : "expired"} tone={getActiveTone(link)} /></div>
@@ -1987,8 +2126,8 @@ function App() {
 
           <section id="domains-panel" style={{ ...styles.panelCard, ...enterpriseDashboardStyles.panelCard, gridArea: "domains" }}>
             <div style={styles.panelTitleRow}>
-              <div><p style={styles.sectionEyebrow}>Domains</p><h2 style={styles.panelTitle}>Branded customer links</h2></div>
-              <StatusPill label={`${customDomains.length}/${domainLimit} domains`} tone={domainLimit ? "accent" : "neutral"} />
+              <div><p style={styles.sectionEyebrow}>Domains</p><h2 style={styles.panelTitle}>Link and identity governance</h2></div>
+              <StatusPill label={`${customDomains.length} link · ${managedEmailDomains.length} email`} tone={domainLimit ? "accent" : "neutral"} />
             </div>
             <FeedbackMessage message={domainError} />
             <FeedbackMessage message={domainMessage} tone="success" />
@@ -2022,6 +2161,96 @@ function App() {
                 ))}
               </div>
             ) : <p style={styles.emptyState}>Add a customer subdomain, publish the DNS records, then verify it here.</p>}
+
+            <div style={{ ...styles.paymentCard, marginTop: 20 }}>
+              <div style={styles.panelTitleRow}>
+                <div>
+                  <p style={styles.sectionEyebrow}>Institution access</p>
+                  <h3 style={styles.panelTitle}>Official email-domain ownership</h3>
+                  <p style={styles.helperText}>
+                    Verify an institution domain once. New users on that domain can no longer create
+                    unsanctioned Shotlink workspaces and must be provisioned by the institution.
+                  </p>
+                </div>
+                <StatusPill
+                  label={institutionGovernanceEnabled ? "Enterprise enabled" : "Enterprise control"}
+                  tone={institutionGovernanceEnabled ? "healthy" : "neutral"}
+                />
+              </div>
+              <FeedbackMessage message={managedEmailDomainError} />
+              <FeedbackMessage message={managedEmailDomainMessage} tone="success" />
+              <div className="sl-inline-form" style={styles.inlineForm}>
+                <div style={styles.inlineFieldLabel}>
+                  <label htmlFor="managed-email-domain">Official email domain</label>
+                  <input
+                    id="managed-email-domain"
+                    style={styles.input}
+                    aria-describedby="managed-email-domain-help"
+                    value={managedEmailDomainInput}
+                    placeholder="university.edu.in"
+                    onChange={(event) => setManagedEmailDomainInput(event.target.value)}
+                    disabled={managedEmailDomainSaving || !institutionGovernanceEnabled}
+                  />
+                  <span id="managed-email-domain-help" style={styles.miniHelperText}>
+                    Public inbox providers such as Gmail and Outlook cannot be claimed.
+                  </span>
+                </div>
+                <button
+                  style={managedEmailDomainSaving || !institutionGovernanceEnabled ? { ...styles.secondaryButton, opacity: 0.6, cursor: "not-allowed" } : styles.primaryButton}
+                  onClick={addManagedEmailDomain}
+                  disabled={managedEmailDomainSaving || !institutionGovernanceEnabled}
+                >
+                  {managedEmailDomainSaving ? "Adding..." : "Claim domain"}
+                </button>
+              </div>
+              {!institutionGovernanceEnabled ? (
+                <p style={styles.helperText}>
+                  Contact sales for Enterprise onboarding, procurement support, and domain governance.
+                </p>
+              ) : null}
+              {managedEmailDomains.length ? (
+                <div style={styles.domainList}>
+                  {managedEmailDomains.map((domain) => (
+                    <div key={domain.hostname} style={styles.domainCard}>
+                      <div style={styles.planHeader}>
+                        <strong style={styles.planName}>@{domain.hostname}</strong>
+                        <StatusPill
+                          label={domain.status === "verified" ? "governed" : domain.status}
+                          tone={domain.status === "verified" ? "healthy" : "warning"}
+                        />
+                      </div>
+                      <div style={styles.dnsGrid}>
+                        <div>
+                          <p style={styles.mutedLabel}>Ownership TXT name</p>
+                          <p style={styles.codeLine}>{domain.dns?.txtName}</p>
+                        </div>
+                        <div>
+                          <p style={styles.mutedLabel}>TXT value</p>
+                          <p style={styles.codeLine}>{domain.dns?.txtValue}</p>
+                        </div>
+                      </div>
+                      <FeedbackMessage message={domain.lastVerificationError} />
+                      <div style={styles.inlineActions}>
+                        <button
+                          style={styles.secondaryButton}
+                          onClick={() => verifyManagedEmailDomain(domain.hostname)}
+                          disabled={managedEmailDomainVerifying === domain.hostname}
+                        >
+                          {managedEmailDomainVerifying === domain.hostname ? "Checking..." : "Verify ownership"}
+                        </button>
+                        <button
+                          style={styles.secondaryButton}
+                          onClick={() => window.confirm("Release this institution email domain?") && removeManagedEmailDomain(domain.hostname)}
+                          disabled={managedEmailDomainVerifying === domain.hostname}
+                        >
+                          Release domain
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : null}
+            </div>
           </section>
 
           <section id="billing-panel" style={{ ...styles.panelCard, ...enterpriseDashboardStyles.panelCard, gridArea: "billing" }}>

@@ -13,6 +13,10 @@ const {
   isValidCustomHostname,
   normalizeHostname,
 } = require("../utils/domainUtils");
+const {
+  getInstitutionTxtRecordName,
+  isInstitutionalEmailDomain,
+} = require("../utils/institutionDomainUtils");
 
 function serializeDomain(domain) {
   return {
@@ -31,6 +35,21 @@ function serializeDomain(domain) {
   };
 }
 
+function serializeManagedEmailDomain(domain) {
+  return {
+    hostname: domain.hostname,
+    status: domain.status,
+    verificationToken: domain.verificationToken,
+    verifiedAt: domain.verifiedAt,
+    lastCheckedAt: domain.lastCheckedAt,
+    lastVerificationError: domain.lastVerificationError || "",
+    dns: {
+      txtName: getInstitutionTxtRecordName(domain.hostname),
+      txtValue: domain.verificationToken,
+    },
+  };
+}
+
 function serializeWorkspaceSettings(workspace) {
   return {
     workspace: {
@@ -39,9 +58,15 @@ function serializeWorkspaceSettings(workspace) {
       slug: workspace.slug,
       plan: workspace.plan,
       customDomains: workspace.customDomains.map(serializeDomain),
+      managedEmailDomains: (workspace.managedEmailDomains || []).map(
+        serializeManagedEmailDomain
+      ),
       domainSetup: {
         cnameTarget: getDefaultCnameTarget(),
         txtPrefix: "_shotlink",
+      },
+      institutionDomainSetup: {
+        txtPrefix: "_shotlink-access",
       },
     },
   };
@@ -54,6 +79,15 @@ async function hasTxtVerification(hostname, token) {
 
 async function findWorkspaceByDomain(hostname) {
   return Workspace.findOne({ "customDomains.hostname": hostname });
+}
+
+async function hasInstitutionTxtVerification(hostname, token) {
+  const records = await dns.resolveTxt(getInstitutionTxtRecordName(hostname));
+  return records.flat().some((record) => String(record).trim() === token);
+}
+
+async function findWorkspaceByManagedEmailDomain(hostname) {
+  return Workspace.findOne({ "managedEmailDomains.hostname": hostname });
 }
 
 exports.getWorkspaceSettings = async (req, res) => {
@@ -254,6 +288,142 @@ exports.removeCustomDomain = async (req, res) => {
     await recordAuditEvent(req, {
       action: "domain.removed",
       targetType: "custom_domain",
+      targetId: hostname,
+    });
+
+    return res.json(serializeWorkspaceSettings(req.auth.workspace));
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ error: "Server error" });
+  }
+};
+
+exports.addManagedEmailDomain = async (req, res) => {
+  try {
+    const effectivePlan = resolveEffectivePlan(req.auth.workspace);
+    const hostname = normalizeHostname(req.body.hostname);
+
+    if (effectivePlan.id !== "enterprise") {
+      return res.status(403).json({
+        error:
+          "Institution email-domain governance is available on Enterprise workspaces. Contact sales to enable it.",
+      });
+    }
+
+    if (!isInstitutionalEmailDomain(hostname)) {
+      return res.status(400).json({
+        error: "Enter an official institution domain, not a public email provider",
+      });
+    }
+
+    const existingWorkspace = await findWorkspaceByManagedEmailDomain(hostname);
+    if (
+      existingWorkspace &&
+      String(existingWorkspace._id) !== String(req.auth.workspace._id)
+    ) {
+      return res.status(409).json({
+        error: "This institution email domain is already governed by another workspace",
+      });
+    }
+
+    const existingDomain = (req.auth.workspace.managedEmailDomains || []).find(
+      (domain) => domain.hostname === hostname
+    );
+    if (existingDomain) {
+      return res.json(serializeWorkspaceSettings(req.auth.workspace));
+    }
+
+    req.auth.workspace.managedEmailDomains.push({
+      hostname,
+      status: "pending",
+      verificationToken: `shotlink-org-verify-${nanoid(24)}`,
+    });
+    await req.auth.workspace.save();
+
+    await recordAuditEvent(req, {
+      action: "institution_domain.added",
+      targetType: "managed_email_domain",
+      targetId: hostname,
+    });
+
+    return res.status(201).json(serializeWorkspaceSettings(req.auth.workspace));
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ error: "Server error" });
+  }
+};
+
+exports.verifyManagedEmailDomain = async (req, res) => {
+  try {
+    const hostname = normalizeHostname(req.params.hostname);
+    const domain = (req.auth.workspace.managedEmailDomains || []).find(
+      (managedDomain) => managedDomain.hostname === hostname
+    );
+
+    if (!domain) {
+      return res.status(404).json({ error: "Institution email domain not found" });
+    }
+
+    domain.lastCheckedAt = new Date();
+
+    try {
+      const verified = await hasInstitutionTxtVerification(
+        hostname,
+        domain.verificationToken
+      );
+      if (!verified) {
+        domain.status = "pending";
+        domain.lastVerificationError = "Institution ownership TXT record was not found yet";
+        await req.auth.workspace.save();
+        return res.status(400).json({
+          error: `TXT record not found. Add ${getInstitutionTxtRecordName(hostname)} with value ${domain.verificationToken}, wait for DNS, then verify again.`,
+          workspace: serializeWorkspaceSettings(req.auth.workspace).workspace,
+        });
+      }
+
+      domain.status = "verified";
+      domain.verifiedAt = new Date();
+      domain.lastVerificationError = "";
+      await req.auth.workspace.save();
+
+      await recordAuditEvent(req, {
+        action: "institution_domain.verified",
+        targetType: "managed_email_domain",
+        targetId: hostname,
+      });
+
+      return res.json(serializeWorkspaceSettings(req.auth.workspace));
+    } catch (dnsError) {
+      domain.status = "pending";
+      domain.lastVerificationError = dnsError.code || "DNS lookup failed";
+      await req.auth.workspace.save();
+      return res.status(400).json({
+        error: "Institution ownership record is not visible yet. Wait for DNS, then verify again.",
+        workspace: serializeWorkspaceSettings(req.auth.workspace).workspace,
+      });
+    }
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ error: "Server error" });
+  }
+};
+
+exports.removeManagedEmailDomain = async (req, res) => {
+  try {
+    const hostname = normalizeHostname(req.params.hostname);
+    const previousLength = (req.auth.workspace.managedEmailDomains || []).length;
+    req.auth.workspace.managedEmailDomains = (
+      req.auth.workspace.managedEmailDomains || []
+    ).filter((domain) => domain.hostname !== hostname);
+
+    if (req.auth.workspace.managedEmailDomains.length === previousLength) {
+      return res.status(404).json({ error: "Institution email domain not found" });
+    }
+
+    await req.auth.workspace.save();
+    await recordAuditEvent(req, {
+      action: "institution_domain.removed",
+      targetType: "managed_email_domain",
       targetId: hostname,
     });
 

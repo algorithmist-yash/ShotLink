@@ -16,9 +16,12 @@ This is the shortest path from this repo to a paid, public product.
 
 Use one domain and three subdomains:
 
-- `shotlink.in` for the dashboard on Vercel
+- `shotlink.in` for the website, dashboard, and every default public short link
 - `api.shotlink.in` for authenticated backend APIs on Railway
-- `go.shotlink.in` for public short-link redirects on Railway
+- `go.shotlink.in` as the direct Railway redirect origin and customer-domain CNAME target
+
+Vercel proxies single-segment short codes such as `shotlink.in/abc123` to the
+Railway backend. The reserved website routes continue to serve the frontend.
 
 ## 3. MongoDB Atlas
 
@@ -59,6 +62,7 @@ NODE_ENV=production
 MONGO_URI=mongodb+srv://username:password@cluster.mongodb.net/shotlink?retryWrites=true&w=majority
 REDIS_URL=${{Redis.REDIS_URL}}
 BASE_URL=https://go.shotlink.in
+SHORTLINK_BASE_URL=https://shotlink.in
 APP_BASE_URL=https://shotlink.in
 CUSTOM_DOMAIN_CNAME_TARGET=go.shotlink.in
 IP_HASH_SALT=make-this-long-random-and-private
@@ -171,7 +175,7 @@ Run this checklist after deploy:
 1. Open `https://shotlink.in`.
 2. Create a new account.
 3. Create one short link.
-4. Open the generated `https://go.shotlink.in/...` short link.
+4. Open the generated `https://shotlink.in/...` short link.
 5. Confirm the click appears in analytics.
 6. Click the Pro plan.
 7. Pay through Razorpay Test Mode.

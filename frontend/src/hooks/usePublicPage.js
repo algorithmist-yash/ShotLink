@@ -9,13 +9,13 @@ const PAGE_BY_PATH = Object.freeze({
 
 const PAGE_METADATA = Object.freeze({
   home: {
-    title: "Shotlink | Branded short links and fallback routing",
-    description: "Create measurable branded short URLs, QR codes, analytics, and health-aware fallback routes.",
+    title: "Shotlink | Short links and QR codes for creators and institutions",
+    description: "Create a temporary short link and QR code in seconds, or upgrade for creator campaigns, branded domains, analytics, and institutional governance.",
     path: "/",
   },
   pricing: {
-    title: "Shotlink Pricing | Plans for branded short links",
-    description: "Compare Shotlink plans for short links, branded domains, QR codes, analytics, and campaign scale.",
+    title: "Shotlink Pricing | Creator, studio, and institutional plans",
+    description: "Compare free, Creator Pro, Studio, and Enterprise plans for links, QR codes, branded domains, analytics, and governance.",
     path: "/pricing",
   },
   docs: {

@@ -41,6 +41,7 @@ services:
       MONGO_URI: mongodb://mongo:27017/shotlink?replicaSet=rs0
       REDIS_URL: redis://redis:6379
       BASE_URL: http://localhost:5000
+      SHORTLINK_BASE_URL: https://shotlink.in
       APP_BASE_URL: http://localhost:8080
       FRONTEND_URL: http://localhost:8080
       ALLOWED_ORIGINS: http://localhost:8080

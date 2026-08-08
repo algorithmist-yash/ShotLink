@@ -23,6 +23,10 @@ const { slugifyWorkspaceName } = require("../utils/slugUtils");
 const { recordAuditEvent } = require("../services/auditLogService");
 const { getDefaultCnameTarget, getTxtRecordName } = require("../utils/domainUtils");
 const {
+  getEmailDomain,
+  getInstitutionTxtRecordName,
+} = require("../utils/institutionDomainUtils");
+const {
   clearSessionCookie,
   deriveCsrfToken,
   getSessionCookieToken,
@@ -64,7 +68,7 @@ async function issueSession(req, res, user, workspace) {
 }
 
 function serializeAuthPayload(user, workspace, sessionDetails) {
-  const customDomains = workspace.customDomains.map((domain) => ({
+  const customDomains = (workspace.customDomains || []).map((domain) => ({
     hostname: domain.hostname,
     status: domain.status,
     verificationToken: domain.verificationToken,
@@ -75,6 +79,18 @@ function serializeAuthPayload(user, workspace, sessionDetails) {
     dns: {
       cnameTarget: getDefaultCnameTarget(),
       txtName: getTxtRecordName(domain.hostname),
+      txtValue: domain.verificationToken,
+    },
+  }));
+  const managedEmailDomains = (workspace.managedEmailDomains || []).map((domain) => ({
+    hostname: domain.hostname,
+    status: domain.status,
+    verificationToken: domain.verificationToken,
+    verifiedAt: domain.verifiedAt,
+    lastCheckedAt: domain.lastCheckedAt,
+    lastVerificationError: domain.lastVerificationError || "",
+    dns: {
+      txtName: getInstitutionTxtRecordName(domain.hostname),
       txtValue: domain.verificationToken,
     },
   }));
@@ -103,9 +119,13 @@ function serializeAuthPayload(user, workspace, sessionDetails) {
       memberCount: workspace.members.length,
       billing: serializeBillingSnapshot(workspace),
       customDomains,
+      managedEmailDomains,
       domainSetup: {
         cnameTarget: getDefaultCnameTarget(),
         txtPrefix: "_shotlink",
+      },
+      institutionDomainSetup: {
+        txtPrefix: "_shotlink-access",
       },
     },
   };
@@ -156,6 +176,25 @@ exports.register = async (req, res) => {
     const existingUser = await User.exists({ email });
     if (existingUser) {
       return res.status(409).json({ error: "An account with that email already exists" });
+    }
+
+    const emailDomain = getEmailDomain(email);
+    const managedWorkspace = emailDomain
+      ? await Workspace.findOne({
+          managedEmailDomains: {
+            $elemMatch: { hostname: emailDomain, status: "verified" },
+          },
+        })
+          .select("name slug")
+          .lean()
+      : null;
+
+    if (managedWorkspace) {
+      return res.status(409).json({
+        code: "INSTITUTION_DOMAIN_MANAGED",
+        error: `${emailDomain} is governed by ${managedWorkspace.name}. Ask your institution administrator to provision access instead of creating a separate workspace.`,
+        workspaceName: managedWorkspace.name,
+      });
     }
 
     const user = await User.create({

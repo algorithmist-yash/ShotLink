@@ -8,7 +8,7 @@ const {
 } = require("./billingPlans");
 
 test("getPlanDefinition returns known plans and null for unknown values", () => {
-  assert.equal(getPlanDefinition("pro").name, "Pro");
+  assert.equal(getPlanDefinition("pro").name, "Creator Pro");
   assert.equal(getPlanDefinition("unknown"), null);
 });
 

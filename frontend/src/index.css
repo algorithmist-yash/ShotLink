@@ -515,13 +515,80 @@ button:disabled {
     Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
 }
 
+.sl-public-page .sl-reveal,
+.sl-public-page .sl-lift,
+.sl-auth-page .sl-reveal,
+.sl-auth-page .sl-lift {
+  visibility: visible !important;
+  opacity: 1 !important;
+}
+
+.sl-auth-page {
+  color: #0f172a;
+  background: #f7f8fb;
+}
+
+.sl-auth-page :where(h1, h2, h3, label, strong) {
+  visibility: visible;
+  opacity: 1;
+  color: #0f172a !important;
+}
+
+.sl-auth-page :where(p, span) {
+  visibility: visible;
+  opacity: 1;
+}
+
+.sl-auth-page input,
+.sl-auth-page select,
+.sl-auth-page textarea {
+  color: #0f172a !important;
+  -webkit-text-fill-color: #0f172a;
+  background: #ffffff !important;
+  border-color: #cbd5e1 !important;
+}
+
+.sl-auth-page input::placeholder,
+.sl-auth-page textarea::placeholder {
+  color: #64748b !important;
+  opacity: 1;
+}
+
+.sl-auth-page input:-webkit-autofill,
+.sl-auth-page input:-webkit-autofill:hover,
+.sl-auth-page input:-webkit-autofill:focus {
+  -webkit-text-fill-color: #0f172a;
+  caret-color: #0f172a;
+  box-shadow: 0 0 0 1000px #ffffff inset !important;
+}
+
+.sl-auth-page button[type="submit"] {
+  color: #ffffff !important;
+  background: #04775c !important;
+}
+
+.sl-auth-page header button,
+.sl-auth-page form button:not([type="submit"]) {
+  visibility: visible;
+  opacity: 1;
+}
+
+.sl-auth-page header button {
+  color: #1e293b !important;
+  background: #ffffff !important;
+  border-color: #cbd5e1 !important;
+}
+
+.sl-auth-page form button:not([type="submit"]) {
+  color: #04775c !important;
+}
+
 .sl-public-page .sl-lift:hover,
 .sl-auth-page .sl-lift:hover {
   border-color: rgba(8, 127, 91, 0.34) !important;
   box-shadow: 0 12px 32px rgba(15, 23, 42, 0.08);
 }
 
-.sl-public-page input:focus,
 .sl-auth-page input:focus,
 .sl-auth-page select:focus,
 .sl-auth-page textarea:focus {
@@ -585,6 +652,663 @@ button:disabled {
 .sl-auth-page button:not([type="submit"]):hover,
 .sl-dashboard-page button:not(:disabled):hover {
   border-color: #cbd5e1 !important;
+}
+
+/* Authenticated workspace — visually aligned with the public Shotlink experience. */
+.sl-dashboard-page {
+  --sl-surface: #ffffff;
+  --sl-surface-soft: #f7faf7;
+  --sl-surface-accent: #e8f5ee;
+  --sl-surface-border: rgba(15, 23, 42, 0.09);
+  --sl-heading: #0b1736;
+  --sl-content: #3f4b5f;
+  --sl-muted-content: #6b7689;
+  --sl-action: #087f5b;
+  font-family:
+    "Plus Jakarta Sans", Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont,
+    "Segoe UI", sans-serif;
+  background:
+    radial-gradient(circle at 8% 2%, rgba(107, 226, 172, 0.2), transparent 27rem),
+    radial-gradient(circle at 96% 18%, rgba(42, 91, 215, 0.1), transparent 28rem),
+    #f1f4ef !important;
+}
+
+.sl-dashboard-page::before {
+  background:
+    linear-gradient(115deg, rgba(255, 255, 255, 0.7), transparent 34%),
+    radial-gradient(circle at 78% 0%, rgba(255, 255, 255, 0.88), transparent 34%);
+  opacity: 1;
+}
+
+.sl-dashboard-page .sl-grid-overlay {
+  opacity: 0.22 !important;
+  background-image:
+    linear-gradient(rgba(11, 23, 54, 0.07) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(11, 23, 54, 0.07) 1px, transparent 1px) !important;
+  background-size: 80px 80px;
+  mask-image: linear-gradient(to bottom, black, transparent 58%);
+}
+
+.sl-dashboard-header {
+  border-color: rgba(15, 23, 42, 0.08) !important;
+}
+
+.sl-dashboard-header .sl-brand-wordmark {
+  font-size: 1.3rem;
+}
+
+.sl-dashboard-header .sl-status-pill {
+  min-height: 34px;
+  padding-inline: 13px;
+}
+
+.sl-header-new-link {
+  min-height: 42px !important;
+  padding-inline: 18px !important;
+  border-radius: 11px !important;
+  box-shadow: 0 10px 24px rgba(8, 127, 91, 0.18) !important;
+}
+
+.sl-command-strip {
+  position: relative;
+  isolation: isolate;
+}
+
+.sl-command-strip::before,
+.sl-command-strip::after {
+  content: "";
+  position: absolute;
+  z-index: -1;
+  border-radius: 999px;
+  pointer-events: none;
+}
+
+.sl-command-strip::before {
+  width: 420px;
+  height: 420px;
+  right: -170px;
+  top: -240px;
+  background: rgba(66, 212, 158, 0.25);
+  filter: blur(4px);
+}
+
+.sl-command-strip::after {
+  width: 260px;
+  height: 260px;
+  left: 32%;
+  bottom: -220px;
+  background: rgba(42, 91, 215, 0.34);
+  filter: blur(12px);
+}
+
+.sl-command-strip > div:first-child {
+  padding: 2px 2px 10px;
+}
+
+.sl-command-strip > div:first-child > div {
+  max-width: 760px;
+}
+
+.sl-command-strip > div:first-child p:first-child {
+  color: #74e0b3 !important;
+}
+
+.sl-command-strip > div:first-child h2 {
+  color: #ffffff !important;
+}
+
+.sl-overview-copy {
+  max-width: 690px;
+  margin: 12px 0 0;
+  color: rgba(255, 255, 255, 0.68) !important;
+  font-size: 14px;
+  line-height: 1.65;
+}
+
+.sl-live-indicator {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 11px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.08);
+  color: rgba(255, 255, 255, 0.78) !important;
+  white-space: nowrap;
+}
+
+.sl-live-indicator > span {
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  background: #74e0b3;
+  box-shadow: 0 0 0 5px rgba(116, 224, 179, 0.12);
+}
+
+.sl-command-card {
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+
+.sl-command-card::after {
+  inset: 0 0 auto !important;
+  width: 100% !important;
+  height: 3px;
+}
+
+.sl-command-card :where(p, span) {
+  color: rgba(255, 255, 255, 0.62) !important;
+}
+
+.sl-command-card strong {
+  color: #ffffff !important;
+}
+
+.sl-command-card:hover {
+  border-color: rgba(116, 224, 179, 0.35) !important;
+  background: rgba(255, 255, 255, 0.13) !important;
+  box-shadow: 0 22px 48px rgba(0, 0, 0, 0.18) !important;
+}
+
+.sl-dashboard-nav {
+  border-color: rgba(11, 23, 54, 0.1) !important;
+  background: #0b1736 !important;
+  box-shadow: 0 24px 65px rgba(11, 23, 54, 0.18) !important;
+}
+
+.sl-dashboard-nav .sl-dashboard-nav-intro {
+  border-color: rgba(255, 255, 255, 0.1) !important;
+}
+
+.sl-dashboard-nav .sl-dashboard-nav-intro strong {
+  color: #ffffff !important;
+}
+
+.sl-dashboard-nav .sl-dashboard-nav-intro span:not(:first-child) {
+  color: rgba(255, 255, 255, 0.5) !important;
+}
+
+.sl-dashboard-nav-items button {
+  color: rgba(255, 255, 255, 0.66) !important;
+}
+
+.sl-dashboard-nav-items button > span:first-child {
+  color: #74e0b3 !important;
+  background: rgba(116, 224, 179, 0.12) !important;
+}
+
+.sl-dashboard-nav-items button:hover,
+.sl-dashboard-nav-items button[data-active="true"] {
+  color: #ffffff !important;
+  background: rgba(255, 255, 255, 0.09) !important;
+  border-color: rgba(255, 255, 255, 0.1) !important;
+}
+
+.sl-dashboard-nav-items button[data-active="true"] > span:first-child {
+  color: #0b1736 !important;
+  background: #74e0b3 !important;
+}
+
+.sl-dashboard-nav .sl-dashboard-nav-plan {
+  border-color: rgba(116, 224, 179, 0.32) !important;
+  background: linear-gradient(145deg, #e9fff4, #ccefdc) !important;
+}
+
+.sl-dashboard-main > section {
+  position: relative;
+  overflow: hidden;
+  border-color: rgba(15, 23, 42, 0.08) !important;
+  box-shadow: 0 24px 65px rgba(15, 23, 42, 0.07) !important;
+}
+
+.sl-dashboard-main > section::before {
+  content: "";
+  position: absolute;
+  inset: 0 0 auto;
+  height: 3px;
+  background: linear-gradient(90deg, #087f5b, #74e0b3 42%, transparent 82%);
+}
+
+.sl-dashboard-main #links-panel {
+  background: linear-gradient(155deg, #edf9f2, #ffffff 66%) !important;
+}
+
+.sl-dashboard-main #analytics-panel::before {
+  background: linear-gradient(90deg, #2a5bd7, #8ca9ff 42%, transparent 82%);
+}
+
+.sl-dashboard-main #domains-panel::before {
+  background: linear-gradient(90deg, #f5b700, #f9da72 42%, transparent 82%);
+}
+
+.sl-dashboard-main #billing-panel::before {
+  background: linear-gradient(90deg, #7c3aed, #bc9cff 42%, transparent 82%);
+}
+
+.sl-dashboard-page input,
+.sl-dashboard-page select,
+.sl-dashboard-page textarea {
+  border-radius: 14px !important;
+  border-color: rgba(15, 23, 42, 0.11) !important;
+  background: #f8faf8 !important;
+}
+
+.sl-dashboard-page input:hover,
+.sl-dashboard-page select:hover,
+.sl-dashboard-page textarea:hover {
+  border-color: rgba(8, 127, 91, 0.34) !important;
+}
+
+.sl-dashboard-page input:focus,
+.sl-dashboard-page select:focus,
+.sl-dashboard-page textarea:focus {
+  border-color: rgba(8, 127, 91, 0.58) !important;
+  box-shadow: 0 0 0 4px rgba(8, 127, 91, 0.1);
+}
+
+.sl-dashboard-page .sl-alias-group {
+  border-radius: 14px !important;
+  border-color: rgba(15, 23, 42, 0.11) !important;
+  background: #f8faf8 !important;
+}
+
+.sl-dashboard-page .sl-alias-group input {
+  border-radius: 0 !important;
+}
+
+.sl-dashboard-page button:not(:disabled):hover {
+  border-color: rgba(8, 127, 91, 0.34) !important;
+}
+
+.sl-dashboard-page button[style*="rgb(4, 119, 92)"],
+.sl-dashboard-page button[style*="rgb(8, 127, 91)"] {
+  box-shadow: 0 10px 24px rgba(8, 127, 91, 0.16);
+}
+
+.sl-dashboard-main .sl-lift:hover {
+  box-shadow: 0 18px 42px rgba(15, 23, 42, 0.09) !important;
+}
+
+/* Consolidated dashboard layout: the authenticated product now uses the same
+   paper, ink, lime, violet, and editorial rhythm as the marketing homepage. */
+.sl-dashboard-page {
+  padding: 12px 12px 72px !important;
+  background: var(--mk-paper, #f3f2ee) !important;
+}
+
+.sl-dashboard-shell {
+  max-width: 1500px !important;
+  grid-template-columns: minmax(0, 1fr) !important;
+  grid-template-rows: auto auto auto auto !important;
+  gap: 14px !important;
+}
+
+.sl-dashboard-header {
+  grid-column: 1 !important;
+  grid-row: 1 !important;
+  top: 12px !important;
+  min-height: 78px;
+  padding: 14px 18px !important;
+  border-radius: 18px !important;
+  background: rgba(243, 242, 238, 0.9) !important;
+  border-color: rgba(10, 10, 10, 0.1) !important;
+  box-shadow: 0 10px 34px rgba(10, 10, 10, 0.08) !important;
+}
+
+.sl-header-workspace {
+  display: grid;
+  gap: 2px;
+}
+
+.sl-header-workspace > span {
+  color: rgba(10, 10, 10, 0.5) !important;
+  font-size: 0.66rem;
+  font-weight: 750;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.sl-header-workspace > strong {
+  max-width: 360px;
+  overflow: hidden;
+  color: #0a0a0a !important;
+  font-size: 0.92rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sl-command-strip {
+  grid-column: 1 !important;
+  grid-row: 2 !important;
+  min-height: 580px;
+  padding: clamp(30px, 5vw, 72px) !important;
+  border-radius: 24px !important;
+  background:
+    radial-gradient(circle at 18% 90%, rgba(134, 117, 255, 0.32), transparent 32%),
+    radial-gradient(circle at 84% 12%, rgba(202, 255, 84, 0.14), transparent 28%),
+    #080808 !important;
+  box-shadow: none !important;
+}
+
+.sl-command-strip > div:first-child {
+  align-items: flex-end !important;
+  margin-bottom: clamp(34px, 5vw, 68px) !important;
+}
+
+.sl-command-strip > div:first-child > div {
+  max-width: 900px;
+}
+
+.sl-command-strip > div:first-child h1 {
+  max-width: 920px;
+  margin-top: 10px !important;
+  color: #ffffff !important;
+  font-size: clamp(3.2rem, 7vw, 7.5rem) !important;
+  font-weight: 520;
+  line-height: 0.92 !important;
+  letter-spacing: -0.07em !important;
+}
+
+.sl-command-strip > div:first-child p:first-child {
+  color: var(--mk-lime, #caff54) !important;
+}
+
+.sl-overview-copy {
+  max-width: 720px;
+  margin-top: 24px !important;
+  color: rgba(255, 255, 255, 0.65) !important;
+  font-size: clamp(0.95rem, 1.3vw, 1.16rem);
+}
+
+.sl-live-indicator {
+  color: rgba(255, 255, 255, 0.78) !important;
+}
+
+.sl-command-card {
+  min-height: 150px;
+  align-content: space-between;
+  border-radius: 16px !important;
+  background: rgba(255, 255, 255, 0.075) !important;
+  border-color: rgba(255, 255, 255, 0.16) !important;
+}
+
+.sl-command-card strong {
+  font-family: Georgia, "Times New Roman", serif;
+  font-weight: 500 !important;
+}
+
+.sl-dashboard-nav {
+  grid-column: 1 !important;
+  grid-row: 3 !important;
+  position: sticky !important;
+  top: 102px !important;
+  z-index: 40 !important;
+  display: grid !important;
+  grid-template-columns: minmax(190px, auto) minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 18px !important;
+  padding: 8px 10px !important;
+  border-radius: 18px !important;
+  background: rgba(243, 242, 238, 0.94) !important;
+  border: 1px solid rgba(10, 10, 10, 0.1) !important;
+  box-shadow: 0 12px 34px rgba(10, 10, 10, 0.08) !important;
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+}
+
+.sl-dashboard-nav .sl-dashboard-nav-intro {
+  padding: 2px 10px 2px 2px !important;
+  border: 0 !important;
+}
+
+.sl-dashboard-nav .sl-dashboard-nav-intro strong {
+  color: #0a0a0a !important;
+}
+
+.sl-dashboard-nav .sl-dashboard-nav-intro span:not(:first-child) {
+  color: rgba(10, 10, 10, 0.48) !important;
+}
+
+.sl-dashboard-nav-items {
+  display: flex !important;
+  justify-content: center;
+  gap: 3px !important;
+  min-width: 0;
+}
+
+.sl-dashboard-nav-items button {
+  width: auto !important;
+  min-height: 44px;
+  padding: 7px 11px !important;
+  color: rgba(10, 10, 10, 0.62) !important;
+  border-radius: 999px !important;
+}
+
+.sl-dashboard-nav-items button > span:first-child {
+  display: none !important;
+}
+
+.sl-dashboard-nav-items button:hover,
+.sl-dashboard-nav-items button[data-active="true"] {
+  color: #ffffff !important;
+  background: #0a0a0a !important;
+  border-color: #0a0a0a !important;
+}
+
+.sl-dashboard-nav .sl-dashboard-nav-plan {
+  display: flex !important;
+  align-items: center;
+  gap: 8px !important;
+  padding: 5px !important;
+  color: #0a0a0a !important;
+  background: transparent !important;
+  border: 0 !important;
+}
+
+.sl-dashboard-nav .sl-dashboard-nav-plan > p,
+.sl-dashboard-nav .sl-dashboard-nav-plan > span {
+  display: none;
+}
+
+.sl-dashboard-nav .sl-dashboard-nav-plan > strong {
+  display: grid;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  margin: 0;
+  color: #0a0a0a !important;
+  background: var(--mk-lime, #caff54);
+  border-radius: 50%;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 1.15rem;
+}
+
+.sl-dashboard-nav .sl-dashboard-nav-plan > button {
+  min-height: 42px;
+  margin: 0;
+  padding-inline: 16px;
+  color: #ffffff;
+  background: #0a0a0a;
+  border-radius: 999px;
+}
+
+.sl-dashboard-main {
+  grid-column: 1 !important;
+  grid-row: 4 !important;
+  grid-template-columns: minmax(0, 1.08fr) minmax(360px, 0.92fr) !important;
+  grid-template-areas:
+    "builder links"
+    "analytics analytics"
+    "domains domains"
+    "billing billing"
+    "docs docs" !important;
+  gap: 14px !important;
+}
+
+.sl-dashboard-main > section {
+  padding: clamp(28px, 4vw, 56px) !important;
+  border: 0 !important;
+  border-radius: 22px !important;
+  box-shadow: none !important;
+}
+
+.sl-dashboard-main > section::before {
+  display: none;
+}
+
+.sl-dashboard-main #builder-panel {
+  min-height: 760px;
+  color: #ffffff !important;
+  background:
+    radial-gradient(circle at 96% 2%, rgba(202, 255, 84, 0.14), transparent 30%),
+    #0a0a0a !important;
+}
+
+.sl-dashboard-main #builder-panel :where(h2, h3, label, strong) {
+  color: #ffffff !important;
+}
+
+.sl-dashboard-main #builder-panel :where(p, span) {
+  color: rgba(255, 255, 255, 0.66);
+}
+
+.sl-dashboard-main #builder-panel [style*="rgb(37, 99, 235)"],
+.sl-dashboard-main #builder-panel [style*="rgb(4, 119, 92)"] {
+  color: var(--mk-lime, #caff54) !important;
+}
+
+.sl-dashboard-main #builder-panel input,
+.sl-dashboard-main #builder-panel select,
+.sl-dashboard-main #builder-panel textarea {
+  color: #ffffff !important;
+  -webkit-text-fill-color: #ffffff;
+  caret-color: var(--mk-lime, #caff54);
+  background: rgba(255, 255, 255, 0.075) !important;
+  border-color: rgba(255, 255, 255, 0.18) !important;
+}
+
+.sl-dashboard-main #builder-panel select option {
+  color: #0a0a0a;
+  background: #ffffff;
+}
+
+.sl-dashboard-main #builder-panel input:focus,
+.sl-dashboard-main #builder-panel select:focus,
+.sl-dashboard-main #builder-panel textarea:focus {
+  color: #ffffff !important;
+  -webkit-text-fill-color: #ffffff;
+  background: rgba(255, 255, 255, 0.1) !important;
+  border-color: var(--mk-lime, #caff54) !important;
+  box-shadow: 0 0 0 4px rgba(202, 255, 84, 0.14) !important;
+}
+
+.sl-dashboard-main #builder-panel .sl-alias-group {
+  background: rgba(255, 255, 255, 0.075) !important;
+  border-color: rgba(255, 255, 255, 0.18) !important;
+}
+
+.sl-dashboard-main #builder-panel .sl-alias-prefix {
+  color: #0a0a0a !important;
+  background: var(--mk-lime, #caff54) !important;
+  border-color: rgba(255, 255, 255, 0.18) !important;
+}
+
+.sl-dashboard-main #builder-panel .sl-consent-box {
+  background: rgba(255, 255, 255, 0.07) !important;
+  border-color: rgba(255, 255, 255, 0.14) !important;
+}
+
+.sl-dashboard-main #builder-panel button[type="submit"] {
+  min-height: 60px !important;
+  color: #0a0a0a !important;
+  background: var(--mk-lime, #caff54) !important;
+  border-radius: 12px !important;
+  box-shadow: none !important;
+}
+
+.sl-dashboard-result {
+  color: #0a0a0a !important;
+  background: var(--mk-lime, #caff54) !important;
+  border: 0 !important;
+}
+
+.sl-dashboard-result :where(p, span, strong) {
+  color: rgba(10, 10, 10, 0.72) !important;
+}
+
+.sl-dashboard-result a {
+  color: #0a0a0a !important;
+}
+
+.sl-dashboard-result button {
+  color: #ffffff !important;
+  background: #0a0a0a !important;
+  border-color: #0a0a0a !important;
+}
+
+.sl-dashboard-main #links-panel {
+  min-height: 760px;
+  background:
+    linear-gradient(rgba(255, 255, 255, 0.17) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.17) 1px, transparent 1px),
+    #8b79ff !important;
+  background-size: 40px 40px !important;
+}
+
+.sl-dashboard-main #links-panel :where(h2, h3, strong, p, span) {
+  color: #0a0a0a !important;
+}
+
+.sl-link-library-list > button {
+  padding: 18px !important;
+  color: #0a0a0a !important;
+  background: rgba(255, 255, 255, 0.78) !important;
+  border: 1px solid rgba(10, 10, 10, 0.15) !important;
+  border-radius: 16px !important;
+}
+
+.sl-link-library-list > button:hover {
+  background: #ffffff !important;
+  border-color: #0a0a0a !important;
+}
+
+.sl-dashboard-main #analytics-panel {
+  min-height: 620px;
+  background: #ffffff !important;
+}
+
+.sl-analytics-metrics > div:nth-child(1) {
+  background: #e4f6bd !important;
+}
+
+.sl-analytics-metrics > div:nth-child(2) {
+  background: #dbd5ff !important;
+}
+
+.sl-analytics-metrics > div:nth-child(3) {
+  background: #ffd9cc !important;
+}
+
+.sl-analytics-metrics > div:nth-child(4) {
+  background: #cfeeff !important;
+}
+
+.sl-dashboard-main #domains-panel {
+  background: #e4f6bd !important;
+}
+
+.sl-dashboard-main #billing-panel {
+  background: #dbd5ff !important;
+}
+
+.sl-dashboard-main #docs-panel {
+  background: #ffd9cc !important;
+}
+
+.sl-dashboard-main #domains-panel > div,
+.sl-dashboard-main #billing-panel > div,
+.sl-dashboard-main #docs-panel > div {
+  position: relative;
 }
 
 @media (max-width: 1040px) {
@@ -789,6 +1513,21 @@ button:disabled {
   .sl-command-strip {
     grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
     gap: 10px !important;
+    padding: 20px !important;
+    border-radius: 22px !important;
+  }
+
+  .sl-command-strip > div:first-child {
+    align-items: flex-start !important;
+    flex-direction: column;
+  }
+
+  .sl-overview-copy {
+    font-size: 13px;
+  }
+
+  .sl-live-indicator {
+    align-self: flex-start;
   }
 
   .sl-command-card {
@@ -802,7 +1541,7 @@ button:disabled {
   }
 
   .sl-command-strip > div:first-child > span {
-    display: none;
+    display: inline-flex;
   }
 
   .sl-dashboard-nav {
@@ -842,5 +1581,55 @@ button:disabled {
   .sl-route-packet-one,
   .sl-route-packet-two {
     display: none;
+  }
+}
+
+@media (max-width: 1100px) {
+  .sl-dashboard-nav {
+    position: relative !important;
+    top: auto !important;
+    display: block !important;
+    overflow-x: auto;
+  }
+
+  .sl-dashboard-nav-intro,
+  .sl-dashboard-nav-plan {
+    display: none !important;
+  }
+
+  .sl-dashboard-nav-items {
+    justify-content: flex-start;
+    min-width: max-content;
+  }
+
+  .sl-dashboard-main {
+    grid-template-columns: minmax(0, 1fr) !important;
+    grid-template-areas:
+      "builder"
+      "links"
+      "analytics"
+      "domains"
+      "billing"
+      "docs" !important;
+  }
+
+  .sl-dashboard-main #builder-panel,
+  .sl-dashboard-main #links-panel {
+    min-height: auto;
+  }
+}
+
+@media (max-width: 460px) {
+  .sl-command-strip {
+    grid-template-columns: 1fr !important;
+  }
+
+  .sl-header-actions .sl-status-pill {
+    font-size: 10px;
+    padding-inline: 10px;
+  }
+
+  .sl-header-new-link {
+    flex: 1 1 auto !important;
   }
 }

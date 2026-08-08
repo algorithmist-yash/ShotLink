@@ -21,6 +21,8 @@ const { incrementUsage } = require("../services/usageService");
 const { invalidateUrlRoute } = require("../services/cacheInvalidationService");
 const { recordAuditEvent } = require("../services/auditLogService");
 
+const GUEST_LINK_MAX_EXPIRY_MINUTES = 30;
+
 class ActiveLinkLimitError extends Error {
   constructor(plan) {
     super(
@@ -47,7 +49,9 @@ function buildShortUrl(req, url) {
   }
 
   const baseUrl =
-    process.env.BASE_URL || `${req.protocol || "http"}://${req.get("host")}`;
+    process.env.SHORTLINK_BASE_URL ||
+    process.env.BASE_URL ||
+    `${req.protocol || "http"}://${req.get("host")}`;
 
   return `${baseUrl.replace(/\/$/, "")}/${url.shortCode}`;
 }
@@ -145,6 +149,77 @@ exports.listLinks = async (req, res) => {
 
     return res.json({
       links: urls.map((url) => serializeLinkSummary(req, url)),
+    });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ error: "Server error" });
+  }
+};
+
+exports.createGuestLink = async (req, res) => {
+  try {
+    const requestedExpiry =
+      req.body.expiresInMinutes === undefined
+        ? GUEST_LINK_MAX_EXPIRY_MINUTES
+        : Number(req.body.expiresInMinutes);
+
+    if (
+      !Number.isInteger(requestedExpiry) ||
+      requestedExpiry < 1 ||
+      requestedExpiry > GUEST_LINK_MAX_EXPIRY_MINUTES
+    ) {
+      return res.status(400).json({
+        error: `Temporary homepage links must expire between 1 and ${GUEST_LINK_MAX_EXPIRY_MINUTES} minutes`,
+      });
+    }
+
+    if (
+      req.body.customAlias ||
+      req.body.customDomainHost ||
+      (Array.isArray(req.body.fallbackUrls) && req.body.fallbackUrls.length)
+    ) {
+      return res.status(400).json({
+        error:
+          "Create a workspace to use custom aliases, branded domains, or fallback destinations",
+      });
+    }
+
+    const { errors, originalUrl } = validateShortenPayload({
+      originalUrl: req.body.originalUrl,
+      expiresInMinutes: requestedExpiry,
+    });
+
+    if (errors.length) {
+      return res.status(400).json({ error: errors.join(". ") });
+    }
+
+    const consentValidation = validateLinkConsents(req.body);
+    if (!consentValidation.ok) {
+      return res.status(400).json({
+        error:
+          "Confirm that you are authorised to share this destination and accept the anti-abuse checks before creating a temporary link.",
+        missingConsents: consentValidation.missing,
+        policyVersion: LINK_POLICY_VERSION,
+      });
+    }
+
+    const url = await Url.create({
+      workspaceId: null,
+      createdBy: null,
+      originalUrl,
+      shortCode: await generateUniqueShortCode(),
+      expiresAt: new Date(Date.now() + requestedExpiry * 60 * 1000),
+      isActive: true,
+      clicks: 0,
+      fallbackUrls: [],
+      compliance: buildLinkComplianceRecord(req, null),
+    });
+
+    await invalidateUrlRoute(url);
+
+    return res.status(201).json({
+      link: serializeLinkSummary(req, url),
+      limits: { maxExpiryMinutes: GUEST_LINK_MAX_EXPIRY_MINUTES },
     });
   } catch (error) {
     console.error(error);

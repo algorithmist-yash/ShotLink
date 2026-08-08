@@ -7,10 +7,23 @@ const {
   getRedirectEntitlement,
   getRouteTtlSeconds,
   hydrateUrlSnapshot,
+  isDefaultRedirectHost,
   resetRedirectResolutionForTests,
   resolveUrlForRequest,
   serializeUrlSnapshot,
 } = require("./redirectResolutionService");
+
+test("the public shotlink.in domain is always treated as a default redirect host", () => {
+  const env = {
+    APP_BASE_URL: "https://shotlink.in",
+    BASE_URL: "https://go.shotlink.in",
+    SHORTLINK_BASE_URL: "https://shotlink.in",
+  };
+
+  assert.equal(isDefaultRedirectHost("shotlink.in", env), true);
+  assert.equal(isDefaultRedirectHost("go.shotlink.in", env), true);
+  assert.equal(isDefaultRedirectHost("go.customer.example", env), false);
+});
 
 function createMemoryCache() {
   const values = new Map();

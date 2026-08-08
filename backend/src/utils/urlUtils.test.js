@@ -62,6 +62,7 @@ test("normalizeCustomAlias rejects unsafe or reserved aliases", () => {
   assert.equal(normalizeCustomAlias("api"), null);
   assert.equal(normalizeCustomAlias("live"), null);
   assert.equal(normalizeCustomAlias("metrics"), null);
+  assert.equal(normalizeCustomAlias("trust"), null);
   assert.equal(isReservedShortCode("METRICS"), true);
 });
 

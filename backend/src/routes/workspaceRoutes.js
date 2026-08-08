@@ -1,11 +1,14 @@
 const express = require("express");
 
 const {
+  addManagedEmailDomain,
   addCustomDomain,
   getWorkspaceSettings,
   listAuditEvents,
+  removeManagedEmailDomain,
   removeCustomDomain,
   setPrimaryCustomDomain,
+  verifyManagedEmailDomain,
   verifyCustomDomain,
 } = require("../controllers/workspaceController");
 const {
@@ -46,6 +49,25 @@ router.delete(
   requireWorkspaceAdmin,
   writeRateLimit,
   removeCustomDomain
+);
+router.post(
+  "/email-domains",
+  requireWorkspaceAdmin,
+  writeRateLimit,
+  validateRequestBody(customDomainContract),
+  addManagedEmailDomain
+);
+router.post(
+  "/email-domains/:hostname/verify",
+  requireWorkspaceAdmin,
+  writeRateLimit,
+  verifyManagedEmailDomain
+);
+router.delete(
+  "/email-domains/:hostname",
+  requireWorkspaceAdmin,
+  writeRateLimit,
+  removeManagedEmailDomain
 );
 
 module.exports = router;

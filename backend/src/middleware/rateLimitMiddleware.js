@@ -104,10 +104,17 @@ const writeRateLimit = createRateLimiter({
   keyPrefix: "write",
 });
 
+const guestLinkRateLimit = createRateLimiter({
+  windowMs: 10 * 60 * 1000,
+  max: 5,
+  keyPrefix: "guest-link",
+});
+
 module.exports = {
   authRateLimit,
   buildBucketId,
   consumeRateLimit,
   createRateLimiter,
+  guestLinkRateLimit,
   writeRateLimit,
 };

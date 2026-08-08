@@ -1,6 +1,7 @@
 const express = require("express");
 
 const {
+  createGuestLink,
   createLink,
   expireLink,
   getClickEvents,
@@ -9,11 +10,21 @@ const {
   refreshLinkHealth,
 } = require("../controllers/linkController");
 const { requireAuth } = require("../middleware/authMiddleware");
-const { writeRateLimit } = require("../middleware/rateLimitMiddleware");
+const {
+  guestLinkRateLimit,
+  writeRateLimit,
+} = require("../middleware/rateLimitMiddleware");
 const { validateRequestBody } = require("../middleware/requestContractMiddleware");
 const { createLinkContract } = require("../contracts/apiContracts");
 
 const router = express.Router();
+
+router.post(
+  "/guest",
+  guestLinkRateLimit,
+  validateRequestBody(createLinkContract),
+  createGuestLink
+);
 
 router.use(requireAuth);
 

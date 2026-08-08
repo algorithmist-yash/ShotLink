@@ -61,6 +61,9 @@ test("every custom-domain mutation is restricted to owners and admins", () => {
     ["post", "/domains/:hostname/verify"],
     ["patch", "/domains/:hostname/primary"],
     ["delete", "/domains/:hostname"],
+    ["post", "/email-domains"],
+    ["post", "/email-domains/:hostname/verify"],
+    ["delete", "/email-domains/:hostname"],
   ];
 
   for (const [method, path] of routes) {

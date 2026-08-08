@@ -18,6 +18,18 @@
       "destination": "/trust.html"
     },
     {
+      "source": "/login",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/register",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/:shortCode([A-Za-z0-9_-]{3,48})",
+      "destination": "https://api.shotlink.in/:shortCode"
+    },
+    {
       "source": "/(.*)",
       "destination": "/index.html"
     }

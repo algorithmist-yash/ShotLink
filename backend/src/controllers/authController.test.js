@@ -5,7 +5,7 @@ const Session = require("../models/Session");
 const User = require("../models/User");
 const Workspace = require("../models/Workspace");
 const { hashPassword, hashSessionToken } = require("../utils/authUtils");
-const { login, logout } = require("./authController");
+const { login, logout, register } = require("./authController");
 
 function createResponse() {
   return {
@@ -126,4 +126,52 @@ test("logout revokes the database session and expires the browser cookie", async
   assert.equal(response.clearedCookies.length, 1);
   assert.equal(response.clearedCookies[0][0], "shotlink_session");
   assert.deepEqual(response.body, { message: "Logged out" });
+});
+
+test("registration cannot create a shadow workspace for a governed institution domain", async (t) => {
+  const originalUserExists = User.exists;
+  const originalWorkspaceFindOne = Workspace.findOne;
+
+  User.exists = async () => false;
+  Workspace.findOne = () => ({
+    select() {
+      return this;
+    },
+    async lean() {
+      return { name: "Acme University", slug: "acme-university" };
+    },
+  });
+
+  t.after(() => {
+    User.exists = originalUserExists;
+    Workspace.findOne = originalWorkspaceFindOne;
+  });
+
+  const request = {
+    body: {
+      name: "Faculty Member",
+      email: "faculty@acme.edu",
+      password: "StrongPassword1",
+      workspaceName: "Shadow workspace",
+      consents: {
+        ageConfirmed: true,
+        termsAccepted: true,
+        privacyAccepted: true,
+        analyticsAccepted: true,
+        lawfulUseAccepted: true,
+      },
+    },
+    get() {
+      return "";
+    },
+    ip: "127.0.0.1",
+    socket: { remoteAddress: "127.0.0.1" },
+  };
+  const response = createResponse();
+
+  await register(request, response);
+
+  assert.equal(response.statusCode, 409);
+  assert.equal(response.body.code, "INSTITUTION_DOMAIN_MANAGED");
+  assert.match(response.body.error, /Acme University/);
 });
