@@ -58,7 +58,7 @@ async function openPublicHomepage(page) {
   await expect(
     page.getByRole("heading", {
       level: 1,
-      name: "URL shortener with smart fallback routing",
+      name: "One link layer. Every audience.",
     })
   ).toBeVisible();
 }
@@ -67,8 +67,8 @@ test("public navigation, auth validation, and WCAG guardrails work", async ({ pa
   const runtimeErrors = collectRuntimeErrors(page);
   await openPublicHomepage(page);
 
-  await expect(page).toHaveTitle("Shotlink | Branded short links and fallback routing");
-  const publicNavigation = page.getByRole("navigation", { name: "Public pages" });
+  await expect(page).toHaveTitle("Shotlink | Short links and QR codes for creators and institutions");
+  const publicNavigation = page.getByRole("navigation", { name: "Primary navigation" });
   const publicHeader = page.getByRole("banner");
   await expect(publicNavigation).toBeVisible();
   expect(
@@ -81,7 +81,7 @@ test("public navigation, auth validation, and WCAG guardrails work", async ({ pa
       };
     })
   ).toEqual({
-    backgroundColor: "rgba(255, 255, 255, 0.85)",
+    backgroundColor: "rgba(243, 242, 238, 0.82)",
     position: "sticky",
     top: "0px",
   });
@@ -90,7 +90,7 @@ test("public navigation, auth validation, and WCAG guardrails work", async ({ pa
   ).toContain("Plus Jakarta Sans");
   expect(
     await publicHeader
-      .getByRole("button", { name: "Get started", exact: true })
+      .getByRole("button", { name: /Create workspace/ })
       .evaluate((button) => {
         const styles = window.getComputedStyle(button);
         return {
@@ -100,9 +100,9 @@ test("public navigation, auth validation, and WCAG guardrails work", async ({ pa
         };
       })
   ).toEqual({
-    backgroundColor: "rgb(8, 127, 91)",
-    borderRadius: "10px",
-    fontWeight: "600",
+    backgroundColor: "rgb(10, 10, 10)",
+    borderRadius: "999px",
+    fontWeight: "700",
   });
   await page.evaluate(() => window.scrollTo(0, 900));
   await expect
@@ -111,21 +111,24 @@ test("public navigation, auth validation, and WCAG guardrails work", async ({ pa
   await page.evaluate(() => window.scrollTo(0, 0));
   await expectNoWcagViolations(page, testInfo);
 
-  const publicDestinations = [
-    ["Pricing", "/pricing", "Infrastructure pricing without enterprise fog."],
-    ["Resources", "/docs", "Build on the Shotlink routing layer."],
-    ["Trust", "/trust", "Trust rules for public link infrastructure."],
-    ["Platform", "/", "URL shortener with smart fallback routing"],
-  ];
-
-  for (const [linkName, path, heading] of publicDestinations) {
-    await page
-      .getByRole("navigation", { name: "Public pages" })
-      .getByRole("link", { name: linkName, exact: true })
-      .click();
-    await expect(page).toHaveURL(new RegExp(`${path === "/" ? "/$" : `${path}$`}`));
-    await expect(page.getByRole("heading", { level: 1, name: heading })).toBeVisible();
+  for (const [linkName, hash] of [
+    ["Create", "create"],
+    ["Creators", "creators"],
+    ["Institutions", "solutions"],
+  ]) {
+    await publicNavigation.getByRole("link", { name: linkName, exact: true }).click();
+    await expect(page).toHaveURL(new RegExp(`/#${hash}$`));
+    await expect(page.locator(`#${hash}`)).toBeVisible();
   }
+
+  await publicNavigation.getByRole("link", { name: "Pricing", exact: true }).click();
+  await expect(page).toHaveURL(/\/pricing$/);
+  await expect(
+    page.getByRole("heading", {
+      level: 1,
+      name: "Plans for creators, studios, and institutions.",
+    })
+  ).toBeVisible();
 
   await page.getByRole("button", { name: "Sign in", exact: true }).click();
   await expect(page.getByRole("heading", { level: 1, name: "Sign in" })).toBeVisible();
@@ -179,7 +182,7 @@ test("real registration, cookie session, link redirect, analytics, and logout wo
   await openPublicHomepage(page);
   await page
     .getByRole("banner")
-    .getByRole("button", { name: "Get started", exact: true })
+    .getByRole("button", { name: /Create workspace/ })
     .click();
   await page.getByRole("textbox", { name: "Full name" }).fill("Browser E2E Owner");
   await page.getByRole("textbox", { name: "Email" }).fill(email);
@@ -202,7 +205,7 @@ test("real registration, cookie session, link redirect, analytics, and logout wo
   expect((await registrationResponsePromise).status()).toBe(201);
 
   await expect(page.getByRole("heading", { level: 1, name: workspaceName })).toBeVisible();
-  await expect(page.getByText("Welcome back, Browser.", { exact: false })).toBeVisible();
+  await expect(page.getByText("Welcome back, Browser", { exact: true })).toBeVisible();
   await expect(page.getByRole("button", { name: /theme/i })).toHaveCount(0);
   expect(
     await page
@@ -219,8 +222,8 @@ test("real registration, cookie session, link redirect, analytics, and logout wo
       };
     })
   ).toEqual({
-    backgroundColor: "rgb(4, 119, 92)",
-    borderRadius: "10px",
+    backgroundColor: "rgb(202, 255, 84)",
+    borderRadius: "12px",
     fontWeight: "600",
   });
   expect((await page.context().cookies()).some((cookie) => cookie.name === "shotlink_session")).toBe(
@@ -279,7 +282,7 @@ test("real registration, cookie session, link redirect, analytics, and logout wo
   await expect(
     page.getByRole("heading", {
       level: 1,
-      name: "URL shortener with smart fallback routing",
+      name: "One link layer. Every audience.",
     })
   ).toBeVisible();
   expect((await page.context().cookies()).some((cookie) => cookie.name === "shotlink_session")).toBe(
@@ -301,9 +304,8 @@ test("@mobile public and sign-in layouts fit a 390px viewport", async ({ page },
 
   expect(page.viewportSize()).toEqual({ width: 390, height: 844 });
   await expect(page.getByRole("banner")).toBeVisible();
-  await expect(
-    page.getByRole("banner").getByRole("button", { name: "Get started", exact: true })
-  ).toBeVisible();
+  await page.getByRole("button", { name: "Open menu" }).click();
+  await expect(page.getByRole("button", { name: /Create workspace/ })).toBeVisible();
   expect(
     await page.evaluate(
       () => document.documentElement.scrollWidth <= document.documentElement.clientWidth
@@ -327,7 +329,7 @@ test("public routes ship indexable HTML and keyboard focus remains visible", asy
   request,
 }) => {
   for (const [path, heading] of [
-    ["/pricing", "Infrastructure pricing without enterprise fog."],
+    ["/pricing", "Plans for creators, studios, and institutions."],
     ["/docs", "Build on the Shotlink routing layer."],
     ["/trust", "Trust rules for public link infrastructure."],
   ]) {

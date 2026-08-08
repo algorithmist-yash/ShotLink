@@ -147,5 +147,8 @@ jobs:
 
       - name: Validate Prometheus rules and configuration
         run: |
+          metrics_token_file="$(mktemp)"
+          trap 'rm -f "$metrics_token_file"' EXIT
+          printf '%s' 'ci-prometheus-validation-token' > "$metrics_token_file"
           docker run --rm --entrypoint promtool -v "$PWD/ops/monitoring:/etc/shotlink:ro" prom/prometheus:v3.13.1 check rules /etc/shotlink/shotlink.rules.yml
-          docker run --rm --entrypoint promtool -v "$PWD/ops/monitoring:/etc/shotlink:ro" prom/prometheus:v3.13.1 check config /etc/shotlink/prometheus.yml
+          docker run --rm --entrypoint promtool -v "$PWD/ops/monitoring:/etc/shotlink:ro" -v "$metrics_token_file:/run/secrets/shotlink_metrics_token:ro" prom/prometheus:v3.13.1 check config /etc/shotlink/prometheus.yml

@@ -2,7 +2,7 @@
   --mk-paper: #f3f2ee;
   --mk-white: #ffffff;
   --mk-ink: #0a0a0a;
-  --mk-muted: rgba(10, 10, 10, 0.58);
+  --mk-muted: #4a4a4a;
   --mk-line: rgba(10, 10, 10, 0.16);
   --mk-dark-line: rgba(255, 255, 255, 0.17);
   --mk-lime: #caff54;
@@ -330,7 +330,7 @@
   align-items: center;
   min-height: 42px;
   padding: 0 14px;
-  color: rgba(10, 10, 10, 0.5);
+  color: #525252;
   background: #fff;
   border-bottom: 1px solid rgba(10, 10, 10, 0.1);
   font-size: 0.65rem;
@@ -423,7 +423,7 @@
 .mk-console-heading small,
 .mk-domain-name small,
 .mk-policy-grid small {
-  color: rgba(10, 10, 10, 0.46);
+  color: #525252;
   font-size: 0.58rem;
   font-weight: 750;
   letter-spacing: 0.08em;
@@ -521,7 +521,7 @@
 
 .mk-policy-grid span {
   align-self: end;
-  color: rgba(10, 10, 10, 0.5);
+  color: #525252;
   font-size: 0.6rem;
 }
 
@@ -907,7 +907,7 @@
 
 .mk-creator-plan-grid article.is-featured .mk-creator-plan-top,
 .mk-creator-plan-grid article.is-featured .mk-creator-description {
-  color: rgba(255, 255, 255, 0.56);
+  color: rgba(255, 255, 255, 0.76);
 }
 
 .mk-creator-plan-top b {
@@ -1090,7 +1090,7 @@
   display: flex;
   justify-content: space-between;
   gap: 20px;
-  color: rgba(10, 10, 10, 0.58);
+  color: #4a4a4a;
   font-size: 0.67rem;
   font-weight: 750;
   letter-spacing: 0.06em;
@@ -1665,7 +1665,7 @@
   justify-content: space-between;
   gap: 20px;
   padding-top: 18px;
-  color: rgba(255, 255, 255, 0.34);
+  color: rgba(255, 255, 255, 0.72);
   border-top: 1px solid var(--mk-dark-line);
   font-size: 0.67rem;
 }
