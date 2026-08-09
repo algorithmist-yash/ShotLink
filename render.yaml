@@ -13,11 +13,10 @@ services:
     name: shotlink-api
     runtime: node
     region: singapore
-    plan: starter
+    plan: free
     rootDir: backend
     branch: main
-    buildCommand: npm ci --omit=dev
-    preDeployCommand: npm run migrate:redirect-outbox && npm run migrate:health-queue && npm run migrate:analytics-retention
+    buildCommand: npm ci --omit=dev && npm run migrate:redirect-outbox && npm run migrate:health-queue && npm run migrate:analytics-retention
     startCommand: npm start
     healthCheckPath: /health
     maxShutdownDelaySeconds: 30
@@ -65,30 +64,3 @@ services:
         value: support@shotlink.in
       - key: METRICS_TOKEN
         generateValue: true
-
-  - type: worker
-    name: shotlink-health-worker
-    runtime: node
-    region: singapore
-    plan: starter
-    rootDir: backend
-    branch: main
-    buildCommand: npm ci --omit=dev
-    startCommand: npm run worker:health
-    maxShutdownDelaySeconds: 30
-    autoDeployTrigger: checksPass
-    envVars:
-      - key: NODE_VERSION
-        value: 24.18.0
-      - key: NODE_ENV
-        value: production
-      - key: MONGO_URI
-        fromService:
-          type: web
-          name: shotlink-api
-          envVarKey: MONGO_URI
-      - key: REDIS_URL
-        fromService:
-          type: keyvalue
-          name: shotlink-cache
-          property: connectionString

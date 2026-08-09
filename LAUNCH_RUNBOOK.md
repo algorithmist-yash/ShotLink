@@ -49,16 +49,22 @@ MONGO_URI=mongodb+srv://...
 The repository root contains `render.yaml`. Create a Render Blueprint from the
 GitHub repository to provision these Singapore-region resources together:
 
-- `shotlink-api`: Starter web service
-- `shotlink-health-worker`: Starter background worker
+- `shotlink-api`: Free web service
 - `shotlink-cache`: Free Render Key Value for the initial beta
 
-The initial beta profile is approximately two Starter compute instances. Render
-does not offer Free background workers, and Render explicitly does not recommend
-Free web or Key Value instances for production. Upgrade Key Value to a persistent
-paid plan before treating cache continuity as an availability guarantee. Shotlink
-keeps authoritative links, queues, and usage data in MongoDB, so a cache restart
-does not erase those records.
+This is a $0 pre-user validation profile. Render spins down a Free web service
+after 15 idle minutes and the next request can take about one minute to wake it.
+Free Key Value is in-memory and can be cleared by a restart. Shotlink keeps
+authoritative links, queues, and usage data in MongoDB, so a cache restart does
+not erase those records.
+
+The Free profile omits the continuous URL-health worker. Core link creation,
+redirects, QR generation, accounts, click ingestion, and billing flows remain in
+the API process, but automatic destination health refresh and fallback monitoring
+do not run continuously. Upgrade `shotlink-api` to Starter when cold starts are
+unacceptable. Add a separate Starter worker with `npm run worker:health` and the
+same `MONGO_URI` and `REDIS_URL` before an institutional pilot depends on
+automatic failover.
 
 During the first Blueprint sync, Render asks for the variables marked
 `sync: false`. Enter them in the Render dashboard, never in Git or chat:
@@ -72,24 +78,27 @@ RAZORPAY_PLAN_ID_PRO_MONTHLY=plan_live_or_test_id
 RAZORPAY_PLAN_ID_BUSINESS_MONTHLY=plan_live_or_test_id
 ```
 
-The Blueprint generates the session, IP-hashing, and monitoring secrets, shares
-the internal Key Value connection with both services, runs all three database
-migrations before each API deploy, and adds these domains to `shotlink-api`:
+The Blueprint generates the session, IP-hashing, and monitoring secrets, injects
+the internal Key Value connection, runs all three database migrations during each
+build, and adds these domains to `shotlink-api`:
 
 - `api.shotlink.in`
 - `go.shotlink.in`
 
-The worker has no public domain. Scale it independently from the API; the queue
-and URL-level leases coordinate concurrent workers.
+When the paid worker is added later, give it no public domain and scale it
+independently from the API; the queue and URL-level leases coordinate concurrent
+workers.
 
 After deploy, verify `/health` reports both `mongodb: connected` and
 `redis: connected`. A `degraded` response remains HTTP 200 so redirects can fall
 back to MongoDB, but it is an operational alert and must not be left unresolved.
 Also scrape `/metrics` and alert on sustained
-`shotlink_cache_operations_total{result="error"}` or `{result="bypass"}` growth,
-nonzero redirect-event or URL-health dead letters, and continuously growing pending queues.
-Activate the scraper, dashboard, rules, and test-alert procedure in
-`ops/monitoring/README.md` before accepting production traffic.
+`shotlink_cache_operations_total{result="error"}` or `{result="bypass"}` growth
+and nonzero redirect-event dead letters. URL-health jobs can remain pending in
+the Free profile because its worker is intentionally absent; enable the worker
+and its queue alerts before relying on automatic failover. Activate the scraper,
+dashboard, rules, and test-alert procedure in `ops/monitoring/README.md` before
+accepting production traffic.
 
 Enable managed point-in-time backups and complete an isolated restore rehearsal
 using `ops/backup/backup.ps1` and `ops/backup/restore-drill.ps1`. Record the
