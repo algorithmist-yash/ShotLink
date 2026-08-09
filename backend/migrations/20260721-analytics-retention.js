@@ -28,7 +28,8 @@ async function up({ ClickEventModel = ClickEvent, env = process.env } = {}) {
           },
         },
       },
-    ]
+    ],
+    { updatePipeline: true }
   );
 }
 
