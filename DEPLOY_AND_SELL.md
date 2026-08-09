@@ -24,7 +24,7 @@ Best early customers in India:
 - Backend: Render
 - Database: MongoDB Atlas
 - Redirect cache: Render Key Value
-- Background URL-health worker: separate Render worker service
+- Background URL-health worker: add a separate Render worker after validation
 - Billing: Razorpay
 - Domains:
   - `shotlink.in`
@@ -42,18 +42,20 @@ This keeps the system cleaner and makes future scaling easier.
 ## 4. Backend deployment on Render
 
 Create a Blueprint from the repository root. The checked-in `render.yaml`
-provisions the API, URL-health worker, and Redis-compatible Key Value service in
-Singapore and connects them over Render's private network.
+provisions a Free API and Redis-compatible Key Value service in Singapore and
+connects them over Render's private network.
 
-Recommended initial beta profile:
+Recommended pre-user validation profile:
 
-- Starter `shotlink-api` web service
-- Starter `shotlink-health-worker` background worker
-- Free `shotlink-cache` Key Value instance while traffic is low
+- Free `shotlink-api` web service
+- Free `shotlink-cache` Key Value instance
+- No continuously running health worker until there are real users or an
+  institutional pilot
 
-Render does not offer a Free background-worker instance, and its Free services
-are not intended for production. Upgrade Key Value when cache continuity becomes
-an availability requirement.
+Render's Free services are for validation rather than production. Upgrade the
+API to Starter when cold starts become unacceptable, add a Starter health worker
+when automatic destination monitoring is required, and upgrade Key Value when
+cache continuity becomes an availability requirement.
 
 Environment variables:
 
@@ -77,7 +79,7 @@ Environment variables:
 
 After deploy:
 
-- confirm the Blueprint pre-deploy command completed all three migrations
+- confirm the build command completed all three migrations
 - add `api.shotlink.in` as a custom domain
 - add `go.shotlink.in` as another custom domain
 - keep the frontend rewrite for `shotlink.in/<code>` pointing to `api.shotlink.in/<code>`
@@ -153,12 +155,14 @@ Webhook events:
 
 For each customer branded domain:
 
-1. Add the customer hostname to the Render API service as a custom domain.
-2. Ask the customer to create `CNAME go.customerbrand.in -> go.shotlink.in`.
-3. Ask the customer to create the dashboard-provided TXT verification record.
-4. Wait for Render TLS/domain verification.
-5. Click Verify in this app's workspace dashboard.
-6. Create customer links using that branded domain.
+1. Upgrade the API and add the health worker before onboarding an institutional
+   customer that requires continuous destination monitoring.
+2. Add the customer hostname to the Render API service as a custom domain.
+3. Ask the customer to create `CNAME go.customerbrand.in -> go.shotlink.in`.
+4. Ask the customer to create the dashboard-provided TXT verification record.
+5. Wait for Render TLS/domain verification.
+6. Click Verify in this app's workspace dashboard.
+7. Create customer links using that branded domain.
 
 Why:
 

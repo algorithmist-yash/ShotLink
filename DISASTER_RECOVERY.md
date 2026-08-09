@@ -32,8 +32,10 @@ the cache to warm from MongoDB while monitoring database load and redirect
 latency.
 7. Keep `maxShutdownDelaySeconds` in `render.yaml` aligned with the application's bounded graceful shutdown.
 8. Keep a secure, access-controlled inventory of production variable names and recovery contacts. Never store secret values in this repository or in incident tickets.
-9. Keep the URL-health Render worker deployed separately with no public domain,
-   and verify it uses the same `MONGO_URI` and `REDIS_URL` as the API service.
+9. The Free pre-user profile intentionally omits continuous URL-health work.
+   Before onboarding customers who depend on automatic fallback routing, deploy
+   the URL-health Render worker separately with no public domain and verify it
+   uses the same `MONGO_URI` and `REDIS_URL` as the API service.
 
 Atlas backup guidance: <https://www.mongodb.com/docs/atlas/architecture/current/backups/>
 
@@ -83,8 +85,9 @@ Atlas restore guidance: <https://www.mongodb.com/docs/atlas/backup/cloud-backup/
 - Billing plans and usage counters match provider records; do not trigger a live payment during verification.
 - Recent sessions can be revoked if credential integrity is uncertain.
 - Error rate and latency return to the normal baseline.
-- The URL-health worker is running, pending queue depth is draining, and no new
-  dead letters appear. Retained dead jobs are investigated before deletion.
+- In the paid profile, the URL-health worker is running, pending queue depth is
+  draining, and no new dead letters appear. In the Free validation profile,
+  health jobs may remain pending until the worker is added.
 - No secret, token, raw password, or payment data appears in logs or incident notes.
 
 ## Backup and restore drills
