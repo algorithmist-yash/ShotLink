@@ -1821,8 +1821,8 @@ function App() {
               <p style={styles.sectionEyebrow}>Welcome back, {userFirstName}</p>
               <h1 style={styles.overviewTitle}>{session.workspace.name}</h1>
               <p className="sl-overview-copy">
-                One link layer for every campaign, audience, and official route. Publish faster,
-                monitor every destination, and keep your public identity accountable.
+                One clean workspace for every post, collaboration, portfolio, release, and live
+                event. Publish faster, learn what travels, and keep every campaign route organised.
               </p>
             </div>
             <span className="sl-live-indicator" style={styles.overviewTimestamp}>
@@ -1840,9 +1840,9 @@ function App() {
             <span style={styles.metricHint}>selected link telemetry</span>
           </article>
           <article className="sl-lift sl-command-card" data-accent="amber" style={{ ...styles.commandCard, ...enterpriseDashboardStyles.commandCard }}>
-            <div style={styles.commandCardTop}><span style={styles.commandIndex}>03</span><p style={styles.metricLabel}>Governed domains</p></div>
-            <strong style={styles.commandValue}>{customDomains.length + managedEmailDomains.length}</strong>
-            <span style={styles.metricHint}>{customDomains.length} link · {managedEmailDomains.length} email</span>
+            <div style={styles.commandCardTop}><span style={styles.commandIndex}>03</span><p style={styles.metricLabel}>Branded domains</p></div>
+            <strong style={styles.commandValue}>{customDomains.length}</strong>
+            <span style={styles.metricHint}>{verifiedDomains.length} verified · {domainLimit} allowed</span>
           </article>
           <article className="sl-lift sl-command-card" data-accent="violet" style={{ ...styles.commandCard, ...enterpriseDashboardStyles.commandCard }}>
             <div style={styles.commandCardTop}><span style={styles.commandIndex}>04</span><p style={styles.metricLabel}>Current plan</p></div>
