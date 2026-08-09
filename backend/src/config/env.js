@@ -20,6 +20,8 @@ const DEPLOYMENT_ENV_MARKERS = [
   "RAILWAY_ENVIRONMENT",
   "RAILWAY_PROJECT_ID",
   "RAILWAY_SERVICE_ID",
+  "RENDER",
+  "RENDER_SERVICE_ID",
 ];
 
 function isDeployedEnvironment(env = process.env) {

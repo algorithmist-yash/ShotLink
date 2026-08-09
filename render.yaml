@@ -1,0 +1,94 @@
+previews:
+  generation: "off"
+
+services:
+  - type: keyvalue
+    name: shotlink-cache
+    region: singapore
+    plan: free
+    ipAllowList: []
+    maxmemoryPolicy: allkeys-lru
+
+  - type: web
+    name: shotlink-api
+    runtime: node
+    region: singapore
+    plan: starter
+    rootDir: backend
+    branch: main
+    buildCommand: npm ci --omit=dev
+    preDeployCommand: npm run migrate:redirect-outbox && npm run migrate:health-queue && npm run migrate:analytics-retention
+    startCommand: npm start
+    healthCheckPath: /health
+    maxShutdownDelaySeconds: 30
+    autoDeployTrigger: checksPass
+    domains:
+      - api.shotlink.in
+      - go.shotlink.in
+    envVars:
+      - key: NODE_VERSION
+        value: 24.18.0
+      - key: NODE_ENV
+        value: production
+      - key: MONGO_URI
+        sync: false
+      - key: REDIS_URL
+        fromService:
+          type: keyvalue
+          name: shotlink-cache
+          property: connectionString
+      - key: BASE_URL
+        value: https://go.shotlink.in
+      - key: SHORTLINK_BASE_URL
+        value: https://shotlink.in
+      - key: APP_BASE_URL
+        value: https://www.shotlink.in
+      - key: CUSTOM_DOMAIN_CNAME_TARGET
+        value: go.shotlink.in
+      - key: ALLOWED_ORIGINS
+        value: https://shotlink.in,https://www.shotlink.in
+      - key: IP_HASH_SALT
+        generateValue: true
+      - key: CSRF_SECRET
+        generateValue: true
+      - key: RAZORPAY_KEY_ID
+        sync: false
+      - key: RAZORPAY_KEY_SECRET
+        sync: false
+      - key: RAZORPAY_WEBHOOK_SECRET
+        sync: false
+      - key: RAZORPAY_PLAN_ID_PRO_MONTHLY
+        sync: false
+      - key: RAZORPAY_PLAN_ID_BUSINESS_MONTHLY
+        sync: false
+      - key: SUPPORT_EMAIL
+        value: support@shotlink.in
+      - key: METRICS_TOKEN
+        generateValue: true
+
+  - type: worker
+    name: shotlink-health-worker
+    runtime: node
+    region: singapore
+    plan: starter
+    rootDir: backend
+    branch: main
+    buildCommand: npm ci --omit=dev
+    startCommand: npm run worker:health
+    maxShutdownDelaySeconds: 30
+    autoDeployTrigger: checksPass
+    envVars:
+      - key: NODE_VERSION
+        value: 24.18.0
+      - key: NODE_ENV
+        value: production
+      - key: MONGO_URI
+        fromService:
+          type: web
+          name: shotlink-api
+          envVarKey: MONGO_URI
+      - key: REDIS_URL
+        fromService:
+          type: keyvalue
+          name: shotlink-cache
+          property: connectionString

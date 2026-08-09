@@ -17,9 +17,9 @@ This is an engineering checklist, not legal advice. Before taking paid customers
 - Replace placeholder support details with a real business email such as `legal@shotlink.in` and `abuse@shotlink.in`.
 - Publish standalone Terms of Service, Privacy Notice, Acceptable Use Policy, Refund/Cancellation Policy, and Grievance/Abuse reporting page.
 - Put the same policy version/date in the public documents and in `ACCOUNT_POLICY_VERSION` / `LINK_POLICY_VERSION`.
-- Configure `ALLOWED_ORIGINS` on Railway with only your real frontend URL, for example `https://shotlink.in,https://www.shotlink.in`.
-- Use a production `SESSION_SECRET`, MongoDB Atlas least-privilege database user, and Razorpay live keys only in Railway/Vercel environment variables.
-- Turn on MongoDB Atlas alerts, Railway deploy alerts, and Razorpay webhook failure alerts.
+- Configure `ALLOWED_ORIGINS` on Render with only your real frontend URLs, for example `https://shotlink.in,https://www.shotlink.in`.
+- Use production `CSRF_SECRET` and `IP_HASH_SALT` values, a MongoDB Atlas least-privilege database user, and Razorpay live keys only in Render/Vercel environment variables.
+- Turn on MongoDB Atlas alerts, Render deploy alerts, and Razorpay webhook failure alerts.
 - Create an abuse takedown workflow: verify report, disable link, retain evidence, and respond to the reporter.
 - Decide log retention with a lawyer. CERT-In directions can require security logs to be retained for Indian compliance contexts.
 
@@ -27,7 +27,7 @@ This is an engineering checklist, not legal advice. Before taking paid customers
 
 - What personal data is collected: name, email, workspace, billing status, support requests, short links, click time, device type, browser, OS, referrer, redirect target, and hashed IP.
 - Why it is collected: account management, billing, analytics, fraud prevention, abuse handling, security, and customer support.
-- Data sharing: MongoDB Atlas, Railway, Vercel, Razorpay, email/support tools, and any analytics/monitoring tools.
+- Data sharing: MongoDB Atlas, Render, Vercel, Razorpay, email/support tools, and any analytics/monitoring tools.
 - User rights: access, correction, deletion, consent withdrawal, grievance redressal, and contact method.
 - Prohibited uses: phishing, malware, spam, unlawful content, impersonation, deceptive redirects, scraping, platform abuse, and links without authority.
 - Enforcement rights: suspend, expire, or remove abusive links and accounts.

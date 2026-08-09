@@ -1,12 +1,12 @@
 # Disaster Recovery Runbook
 
-This runbook covers Shotlink's MongoDB Atlas data, non-authoritative Redis cache, and Railway backend deployment. It must be reviewed after any storage, hosting, authentication, or billing architecture change.
+This runbook covers Shotlink's MongoDB Atlas data, non-authoritative Redis cache, and Render backend deployment. It must be reviewed after any storage, hosting, authentication, or billing architecture change.
 
 ## Ownership and objectives
 
 - Incident commander: primary production operator
 - Database recovery operator: MongoDB Atlas project owner or Backup Recovery Operator
-- Deployment recovery operator: Railway project owner
+- Deployment recovery operator: Render workspace owner
 - Communications owner: customer-support operator
 - Target RPO: 15 minutes for accounts, workspaces, billing state, and links
 - Target RTO: 2 hours for the API and redirect service
@@ -30,16 +30,16 @@ as a recovery source. If
 Redis is lost, provision a replacement, update `REDIS_URL`, redeploy, and allow
 the cache to warm from MongoDB while monitoring database load and redirect
 latency.
-7. Set `RAILWAY_DEPLOYMENT_DRAINING_SECONDS=15` so the application can finish its bounded graceful shutdown during deployments.
+7. Keep `maxShutdownDelaySeconds` in `render.yaml` aligned with the application's bounded graceful shutdown.
 8. Keep a secure, access-controlled inventory of production variable names and recovery contacts. Never store secret values in this repository or in incident tickets.
-9. Keep the URL-health Railway worker deployed separately with no public domain,
+9. Keep the URL-health Render worker deployed separately with no public domain,
    and verify it uses the same `MONGO_URI` and `REDIS_URL` as the API service.
 
 Atlas backup guidance: <https://www.mongodb.com/docs/atlas/architecture/current/backups/>
 
 ## Incident classification
 
-- Application regression: data is intact; rollback the Railway deployment.
+- Application regression: data is intact; rollback the Render deployment.
 - Credential compromise: rotate affected credentials, revoke sessions where applicable, then redeploy.
 - Accidental write or logical corruption: stop further writes and perform a point-in-time restore.
 - Cluster loss or regional outage: restore into a new Atlas cluster/region and cut over `MONGO_URI`.
@@ -48,14 +48,14 @@ Atlas backup guidance: <https://www.mongodb.com/docs/atlas/architecture/current/
 ## Application rollback
 
 1. Declare the incident and record the first known bad deployment and UTC timestamp.
-2. In Railway, open the backend service's deployment history.
+2. In Render, open the API service's deployment history.
 3. Roll back to the most recent verified deployment within the plan's retention window.
 4. Confirm `/health` returns HTTP 200.
 5. Verify sign-in, a read-only billing summary, link listing, and one controlled redirect.
 6. Watch correlated `request_error` and `http_request` logs for at least 15 minutes.
 7. If the rollback does not recover service, proceed to database diagnosis without repeatedly changing production.
 
-Railway rollback guidance: <https://docs.railway.com/deployments/deployment-actions>
+Render rollback guidance: <https://render.com/docs/rollbacks>
 
 ## Database recovery
 
@@ -66,7 +66,7 @@ Railway rollback guidance: <https://docs.railway.com/deployments/deployment-acti
 5. Use a least-privilege application database user on the restored cluster.
 6. Validate collection counts and indexes for users, workspaces, URLs, sessions,
    usage counters, click events, redirect outbox jobs, URL-health jobs, and billing records.
-7. Update Railway's `MONGO_URI` secret to the restored cluster and redeploy the last verified application revision.
+7. Update Render's `MONGO_URI` secret to the restored cluster and redeploy the last verified application revision.
 8. Confirm `/health` is HTTP 200 before restoring public traffic.
 9. Run the verification checklist below. If it fails, switch `MONGO_URI` back to the preserved source when safe or restore from an earlier point.
 10. Keep the old cluster read-only until the incident review and reconciliation are complete.

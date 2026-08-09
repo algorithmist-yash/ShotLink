@@ -92,7 +92,7 @@ The live npm advisory refresh was not performed because it would transmit depend
 ## Production work still requiring external configuration
 
 - Deploy the frontend with `VITE_API_BASE_URL=https://api.shotlink.in`.
-- Deploy the API, redirect service, health worker, MongoDB, and Redis using the existing Railway runbook.
+- Deploy the API, redirect service, health worker, MongoDB, and Redis-compatible cache using the Render Blueprint and launch runbook.
 - Add the production frontend origin to backend CORS configuration.
 - Run the documented production migrations.
 - Configure Razorpay production credentials and webhook delivery.
