@@ -16,13 +16,13 @@ const PAGE_BY_PATH = Object.freeze({
 
 const PAGE_METADATA = Object.freeze({
   home: {
-    title: "Shotlink | Short links and QR codes for creators and institutions",
-    description: "Create a temporary short link and QR code in seconds, or upgrade for creator campaigns, branded domains, analytics, and institutional governance.",
+    title: "Shotlink | Short links and QR codes for content creators",
+    description: "Create a temporary short link and QR code in seconds, or use Shotlink for permanent creator campaigns, branded domains, and audience analytics.",
     path: "/",
   },
   pricing: {
-    title: "Shotlink Pricing | Creator, studio, and institutional plans",
-    description: "Compare free, Creator Pro, Studio, and Enterprise plans for links, QR codes, branded domains, analytics, and governance.",
+    title: "Shotlink Pricing | Plans for content creators",
+    description: "Compare free, Creator Pro, and Studio plans for campaign links, QR codes, branded domains, and audience analytics.",
     path: "/pricing",
   },
   docs: {
@@ -57,7 +57,7 @@ const PAGE_METADATA = Object.freeze({
   },
   contact: {
     title: "Contact Us | Shotlink",
-    description: "Contact Shotlink for account help, billing, privacy, institutional onboarding, or abuse reports.",
+    description: "Contact Shotlink for creator account help, billing, privacy requests, partnerships, or abuse reports.",
     path: "/contact",
   },
 });

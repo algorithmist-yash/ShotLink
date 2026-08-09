@@ -181,9 +181,10 @@ describe("Shotlink frontend workflows", () => {
 
     render(<App />);
 
-    expect(await screen.findByRole("heading", { name: /Plans for creators/ })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: /Plans built for content creators/ })).toBeInTheDocument();
     expect(screen.getByRole("status")).toHaveTextContent("No real payment is collected yet.");
     expect(screen.getAllByText("Coming soon").length).toBeGreaterThan(0);
+    expect(screen.queryByText("Enterprise")).not.toBeInTheDocument();
   });
 
   test("shows a rejected sign-in beside the authentication form", async () => {
@@ -539,7 +540,7 @@ describe("Shotlink frontend workflows", () => {
 
     expect(
       await screen.findByRole("heading", {
-        name: /One link layer/,
+        name: /One link\./,
       })
     ).toBeInTheDocument();
   });

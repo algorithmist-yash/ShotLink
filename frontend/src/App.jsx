@@ -910,10 +910,10 @@ function App() {
     <div
       style={{
         ...styles.planGrid,
-        gridTemplateColumns: isMobile || compact ? "1fr" : "repeat(4, minmax(0, 1fr))",
+        gridTemplateColumns: isMobile || compact ? "1fr" : "repeat(3, minmax(0, 1fr))",
       }}
     >
-      {publicPlans.map((plan) => (
+      {publicPlans.filter((plan) => plan.id !== "enterprise").map((plan) => (
         <div
           key={plan.id}
           className="sl-lift"
@@ -923,9 +923,7 @@ function App() {
             <strong style={styles.planName}>{plan.name}</strong>
             <StatusPill
               label={
-                plan.id === "enterprise"
-                  ? "Custom volume"
-                  : plan.id !== "free" && !checkoutAvailability.enabled
+                plan.id !== "free" && !checkoutAvailability.enabled
                     ? "Coming soon"
                     : `${plan.linkLimit} links`
               }
@@ -960,10 +958,10 @@ function App() {
       return (
         <section className="sl-reveal" style={styles.publicPageCard}>
           <p style={styles.sectionEyebrow}>Pricing</p>
-          <h1 style={styles.publicTitle}>Plans for creators, studios, and institutions.</h1>
+          <h1 style={styles.publicTitle}>Plans built for content creators.</h1>
           <p style={styles.publicLead}>
-            Start free, choose Creator Pro for an individual profile, Studio for managed talent,
-            or Enterprise for organisation-wide governance.
+            Start free, choose Creator Pro for an independent profile, or use Studio when a
+            manager or creator team coordinates multiple campaigns.
           </p>
           {!checkoutAvailability.enabled ? (
             <div role="status" style={styles.checkoutNotice}>
@@ -1590,8 +1588,8 @@ function App() {
                     {authMode === "register" ? "Create your Shotlink workspace" : "Sign in"}
                   </h1>
                   <p style={styles.authSubtitle}>
-                   {authMode === "register"
-                      ? "Create an independent workspace or use your institution-provisioned account."
+                    {authMode === "register"
+                      ? "Start with free campaign links, QR codes, and creator analytics."
                       : "Continue to your links, analytics, domains, and billing."}
                   </p>
                 </div>
@@ -1624,9 +1622,7 @@ function App() {
                     }
                   />
                   {authMode === "register" ? (
-                    <span style={styles.miniHelperText}>
-                      Verified institution domains require administrator-provisioned access.
-                    </span>
+                    <span style={styles.miniHelperText}>Use an email address you can access and verify.</span>
                   ) : null}
                 </label>
 
@@ -2174,8 +2170,8 @@ function App() {
 
           <section id="domains-panel" style={{ ...styles.panelCard, ...enterpriseDashboardStyles.panelCard, gridArea: "domains" }}>
             <div style={styles.panelTitleRow}>
-              <div><p style={styles.sectionEyebrow}>Domains</p><h2 style={styles.panelTitle}>Link and identity governance</h2></div>
-              <StatusPill label={`${customDomains.length} link · ${managedEmailDomains.length} email`} tone={domainLimit ? "accent" : "neutral"} />
+              <div><p style={styles.sectionEyebrow}>Domains</p><h2 style={styles.panelTitle}>Branded link domains</h2></div>
+              <StatusPill label={`${customDomains.length} connected`} tone={domainLimit ? "accent" : "neutral"} />
             </div>
             <FeedbackMessage message={domainError} />
             <FeedbackMessage message={domainMessage} tone="success" />
@@ -2189,7 +2185,7 @@ function App() {
                 {domainSaving ? "Adding..." : "Add domain"}
               </button>
             </div>
-            {domainLimit === 0 ? <p style={styles.helperText}>Upgrade to Pro or Business to use branded short links on customer domains.</p> : null}
+            {domainLimit === 0 ? <p style={styles.helperText}>Upgrade to Creator Pro or Studio to publish branded campaign links.</p> : null}
             {customDomains.length ? (
               <div style={styles.domainList}>
                 {customDomains.map((domain) => (
@@ -2208,9 +2204,9 @@ function App() {
                   </div>
                 ))}
               </div>
-            ) : <p style={styles.emptyState}>Add a customer subdomain, publish the DNS records, then verify it here.</p>}
+            ) : <p style={styles.emptyState}>Add your branded subdomain, publish the DNS records, then verify it here.</p>}
 
-            <div style={{ ...styles.paymentCard, marginTop: 20 }}>
+            {institutionGovernanceEnabled ? <div style={{ ...styles.paymentCard, marginTop: 20 }}>
               <div style={styles.panelTitleRow}>
                 <div>
                   <p style={styles.sectionEyebrow}>Institution access</p>
@@ -2251,11 +2247,6 @@ function App() {
                   {managedEmailDomainSaving ? "Adding..." : "Claim domain"}
                 </button>
               </div>
-              {!institutionGovernanceEnabled ? (
-                <p style={styles.helperText}>
-                  Contact sales for Enterprise onboarding, procurement support, and domain governance.
-                </p>
-              ) : null}
               {managedEmailDomains.length ? (
                 <div style={styles.domainList}>
                   {managedEmailDomains.map((domain) => (
@@ -2298,7 +2289,7 @@ function App() {
                   ))}
                 </div>
               ) : null}
-            </div>
+            </div> : null}
           </section>
 
           <section id="billing-panel" style={{ ...styles.panelCard, ...enterpriseDashboardStyles.panelCard, gridArea: "billing" }}>
@@ -2334,17 +2325,16 @@ function App() {
                 </p>
               </div>
               <div style={styles.compactPlanGrid}>
-                {publicPlans.filter((plan) => plan.id !== "free").map((plan) => {
+                {publicPlans.filter((plan) => plan.id !== "free" && plan.id !== "enterprise").map((plan) => {
                   const isCurrentPlan = currentPlan.effectivePlanId === plan.id;
                   const isCheckoutLoading = checkoutLoadingPlanId === plan.id;
-                  const isPaidCheckoutUnavailable =
-                    plan.id !== "enterprise" && !checkoutAvailability.enabled;
+                  const isPaidCheckoutUnavailable = !checkoutAvailability.enabled;
                   return (
                     <div key={plan.id} style={{ ...styles.compactPlanCard, ...enterpriseDashboardStyles.compactPlanCard }}>
                       <div style={styles.planHeader}><strong style={styles.planName}>{plan.name}</strong><span style={styles.compactPlanPrice}>{formatPlanPrice(plan)}</span></div>
-                      <p style={styles.miniHelperText}>{plan.id === "enterprise" ? "Custom security, support, and scale." : `${plan.linkLimit} links and ${plan.domainLimit} branded ${plan.domainLimit === 1 ? "domain" : "domains"}.`}</p>
+                      <p style={styles.miniHelperText}>{plan.linkLimit} links and {plan.domainLimit} branded {plan.domainLimit === 1 ? "domain" : "domains"}.</p>
                       <button style={isCurrentPlan || isCheckoutLoading || isPaidCheckoutUnavailable ? { ...styles.secondaryButton, opacity: 0.65, cursor: "not-allowed" } : styles.primaryButton} onClick={() => startPlanCheckout(plan)} disabled={isCurrentPlan || isPaidCheckoutUnavailable || Boolean(checkoutLoadingPlanId)}>
-                        {isCurrentPlan ? "Current plan" : isCheckoutLoading ? "Opening..." : plan.id === "enterprise" ? "Contact sales" : isPaidCheckoutUnavailable ? "Live checkout coming soon" : `Upgrade to ${plan.name}`}
+                        {isCurrentPlan ? "Current plan" : isCheckoutLoading ? "Opening..." : isPaidCheckoutUnavailable ? "Live checkout coming soon" : `Upgrade to ${plan.name}`}
                       </button>
                     </div>
                   );

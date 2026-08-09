@@ -14,7 +14,7 @@ export const LEGAL_PAGE_CONTENT = Object.freeze({
         title: "Safety and acceptable use",
         paragraphs: [
           "Only create or share links when you own the destination or are authorised to distribute it. Phishing, malware, spam, impersonation, unlawful content, deceptive redirects, and attempts to evade platform safeguards are prohibited.",
-          "We may disable links or accounts, preserve evidence, and cooperate with lawful requests when necessary to protect users, institutions, or the public.",
+          "We may disable links or accounts, preserve evidence, and cooperate with lawful requests when necessary to protect creators, audiences, or the public.",
         ],
       },
       {
@@ -57,7 +57,7 @@ export const LEGAL_PAGE_CONTENT = Object.freeze({
         title: "2. Accounts and workspaces",
         paragraphs: [
           "Provide accurate information, protect your sign-in credentials, and promptly notify support if you suspect unauthorised access. You are responsible for activity performed through your account and for assigning appropriate workspace roles.",
-          "An institution may prove control of an official email domain through DNS. Once verified, Shotlink may prevent separate workspaces from being created with that domain and require access to be provisioned by the verified institution administrator.",
+          "Workspace owners may invite collaborators where their plan allows it. Keep access limited to people who are authorised to manage your creator links, domains, QR codes, and analytics.",
         ],
       },
       {
@@ -74,7 +74,7 @@ export const LEGAL_PAGE_CONTENT = Object.freeze({
           "Impersonation, deceptive redirects, fraud, harassment, or infringement of third-party rights.",
           "Illegal content or activity, including attempts to bypass sanctions, court orders, or regulatory restrictions.",
           "Automated activity that disrupts the service, probes other accounts, defeats rate limits, or interferes with security controls.",
-          "Resale or access sharing that exceeds the purchased plan or a written enterprise agreement.",
+          "Resale or access sharing that exceeds the purchased plan or a written service agreement.",
         ],
       },
       {
@@ -158,7 +158,7 @@ export const LEGAL_PAGE_CONTENT = Object.freeze({
         bullets: [
           "Provide, secure, troubleshoot, and improve the link-routing service.",
           "Show workspace analytics and enforce plan limits.",
-          "Verify custom domains and institutional email-domain governance.",
+          "Verify branded domains and keep campaign links scoped to the correct workspace.",
           "Process subscriptions, reconcile payment events, and respond to billing questions.",
           "Detect abuse, investigate incidents, comply with law, and protect users and the public.",
         ],
@@ -296,7 +296,7 @@ export const LEGAL_PAGE_CONTENT = Object.freeze({
     eyebrow: "Contact Us",
     title: "Talk to the person operating Shotlink.",
     lead:
-      "Use these verified channels for account help, billing questions, privacy requests, institutional onboarding, and abuse reports.",
+      "Use these verified channels for creator account help, billing questions, privacy requests, partnerships, and abuse reports.",
     contactRows: [
       { label: "Brand", value: "Shotlink" },
       { label: "Operator", value: "Yash Raj — Individual / Unregistered Business" },
@@ -319,7 +319,7 @@ export const LEGAL_PAGE_CONTENT = Object.freeze({
           { label: "Account and billing support", href: "mailto:support@shotlink.in?subject=Shotlink%20account%20support" },
           { label: "Report abuse or phishing", href: "mailto:support@shotlink.in?subject=Shotlink%20abuse%20report" },
           { label: "Privacy request", href: "mailto:support@shotlink.in?subject=Shotlink%20privacy%20request" },
-          { label: "Institutional onboarding", href: "mailto:support@shotlink.in?subject=Shotlink%20institutional%20onboarding" },
+          { label: "Creator partnership", href: "mailto:support@shotlink.in?subject=Shotlink%20creator%20partnership" },
         ],
       },
     ],

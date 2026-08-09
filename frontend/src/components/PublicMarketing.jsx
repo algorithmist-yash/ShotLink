@@ -39,108 +39,108 @@ const CREATOR_PLANS = [
   },
 ];
 
-const SECTORS = [
+const CREATOR_TYPES = [
   {
     index: "01",
-    name: "Higher education",
-    title: "One governed link layer for every campus.",
-    text: "Admissions, examinations, departments, faculty, and student services publish from one accountable workspace.",
+    name: "Influencers & UGC creators",
+    title: "One campaign link for every placement.",
+    text: "Share a clean link across bios, stories, captions, brand briefs, and creator collaborations without losing the campaign signal.",
     accent: "violet",
-    example: "go.university.edu/admissions",
+    example: "shotlink.in/summer-drop",
   },
   {
     index: "02",
-    name: "Government & public sector",
-    title: "Public information that stays official.",
-    text: "Create recognisable short links for notices, citizen services, field campaigns, and emergency communication.",
+    name: "Models & photographers",
+    title: "Share portfolios without the messy URL.",
+    text: "Give casting teams, clients, and collaborators a memorable route to your latest portfolio, booking page, or campaign gallery.",
     accent: "lime",
-    example: "go.agency.gov.in/notice",
+    example: "shotlink.in/portfolio",
   },
   {
     index: "03",
-    name: "Large enterprise",
-    title: "Brand control without slowing teams down.",
-    text: "Keep regional teams and business units inside one domain policy with measurable, resilient routing.",
+    name: "Streamers, musicians & podcasters",
+    title: "Launch once. Learn from every click.",
+    text: "Route audiences to a new release, live stream, episode, ticket page, or sponsor offer and see which channel sends them.",
     accent: "orange",
-    example: "link.enterprise.com/launch",
+    example: "shotlink.in/new-release",
   },
 ];
 
 const CAPABILITIES = [
   {
     number: "001",
-    title: "Institution domain governance",
-    text: "Prove ownership with DNS once. After verification, staff cannot create unsanctioned Shotlink workspaces using the protected official email domain.",
-    tags: ["DNS ownership", "Official email lock", "Admin provisioned", "Audit event"],
+    title: "Creator campaign links",
+    text: "Turn long post, shop, portfolio, booking, and sponsor URLs into clean links that are easier to remember and safer to share.",
+    tags: ["Custom aliases", "Campaign labels", "Automatic expiry", "Fallback routes"],
   },
   {
     number: "002",
-    title: "Branded link infrastructure",
-    text: "Connect a trusted short domain, verify it, choose the primary surface, and publish links that audiences recognise immediately.",
-    tags: ["Custom domains", "Custom aliases", "QR codes", "Automatic expiry"],
+    title: "Branded creator identity",
+    text: "Connect a branded domain on a paid plan so every campaign link feels like part of your public profile, not a random redirect.",
+    tags: ["Custom domains", "Recognisable links", "Profile consistency", "Workspace control"],
   },
   {
     number: "003",
-    title: "Continuity-aware routing",
-    text: "Monitor a primary destination and ordered fallback pages so critical communication has a healthy path when a page fails.",
-    tags: ["Health checks", "Fallback routes", "Manual disable", "Route telemetry"],
+    title: "QR-ready launches",
+    text: "Generate a QR code with the same short link for posters, event screens, product packaging, portfolios, and in-person collaborations.",
+    tags: ["Instant QR", "Downloadable asset", "Online + offline", "Shared analytics"],
   },
   {
     number: "004",
-    title: "Accountable measurement",
-    text: "See clicks, devices, browsers, operating systems, referrers, route status, and recent events inside the owning workspace.",
-    tags: ["Workspace scope", "Click analytics", "Role checks", "Audit logs"],
+    title: "Audience signals",
+    text: "See clicks, devices, browsers, operating systems, referrers, and recent activity so the next post starts with better evidence.",
+    tags: ["Click analytics", "Referrers", "Device mix", "Campaign exports"],
   },
 ];
 
 const WORKFLOW = [
   {
     step: "01",
-    title: "Claim the institution",
-    text: "An authorised administrator adds the official email domain and receives a unique DNS TXT record.",
+    title: "Paste your destination",
+    text: "Start with a post, video, portfolio, store, ticket, booking, episode, or sponsor URL you are authorised to share.",
   },
   {
     step: "02",
-    title: "Verify ownership",
-    text: "Shotlink confirms the TXT record. The domain becomes governed by that single institutional workspace.",
+    title: "Make the short link + QR",
+    text: "Choose an expiry for a quick link, or create a workspace for a permanent campaign link and downloadable QR code.",
   },
   {
     step: "03",
-    title: "Provision people centrally",
-    text: "New self-service workspace creation on the protected domain is blocked and routed back to the institution administrator.",
+    title: "Share it everywhere",
+    text: "Use the same campaign route across bios, stories, captions, DMs, print, event screens, and collaboration briefs.",
   },
   {
     step: "04",
-    title: "Publish with control",
-    text: "Teams create branded links with expiry, fallback routing, analytics, and a traceable workspace record.",
+    title: "Learn and improve",
+    text: "Read click and referrer signals, protect the route with fallbacks, and carry what worked into the next launch.",
   },
 ];
 
 const FAQS = [
   {
-    question: "Can anyone claim a university or government email domain?",
+    question: "Can I try Shotlink without paying?",
     answer:
-      "No. The workspace must publish a unique DNS TXT record before the domain becomes governed. That proves control of the institution's DNS, not merely possession of one email address.",
+      "Yes. You can create a temporary short link and QR code from the homepage, or register a free workspace for up to 10 active links and basic analytics. Live paid checkout is not enabled yet.",
   },
   {
-    question: "What happens after an official email domain is verified?",
+    question: "How long can a temporary link stay active?",
     answer:
-      "New users with that domain cannot create separate, unsanctioned Shotlink workspaces. They are told to request administrator-provisioned access from the institution that owns the domain.",
+      "You can choose 5, 10, 15, or 30 minutes. The link and its QR code stop routing automatically when that time ends. Use a workspace when a campaign needs a permanent route.",
   },
   {
-    question: "Does Shotlink replace our official website domain?",
+    question: "Can I use the QR code offline?",
     answer:
-      "No. It adds a controlled short-link layer. You can connect a dedicated branded subdomain such as go.university.edu while keeping your existing websites and systems unchanged.",
+      "Yes. Download it for portfolios, event screens, posters, packaging, or media kits. It opens the same destination and follows the same expiry rules as the short link.",
   },
   {
-    question: "What happens when a destination page is unavailable?",
+    question: "What audience insights will I see?",
     answer:
-      "A link can have ordered fallback destinations. Shotlink records route health and sends visitors to the healthiest available approved destination.",
+      "Workspace analytics can show clicks, device categories, browsers, operating systems, referrers, route status, and recent activity for your links.",
   },
   {
-    question: "Is link activity separated between institutions?",
+    question: "Is Studio meant for a talent manager or creator team?",
     answer:
-      "Yes. Link creation, inventory, analytics, domains, and audit events are scoped to the authenticated workspace and protected by workspace roles.",
+      "Yes. Studio is designed for managers, agencies, photographers, and small creator teams coordinating multiple profiles, branded domains, QR assets, and campaign exports.",
   },
 ];
 
@@ -148,13 +148,13 @@ function Arrow({ diagonal = false }) {
   return <span aria-hidden="true">{diagonal ? "↗" : "→"}</span>;
 }
 
-function GovernanceConsole() {
+function CreatorConsole() {
   return (
-    <div className="mk-console" aria-label="Institution governance preview">
+    <div className="mk-console" aria-label="Creator campaign preview">
       <div className="mk-console-bar">
         <div className="mk-console-dots" aria-hidden="true"><i /><i /><i /></div>
-        <span>app.shotlink.in / governance</span>
-        <span className="mk-console-live"><i /> policy live</span>
+        <span>app.shotlink.in / campaigns</span>
+        <span className="mk-console-live"><i /> campaign live</span>
       </div>
       <div className="mk-console-body">
         <aside className="mk-console-rail" aria-hidden="true">
@@ -162,21 +162,21 @@ function GovernanceConsole() {
         </aside>
         <div className="mk-console-main">
           <div className="mk-console-heading">
-            <div><small>ACME UNIVERSITY</small><strong>Institution domains</strong></div>
-            <button type="button" tabIndex={-1}>Claim domain +</button>
+            <div><small>SUMMER DROP</small><strong>Campaign overview</strong></div>
+            <button type="button" tabIndex={-1}>New link +</button>
           </div>
           <div className="mk-domain-record">
-            <div className="mk-domain-name"><span>AU</span><div><strong>@acmeuniversity.edu</strong><small>Official email identity</small></div></div>
-            <span className="mk-verified"><i /> verified</span>
+            <div className="mk-domain-name"><span>IG</span><div><strong>@yourprofile</strong><small>Creator workspace</small></div></div>
+            <span className="mk-verified"><i /> live</span>
           </div>
           <div className="mk-policy-grid">
-            <article><small>WORKSPACE POLICY</small><strong>Central provisioning</strong><span>New independent workspaces blocked</span></article>
-            <article><small>LINK DOMAIN</small><strong>go.acmeuniversity.edu</strong><span>Verified · primary</span></article>
-            <article><small>ROUTE HEALTH</small><strong>All systems normal</strong><span>2 fallback paths ready</span></article>
+            <article><small>CAMPAIGN LINK</small><strong>shotlink.in/summer</strong><span>Primary route active</span></article>
+            <article><small>AUDIENCE SIGNALS</small><strong>12.8K clicks</strong><span>Instagram leads today</span></article>
+            <article><small>QR KIT</small><strong>Ready to share</strong><span>Print asset downloaded</span></article>
           </div>
           <div className="mk-console-log">
-            <div><span>10:42</span><strong>institution_domain.verified</strong><small>DNS ownership confirmed</small></div>
-            <div><span>10:44</span><strong>link.created</strong><small>/admissions-2027</small></div>
+            <div><span>10:42</span><strong>campaign.clicked</strong><small>instagram.com / mobile</small></div>
+            <div><span>10:44</span><strong>link.created</strong><small>/summer-drop</small></div>
           </div>
         </div>
       </div>
@@ -404,7 +404,7 @@ export function PublicHeader({ onLogin, onStart }) {
       <nav className="mk-desktop-nav" aria-label="Primary navigation">
         <a href="/#create">Create</a>
         <a href="/#creators">Creators</a>
-        <a href="/#solutions">Institutions</a>
+        <a href="/#solutions">Use cases</a>
         <a href="/pricing">Pricing</a>
       </nav>
       <div className="mk-header-actions">
@@ -424,7 +424,7 @@ export function PublicHeader({ onLogin, onStart }) {
         <nav className="mk-mobile-menu" aria-label="Mobile navigation">
           <a href="/#create" onClick={closeMenu}>Create a link</a>
           <a href="/#creators" onClick={closeMenu}>Creators</a>
-          <a href="/#solutions" onClick={closeMenu}>Institutions</a>
+          <a href="/#solutions" onClick={closeMenu}>Use cases</a>
           <a href="/pricing" onClick={closeMenu}>Pricing</a>
           <button type="button" onClick={() => { closeMenu(); onLogin(); }}>Sign in</button>
           <button type="button" className="mk-mobile-cta" onClick={() => { closeMenu(); onStart(); }}>
@@ -448,15 +448,15 @@ export function PublicLanding({ onStart }) {
         <div className="mk-orbit mk-orbit-two" aria-hidden="true" />
         <div className="mk-hero-topline">
           <span>Link infrastructure for every public profile</span>
-          <span>Creators · Models · Universities · Government</span>
+          <span>Influencers · Models · Streamers · Artists</span>
         </div>
         <div className="mk-hero-copy">
-          <p className="mk-kicker"><i /> Fast to share. Built to govern.</p>
-          <h1>One link layer.<br /><em>Every audience.</em></h1>
+          <p className="mk-kicker"><i /> Built for the next post.</p>
+          <h1>One link.<br /><em>Everywhere you create.</em></h1>
           <div className="mk-hero-bottom">
             <p>
-              Make a 30-minute short link and QR instantly. Upgrade for permanent creator
-              campaigns, branded domains, audience analytics, or institution-wide governance.
+              Make a 30-minute short link and QR instantly. Create a free workspace for permanent
+              campaign links, then upgrade later for branded domains and deeper audience insight.
             </p>
             <div className="mk-hero-actions">
               <a className="mk-primary-button" href="#create">
@@ -468,9 +468,9 @@ export function PublicLanding({ onStart }) {
             </div>
           </div>
         </div>
-        <GovernanceConsole />
+        <CreatorConsole />
         <div className="mk-hero-footnote">
-          <span>Instant QR generation</span><span>Automatic expiry</span><span>Governed workspaces</span>
+          <span>Instant QR generation</span><span>Automatic expiry</span><span>Creator analytics</span>
         </div>
       </section>
 
@@ -480,21 +480,21 @@ export function PublicLanding({ onStart }) {
       <section className="mk-statement mk-section" id="solutions">
         <div className="mk-statement-label"><span>Why Shotlink</span><strong>01 / 05</strong></div>
         <div className="mk-statement-copy">
-          <h2>Turn every official URL into <em>accountable infrastructure.</em></h2>
+          <h2>Turn every post into <em>a campaign you can measure.</em></h2>
           <p>
-            Public links are small pieces of critical infrastructure. Shotlink gives institutions
-            one governed place to create them, brand them, measure them, and keep them available.
+            Shotlink gives creators one clean place to shorten, share, brand, and measure the links
+            behind every post, collaboration, portfolio, release, and live event.
           </p>
         </div>
       </section>
 
       <section className="mk-sector-section mk-section">
         <div className="mk-section-heading mk-section-heading-row">
-          <div><p>Built for public trust</p><h2>Three institutions.<br />One control plane.</h2></div>
-          <span>Designed for organisations where ownership, continuity, and accountability matter.</span>
+          <div><p>Made for creator work</p><h2>Every format.<br />One campaign layer.</h2></div>
+          <span>Designed for people building an audience across more than one platform.</span>
         </div>
         <div className="mk-sector-grid">
-          {SECTORS.map((sector) => (
+          {CREATOR_TYPES.map((sector) => (
             <article key={sector.name} className={`mk-sector-card is-${sector.accent}`}>
               <div className="mk-sector-top"><span>{sector.index}</span><small>{sector.name}</small></div>
               <div className="mk-sector-art" aria-hidden="true">
@@ -508,10 +508,10 @@ export function PublicLanding({ onStart }) {
         </div>
       </section>
 
-      <section className="mk-capabilities mk-section" id="governance">
+      <section className="mk-capabilities mk-section" id="features">
         <div className="mk-section-heading mk-section-heading-row">
-          <div><p>What the platform governs</p><h2>Control without<br />the bottleneck.</h2></div>
-          <span>Four connected layers keep identity, publishing, routing, and evidence together.</span>
+          <div><p>What creators get</p><h2>Publish fast.<br />Learn what travels.</h2></div>
+          <span>Four connected tools take a destination from first share to measurable campaign.</span>
         </div>
         <div className="mk-capability-list">
           {CAPABILITIES.map((capability, index) => {
@@ -537,11 +537,11 @@ export function PublicLanding({ onStart }) {
 
       <section className="mk-workflow mk-section">
         <div className="mk-workflow-intro">
-          <p>Domain-lock workflow</p>
-          <h2>Your official email domain becomes a policy boundary.</h2>
+          <p>Post-to-performance workflow</p>
+          <h2>From long URL to useful audience signal.</h2>
           <span>
-            A DNS record proves institutional ownership. Shotlink then prevents new shadow
-            workspaces from being created with protected official email addresses.
+            Use one repeatable workflow for a quick post, a portfolio handoff, a brand
+            collaboration, a product drop, or a full creator campaign.
           </span>
         </div>
         <div className="mk-workflow-steps">
@@ -555,34 +555,34 @@ export function PublicLanding({ onStart }) {
 
       <section className="mk-proof mk-section" id="security">
         <div className="mk-proof-copy">
-          <p>Operational trust</p>
-          <h2>Proof lives in the product.</h2>
+          <p>Creator-safe by design</p>
+          <h2>Your audience deserves a link they can trust.</h2>
           <span>
             The platform already enforces secure browser sessions, CSRF protection, workspace
-            roles, destination authority consent, DNS verification, and audit events.
+            roles, destination authority consent, branded-domain verification, and audit events.
           </span>
           <a href="/trust">Open the trust center <Arrow diagonal /></a>
         </div>
         <div className="mk-proof-grid">
-          <article><strong>01</strong><h3>Identity boundary</h3><p>Verified email domains stop unmanaged workspace creation.</p></article>
-          <article><strong>02</strong><h3>Workspace boundary</h3><p>Links, analytics, domains, and events remain scoped to the owning workspace.</p></article>
-          <article><strong>03</strong><h3>Routing boundary</h3><p>Only verified branded domains can publish institution-facing links.</p></article>
-          <article><strong>04</strong><h3>Evidence boundary</h3><p>Administrative changes and link actions create traceable audit events.</p></article>
+          <article><strong>01</strong><h3>Destination consent</h3><p>Every creator confirms they are authorised to share the destination.</p></article>
+          <article><strong>02</strong><h3>Private workspace</h3><p>Links, analytics, domains, and events stay scoped to the owning account.</p></article>
+          <article><strong>03</strong><h3>Trusted routing</h3><p>HTTPS links and verified branded domains give audiences a consistent route.</p></article>
+          <article><strong>04</strong><h3>Traceable actions</h3><p>Workspace and link changes create an activity record for safer teamwork.</p></article>
         </div>
       </section>
 
       <section className="mk-cta-panel mk-section">
         <div>
-          <p>Institutional onboarding</p>
-          <h2>Bring your official domain.<br />We’ll build the control plane.</h2>
+          <p>Your next campaign</p>
+          <h2>Bring the destination.<br />Shotlink makes it shareable.</h2>
         </div>
-        <button type="button" onClick={onStart}>Book a governance briefing <Arrow /></button>
+        <button type="button" onClick={onStart}>Create your free workspace <Arrow /></button>
       </section>
 
       <section className="mk-faq mk-section">
         <div className="mk-section-heading mk-section-heading-row">
-          <div><p>FAQ</p><h2>The questions<br />procurement will ask.</h2></div>
-          <span>Clear answers for institutional IT, communications, security, and leadership teams.</span>
+          <div><p>FAQ</p><h2>Before your<br />first campaign.</h2></div>
+          <span>Clear answers for independent creators, talent managers, and small creator teams.</span>
         </div>
         <div className="mk-faq-list">
           {FAQS.map((faq, index) => {
@@ -611,22 +611,22 @@ export function PublicFooter({ onStart }) {
       </div>
       <div className="mk-footer-main">
         <div className="mk-footer-brand">
-          <p>Short links and QR campaigns for creators, talent teams, universities, public agencies, and large enterprises.</p>
+          <p>Short links, QR codes, and campaign insight for content creators and talent teams.</p>
           <a href="mailto:support@shotlink.in">support@shotlink.in</a>
           <a href="tel:+918797053635">+91 87970 53635</a>
         </div>
         <div className="mk-footer-column">
-          <strong>Platform</strong><a href="/#create">Quick link</a><a href="/#creators">Creators</a><a href="/#governance">Governance</a><a href="/pricing">Pricing</a>
+          <strong>Platform</strong><a href="/#create">Quick link</a><a href="/#creators">Creator plans</a><a href="/#features">Features</a><a href="/pricing">Pricing</a>
         </div>
         <div className="mk-footer-column">
           <strong>Legal</strong><a href="/terms">Terms</a><a href="/privacy">Privacy</a><a href="/shipping-policy">Digital delivery</a><a href="/refund-policy">Cancellations &amp; refunds</a>
         </div>
         <div className="mk-footer-column">
-          <strong>Organisation</strong><button type="button" onClick={onStart}>Book a briefing</button><a href="/trust">Trust centre</a><a href="/contact">Contact</a><a href="/login">Sign in</a>
+          <strong>Shotlink</strong><button type="button" onClick={onStart}>Create workspace</button><a href="/trust">Trust centre</a><a href="/contact">Contact</a><a href="/login">Sign in</a>
         </div>
       </div>
       <div className="mk-footer-bottom">
-        <span>© 2026 Shotlink. All rights reserved.</span><span>Built in India for creators and institutions everywhere.</span>
+        <span>© 2026 Shotlink. All rights reserved.</span><span>Built in India for creators everywhere.</span>
       </div>
     </footer>
   );
