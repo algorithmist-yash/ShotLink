@@ -6,9 +6,33 @@ const BillingRecord = require("../models/BillingRecord");
 const Workspace = require("../models/Workspace");
 const {
   createSubscription,
+  getCheckoutAvailability,
   handleRazorpayWebhook,
   syncSubscription,
 } = require("./billingController");
+
+test("production checkout requires Razorpay Live Mode", () => {
+  const testMode = getCheckoutAvailability({
+    NODE_ENV: "production",
+    RAZORPAY_KEY_ID: "rzp_test_example",
+  });
+  const liveMode = getCheckoutAvailability({
+    NODE_ENV: "production",
+    RAZORPAY_KEY_ID: "rzp_live_example",
+  });
+  const explicitlyDisabled = getCheckoutAvailability({
+    NODE_ENV: "production",
+    RAZORPAY_KEY_ID: "rzp_live_example",
+    BILLING_CHECKOUT_ENABLED: "false",
+  });
+
+  assert.equal(testMode.enabled, false);
+  assert.equal(testMode.mode, "test");
+  assert.match(testMode.message, /no real payment/i);
+  assert.equal(liveMode.enabled, true);
+  assert.equal(liveMode.mode, "live");
+  assert.equal(explicitlyDisabled.enabled, false);
+});
 
 function createResponse() {
   return {

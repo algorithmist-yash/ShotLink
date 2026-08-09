@@ -132,6 +132,60 @@ describe("Shotlink frontend workflows", () => {
     expect(screen.getByRole("option", { name: "30 minutes" })).toBeInTheDocument();
   });
 
+  test("publishes the required legal and contact details as readable pages", async () => {
+    window.history.replaceState({}, "", "/contact");
+    fetch.mockImplementation(async (input) => {
+      const path = getRequestPath(input);
+      if (path === "/api/v1/auth/me") return jsonResponse(401, { error: "Authentication required" });
+      if (path === "/api/v1/billing/plans") {
+        return jsonResponse(200, {
+          plans: [],
+          checkout: { enabled: false, message: "Live paid checkout is coming soon." },
+        });
+      }
+      throw new Error(`Unexpected request: ${path}`);
+    });
+
+    render(<App />);
+
+    expect(await screen.findByRole("heading", { name: "Talk to the person operating Shotlink." })).toBeInTheDocument();
+    expect(screen.getByText(/Yash Raj — Individual \/ Unregistered Business/)).toBeInTheDocument();
+    expect(
+      screen.getAllByRole("link", { name: "support@shotlink.in" })
+        .some((link) => link.getAttribute("href") === "mailto:support@shotlink.in")
+    ).toBe(true);
+    expect(
+      screen.getAllByRole("link", { name: "+91 87970 53635" })
+        .some((link) => link.getAttribute("href") === "tel:+918797053635")
+    ).toBe(true);
+    expect(screen.getByRole("link", { name: "Terms" })).toHaveAttribute("href", "/terms");
+    expect(screen.getByRole("link", { name: "Privacy" })).toHaveAttribute("href", "/privacy");
+  });
+
+  test("marks paid pricing as coming soon while live checkout is unavailable", async () => {
+    window.history.replaceState({}, "", "/pricing");
+    fetch.mockImplementation(async (input) => {
+      const path = getRequestPath(input);
+      if (path === "/api/v1/auth/me") return jsonResponse(401, { error: "Authentication required" });
+      if (path === "/api/v1/billing/plans") {
+        return jsonResponse(200, {
+          plans: [],
+          checkout: {
+            enabled: false,
+            message: "Live paid checkout is coming soon. No real payment is collected yet.",
+          },
+        });
+      }
+      throw new Error(`Unexpected request: ${path}`);
+    });
+
+    render(<App />);
+
+    expect(await screen.findByRole("heading", { name: /Plans for creators/ })).toBeInTheDocument();
+    expect(screen.getByRole("status")).toHaveTextContent("No real payment is collected yet.");
+    expect(screen.getAllByText("Coming soon").length).toBeGreaterThan(0);
+  });
+
   test("shows a rejected sign-in beside the authentication form", async () => {
     const user = userEvent.setup();
 
@@ -215,6 +269,7 @@ describe("Shotlink frontend workflows", () => {
         return jsonResponse(200, {
           currentPlan: sessionPayload.workspace.billing,
           plans: [],
+          checkout: { enabled: true, message: "Secure Razorpay checkout is available." },
           recentPayments: [],
         });
       }
@@ -271,7 +326,10 @@ describe("Shotlink frontend workflows", () => {
       const method = options.method || "GET";
 
       if (path === "/api/v1/billing/plans") {
-        return jsonResponse(200, { plans: [] });
+        return jsonResponse(200, {
+          plans: [],
+          checkout: { enabled: true, message: "Secure Razorpay checkout is available." },
+        });
       }
 
       if (path === "/api/v1/auth/me") {
@@ -286,6 +344,7 @@ describe("Shotlink frontend workflows", () => {
         return jsonResponse(200, {
           currentPlan: sessionPayload.workspace.billing,
           plans: [],
+          checkout: { enabled: true, message: "Secure Razorpay checkout is available." },
           recentPayments: [],
         });
       }

@@ -13,6 +13,11 @@ export default defineConfig({
         pricing: resolve(import.meta.dirname, "pricing.html"),
         docs: resolve(import.meta.dirname, "docs.html"),
         trust: resolve(import.meta.dirname, "trust.html"),
+        terms: resolve(import.meta.dirname, "terms.html"),
+        privacy: resolve(import.meta.dirname, "privacy.html"),
+        refundPolicy: resolve(import.meta.dirname, "refund-policy.html"),
+        shippingPolicy: resolve(import.meta.dirname, "shipping-policy.html"),
+        contact: resolve(import.meta.dirname, "contact.html"),
       },
       output: {
         manualChunks: {

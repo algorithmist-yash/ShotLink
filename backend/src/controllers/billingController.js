@@ -41,6 +41,27 @@ function getSupportEmail() {
   return process.env.SUPPORT_EMAIL || "support@shotlink.in";
 }
 
+function getCheckoutAvailability(env = process.env) {
+  const keyId = String(env.RAZORPAY_KEY_ID || "").trim();
+  const explicitlyDisabled = String(env.BILLING_CHECKOUT_ENABLED || "")
+    .trim()
+    .toLowerCase() === "false";
+  const production = env.NODE_ENV === "production";
+  const usesLiveKey = keyId.startsWith("rzp_live_");
+  const enabled = !explicitlyDisabled && (!production || usesLiveKey);
+
+  return {
+    enabled,
+    provider: "razorpay",
+    mode: usesLiveKey ? "live" : "test",
+    message: enabled
+      ? "Secure Razorpay checkout is available."
+      : "Live paid checkout is coming soon. Razorpay Test Mode is restricted to internal verification, so no real payment is collected yet.",
+  };
+}
+
+exports.getCheckoutAvailability = getCheckoutAvailability;
+
 function formatAmountInInr(amountInPaise) {
   return `INR ${(amountInPaise / 100).toFixed(0)}`;
 }
@@ -161,6 +182,7 @@ exports.getPublicPlans = async (req, res) => {
   return res.json({
     plans: listPublicPlans(),
     supportEmail: getSupportEmail(),
+    checkout: getCheckoutAvailability(),
   });
 };
 
@@ -178,6 +200,7 @@ exports.getBillingSummary = async (req, res) => {
     return res.json({
       plans: listPublicPlans(),
       supportEmail: getSupportEmail(),
+      checkout: getCheckoutAvailability(),
       currentPlan: buildBillingSummary(req.auth.workspace, linkCount, usageCounter),
       recentPayments: recentRecords.map((record) => ({
         id: record._id,
@@ -205,6 +228,14 @@ exports.getBillingSummary = async (req, res) => {
 
 exports.createPaymentLink = async (req, res) => {
   try {
+    const checkout = getCheckoutAvailability();
+    if (!checkout.enabled) {
+      return res.status(503).json({
+        error: checkout.message,
+        code: "CHECKOUT_NOT_LIVE",
+      });
+    }
+
     const planId = String(req.body.planId || "").trim().toLowerCase();
     const plan = getPlanDefinition(planId);
 
@@ -313,6 +344,14 @@ exports.createSubscription = async (req, res) => {
   let referenceId = "";
 
   try {
+    const checkout = getCheckoutAvailability();
+    if (!checkout.enabled) {
+      return res.status(503).json({
+        error: checkout.message,
+        code: "CHECKOUT_NOT_LIVE",
+      });
+    }
+
     const planId = String(req.body.planId || "").trim().toLowerCase();
     const plan = getPlanDefinition(planId);
 

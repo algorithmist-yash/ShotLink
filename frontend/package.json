@@ -7,6 +7,8 @@
     "node": ">=24.18.0"
   },
   "scripts": {
+    "generate:policies": "node scripts/generate-policy-pages.mjs",
+    "prebuild": "npm run generate:policies",
     "dev": "vite --configLoader runner",
     "build": "vite build --configLoader runner",
     "lint": "eslint .",

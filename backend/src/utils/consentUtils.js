@@ -1,7 +1,7 @@
 const { extractClientIp, hashIp } = require("./deviceInfo");
 
-const ACCOUNT_POLICY_VERSION = "2026-05-19";
-const LINK_POLICY_VERSION = "2026-05-19";
+const ACCOUNT_POLICY_VERSION = "2026-08-09";
+const LINK_POLICY_VERSION = "2026-08-09";
 
 const REQUIRED_ACCOUNT_CONSENTS = [
   "ageConfirmed",

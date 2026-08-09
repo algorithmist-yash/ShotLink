@@ -331,7 +331,12 @@ test("public routes ship indexable HTML and keyboard focus remains visible", asy
   for (const [path, heading] of [
     ["/pricing", "Plans for creators, studios, and institutions."],
     ["/docs", "Build on the Shotlink routing layer."],
-    ["/trust", "Trust rules for public link infrastructure."],
+    ["/trust", "Clear rules for a link people can trust."],
+    ["/terms", "The agreement for using Shotlink."],
+    ["/privacy", "How Shotlink handles personal information."],
+    ["/refund-policy", "Straightforward cancellation for a digital subscription."],
+    ["/shipping-policy", "Shotlink is delivered online—nothing is physically shipped."],
+    ["/contact", "Talk to the person operating Shotlink."],
   ]) {
     const response = await request.get(path);
     expect(response.status()).toBe(200);

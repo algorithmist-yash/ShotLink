@@ -613,15 +613,16 @@ export function PublicFooter({ onStart }) {
         <div className="mk-footer-brand">
           <p>Short links and QR campaigns for creators, talent teams, universities, public agencies, and large enterprises.</p>
           <a href="mailto:support@shotlink.in">support@shotlink.in</a>
+          <a href="tel:+918797053635">+91 87970 53635</a>
         </div>
         <div className="mk-footer-column">
           <strong>Platform</strong><a href="/#create">Quick link</a><a href="/#creators">Creators</a><a href="/#governance">Governance</a><a href="/pricing">Pricing</a>
         </div>
         <div className="mk-footer-column">
-          <strong>Trust</strong><a href="/trust">Security controls</a><a href="/trust">Privacy</a><a href="/trust">Acceptable use</a><a href="/trust">Report abuse</a>
+          <strong>Legal</strong><a href="/terms">Terms</a><a href="/privacy">Privacy</a><a href="/shipping-policy">Digital delivery</a><a href="/refund-policy">Cancellations &amp; refunds</a>
         </div>
         <div className="mk-footer-column">
-          <strong>Organisation</strong><button type="button" onClick={onStart}>Book a briefing</button><a href="mailto:support@shotlink.in">Contact</a><a href="/login">Sign in</a>
+          <strong>Organisation</strong><button type="button" onClick={onStart}>Book a briefing</button><a href="/trust">Trust centre</a><a href="/contact">Contact</a><a href="/login">Sign in</a>
         </div>
       </div>
       <div className="mk-footer-bottom">

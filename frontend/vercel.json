@@ -18,6 +18,34 @@
       "destination": "/trust.html"
     },
     {
+      "source": "/terms",
+      "destination": "/terms.html"
+    },
+    {
+      "source": "/privacy",
+      "destination": "/privacy.html"
+    },
+    {
+      "source": "/contact",
+      "destination": "/contact.html"
+    },
+    {
+      "source": "/refund-policy",
+      "destination": "/refund-policy.html"
+    },
+    {
+      "source": "/cancellation-refund-policy",
+      "destination": "/refund-policy.html"
+    },
+    {
+      "source": "/delivery-policy",
+      "destination": "/shipping-policy.html"
+    },
+    {
+      "source": "/shipping-policy",
+      "destination": "/shipping-policy.html"
+    },
+    {
       "source": "/login",
       "destination": "/index.html"
     },

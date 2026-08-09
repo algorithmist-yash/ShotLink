@@ -9,6 +9,11 @@ import { StatusPill } from "./components/StatusPill";
 import { usePublicPage } from "./hooks/usePublicPage";
 import { useResponsiveLayout } from "./hooks/useResponsiveLayout";
 import {
+  LEGAL_PAGE_CONTENT,
+  OPERATOR_NOTICE,
+  POLICY_EFFECTIVE_DATE,
+} from "./legalContent";
+import {
   formatDate,
   formatLabel,
   formatPlanPrice,
@@ -17,8 +22,8 @@ import {
 import { enterpriseDashboardStyles, styles } from "./styles";
 
 const LEGACY_SESSION_STORAGE_KEY = "url-shortener-session-token";
-const ACCOUNT_POLICY_VERSION = "2026-05-19";
-const LINK_POLICY_VERSION = "2026-05-19";
+const ACCOUNT_POLICY_VERSION = "2026-08-09";
+const LINK_POLICY_VERSION = "2026-08-09";
 
 const DASHBOARD_NAV_ITEMS = [
   { id: "builder-panel", label: "Create link", index: "01" },
@@ -45,25 +50,6 @@ const DOC_SECTIONS = [
   {
     title: "Handle billing",
     body: "Upgrade from the billing panel and wait for the payment webhook to update your plan.",
-  },
-];
-
-const LEGAL_SECTIONS = [
-  {
-    title: "Terms",
-    body: "Use Shotlink only for destinations you own or are authorized to share.",
-  },
-  {
-    title: "Privacy",
-    body: "We process account, billing, and link analytics data to operate the service.",
-  },
-  {
-    title: "Abuse",
-    body: "Phishing, malware, spam, impersonation, and illegal content are not allowed.",
-  },
-  {
-    title: "Support",
-    body: "For help, takedowns, or privacy requests, contact support@shotlink.in.",
   },
 ];
 
@@ -206,6 +192,12 @@ const DEFAULT_PUBLIC_PLANS = [
   },
 ];
 
+const DEFAULT_CHECKOUT_AVAILABILITY = Object.freeze({
+  enabled: false,
+  message:
+    "Live paid checkout is coming soon. Razorpay Test Mode is restricted to internal verification, so no real payment is collected yet.",
+});
+
 function ShortenerPreview({ onStart }) {
   return (
     <div className="sl-lift" style={styles.shortenerPreviewCard}>
@@ -338,6 +330,9 @@ function App() {
   const [analyticsError, setAnalyticsError] = useState("");
   const [copied, setCopied] = useState("");
   const [publicPlans, setPublicPlans] = useState(DEFAULT_PUBLIC_PLANS);
+  const [checkoutAvailability, setCheckoutAvailability] = useState(
+    DEFAULT_CHECKOUT_AVAILABILITY
+  );
   const [billingSummary, setBillingSummary] = useState(null);
   const [billingLoading, setBillingLoading] = useState(false);
   const [checkoutLoadingPlanId, setCheckoutLoadingPlanId] = useState("");
@@ -419,6 +414,9 @@ function App() {
     if (data.plans?.length) {
       setPublicPlans(data.plans);
     }
+    if (data.checkout) {
+      setCheckoutAvailability(data.checkout);
+    }
     setSession((currentSession) =>
       currentSession
         ? {
@@ -486,6 +484,7 @@ function App() {
         const data = await response.json();
         if (!cancelled) {
           setPublicPlans(data.plans?.length ? data.plans : DEFAULT_PUBLIC_PLANS);
+          setCheckoutAvailability(data.checkout || DEFAULT_CHECKOUT_AVAILABILITY);
         }
       } catch {
         // The default catalog is enough if billing is not reachable yet.
@@ -778,6 +777,11 @@ function App() {
       return;
     }
 
+    if (!checkoutAvailability.enabled) {
+      setBillingError(checkoutAvailability.message);
+      return;
+    }
+
     if (!plan.priceInPaise) {
       setBillingMessage("You are already on the free plan. Choose Pro or Business to upgrade.");
       return;
@@ -918,7 +922,13 @@ function App() {
           <div style={styles.planHeader}>
             <strong style={styles.planName}>{plan.name}</strong>
             <StatusPill
-              label={plan.id === "enterprise" ? "Custom volume" : `${plan.linkLimit} links`}
+              label={
+                plan.id === "enterprise"
+                  ? "Custom volume"
+                  : plan.id !== "free" && !checkoutAvailability.enabled
+                    ? "Coming soon"
+                    : `${plan.linkLimit} links`
+              }
               tone={getPlanTone(plan.id)}
             />
           </div>
@@ -935,7 +945,9 @@ function App() {
               style={styles.primaryButton}
               onClick={openRegistrationPanel}
             >
-              Start with {plan.name}
+              {plan.id !== "free" && !checkoutAvailability.enabled
+                ? "Create a free workspace"
+                : `Start with ${plan.name}`}
             </button>
           ) : null}
         </div>
@@ -953,6 +965,12 @@ function App() {
             Start free, choose Creator Pro for an individual profile, Studio for managed talent,
             or Enterprise for organisation-wide governance.
           </p>
+          {!checkoutAvailability.enabled ? (
+            <div role="status" style={styles.checkoutNotice}>
+              <strong>Free launch is open.</strong>
+              <span>{checkoutAvailability.message}</span>
+            </div>
+          ) : null}
           {renderPublicPricing()}
         </section>
       );
@@ -991,25 +1009,53 @@ function App() {
       );
     }
 
-    if (publicPage === "legal") {
+    if (LEGAL_PAGE_CONTENT[publicPage]) {
+      const policy = LEGAL_PAGE_CONTENT[publicPage];
       return (
         <section className="sl-reveal" style={styles.publicPageCard}>
-          <p style={styles.sectionEyebrow}>Legal</p>
-          <h1 style={styles.publicTitle}>Trust rules for public link infrastructure.</h1>
-          <p style={styles.publicLead}>
-            Shotlink is designed for lawful routing, transparent analytics, and fast abuse response.
-          </p>
-          <div style={styles.docGrid}>
-            {LEGAL_SECTIONS.map((section) => (
-              <article key={section.title} className="sl-lift" style={styles.docCard}>
-                <h2 style={styles.docTitle}>{section.title}</h2>
-                <p style={styles.helperText}>{section.body}</p>
+          <p style={styles.sectionEyebrow}>{policy.eyebrow}</p>
+          <h1 style={styles.publicTitle}>{policy.title}</h1>
+          <p style={styles.publicLead}>{policy.lead}</p>
+          <div style={styles.policyMeta}>
+            <strong>Effective {POLICY_EFFECTIVE_DATE}</strong>
+            <span>{OPERATOR_NOTICE}</span>
+          </div>
+          {policy.contactRows?.length ? (
+            <dl style={styles.contactGrid}>
+              {policy.contactRows.map((row) => (
+                <div key={row.label} style={styles.contactRow}>
+                  <dt style={styles.contactLabel}>{row.label}</dt>
+                  <dd style={styles.contactValue}>
+                    {row.href ? <a href={row.href}>{row.value}</a> : row.value}
+                  </dd>
+                </div>
+              ))}
+            </dl>
+          ) : null}
+          <div style={styles.policySections}>
+            {policy.sections.map((section) => (
+              <article key={section.title} style={styles.policySection}>
+                <h2 style={styles.policyTitle}>{section.title}</h2>
+                {section.paragraphs?.map((paragraph) => (
+                  <p key={paragraph} style={styles.policyText}>{paragraph}</p>
+                ))}
+                {section.bullets?.length ? (
+                  <ul style={styles.policyList}>
+                    {section.bullets.map((item) => <li key={item}>{item}</li>)}
+                  </ul>
+                ) : null}
+                {section.links?.length ? (
+                  <div style={styles.policyLinks}>
+                    {section.links.map((link) => (
+                      <a key={link.href} href={link.href}>{link.label}</a>
+                    ))}
+                  </div>
+                ) : null}
               </article>
             ))}
           </div>
           <p style={styles.legalFinePrint}>
-            Policy version {ACCOUNT_POLICY_VERSION}. Contact support@shotlink.in for the current
-            full policy text or questions about data handling and acceptable use.
+            Policy version {ACCOUNT_POLICY_VERSION}. Questions may be sent to support@shotlink.in.
           </p>
         </section>
       );
@@ -1703,8 +1749,10 @@ function App() {
           <footer style={styles.authFooter}>
             <span>© 2026 Shotlink. All rights reserved.</span>
             <nav aria-label="Legal links" style={styles.authFooterLinks}>
-              <a href="/trust">Privacy and terms</a>
-              <a href="mailto:support@shotlink.in">Support</a>
+              <a href="/terms">Terms</a>
+              <a href="/privacy">Privacy</a>
+              <a href="/refund-policy">Refunds</a>
+              <a href="/contact">Contact</a>
             </nav>
           </footer>
         </div>
@@ -2277,17 +2325,26 @@ function App() {
               </div>
             </div>
             <div style={styles.paymentCard}>
-              <div><p style={styles.mutedLabel}>Upgrade subscription</p><p style={styles.helperText}>Choose a paid plan to open Razorpay checkout.</p></div>
+              <div>
+                <p style={styles.mutedLabel}>Upgrade subscription</p>
+                <p style={styles.helperText}>
+                  {checkoutAvailability.enabled
+                    ? "Choose a paid plan to open secure Razorpay checkout."
+                    : checkoutAvailability.message}
+                </p>
+              </div>
               <div style={styles.compactPlanGrid}>
                 {publicPlans.filter((plan) => plan.id !== "free").map((plan) => {
                   const isCurrentPlan = currentPlan.effectivePlanId === plan.id;
                   const isCheckoutLoading = checkoutLoadingPlanId === plan.id;
+                  const isPaidCheckoutUnavailable =
+                    plan.id !== "enterprise" && !checkoutAvailability.enabled;
                   return (
                     <div key={plan.id} style={{ ...styles.compactPlanCard, ...enterpriseDashboardStyles.compactPlanCard }}>
                       <div style={styles.planHeader}><strong style={styles.planName}>{plan.name}</strong><span style={styles.compactPlanPrice}>{formatPlanPrice(plan)}</span></div>
                       <p style={styles.miniHelperText}>{plan.id === "enterprise" ? "Custom security, support, and scale." : `${plan.linkLimit} links and ${plan.domainLimit} branded ${plan.domainLimit === 1 ? "domain" : "domains"}.`}</p>
-                      <button style={isCurrentPlan || isCheckoutLoading ? { ...styles.secondaryButton, opacity: 0.65, cursor: "not-allowed" } : styles.primaryButton} onClick={() => startPlanCheckout(plan)} disabled={isCurrentPlan || Boolean(checkoutLoadingPlanId)}>
-                        {isCurrentPlan ? "Current plan" : isCheckoutLoading ? "Opening..." : plan.id === "enterprise" ? "Contact sales" : `Upgrade to ${plan.name}`}
+                      <button style={isCurrentPlan || isCheckoutLoading || isPaidCheckoutUnavailable ? { ...styles.secondaryButton, opacity: 0.65, cursor: "not-allowed" } : styles.primaryButton} onClick={() => startPlanCheckout(plan)} disabled={isCurrentPlan || isPaidCheckoutUnavailable || Boolean(checkoutLoadingPlanId)}>
+                        {isCurrentPlan ? "Current plan" : isCheckoutLoading ? "Opening..." : plan.id === "enterprise" ? "Contact sales" : isPaidCheckoutUnavailable ? "Live checkout coming soon" : `Upgrade to ${plan.name}`}
                       </button>
                     </div>
                   );
