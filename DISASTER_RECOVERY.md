@@ -30,7 +30,9 @@ as a recovery source. If
 Redis is lost, provision a replacement, update `REDIS_URL`, redeploy, and allow
 the cache to warm from MongoDB while monitoring database load and redirect
 latency.
-7. Keep `maxShutdownDelaySeconds` in `render.yaml` aligned with the application's bounded graceful shutdown.
+7. When the API is upgraded to a paid Render instance, set
+   `maxShutdownDelaySeconds` in `render.yaml` to match the application's bounded
+   graceful shutdown. Render does not support this setting on Free instances.
 8. Keep a secure, access-controlled inventory of production variable names and recovery contacts. Never store secret values in this repository or in incident tickets.
 9. The Free pre-user profile intentionally omits continuous URL-health work.
    Before onboarding customers who depend on automatic fallback routing, deploy
