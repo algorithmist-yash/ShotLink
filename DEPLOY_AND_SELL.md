@@ -21,10 +21,10 @@ Best early customers in India:
 ## 2. The simplest production stack
 
 - Frontend: Vercel
-- Backend: Railway
+- Backend: Render
 - Database: MongoDB Atlas
-- Redirect cache: Railway Redis
-- Background URL-health worker: separate Railway service
+- Redirect cache: Render Key Value
+- Background URL-health worker: separate Render worker service
 - Billing: Razorpay
 - Domains:
   - `shotlink.in`
@@ -39,40 +39,34 @@ Best early customers in India:
 
 This keeps the system cleaner and makes future scaling easier.
 
-## 4. Backend deployment on Railway
+## 4. Backend deployment on Render
 
-Deploy the `backend` folder as a service.
+Create a Blueprint from the repository root. The checked-in `render.yaml`
+provisions the API, URL-health worker, and Redis-compatible Key Value service in
+Singapore and connects them over Render's private network.
 
-Add a Redis database in the same Railway project first. Set the backend's
-`REDIS_URL` to a reference variable for that service, such as
-`${{Redis.REDIS_URL}}`, so traffic stays on Railway's internal network.
+Recommended initial beta profile:
 
-Recommended Railway settings:
+- Starter `shotlink-api` web service
+- Starter `shotlink-health-worker` background worker
+- Free `shotlink-cache` Key Value instance while traffic is low
 
-- Root Directory: `/backend`
-- Config File: `/backend/railway.toml`
-- Start Command: `npm start`
-- Healthcheck Path: `/health`
-
-Create a second service with Root Directory `/backend`, Config File
-`/backend/railway.health-worker.toml`, no public domain, and the same production
-`MONGO_URI` and `REDIS_URL` references. Set `NODE_ENV=production`; the worker
-does not need API-only billing or session secrets. Its start command is `npm run
-worker:health`.
+Render does not offer a Free background-worker instance, and its Free services
+are not intended for production. Upgrade Key Value when cache continuity becomes
+an availability requirement.
 
 Environment variables:
 
-- `PORT=5000`
 - `NODE_ENV=production`
 - `MONGO_URI=...`
-- `REDIS_URL=${{Redis.REDIS_URL}}`
+- `REDIS_URL` is injected from `shotlink-cache`
 - `BASE_URL=https://go.shotlink.in`
 - `SHORTLINK_BASE_URL=https://shotlink.in`
-- `APP_BASE_URL=https://shotlink.in`
+- `APP_BASE_URL=https://www.shotlink.in`
 - `CUSTOM_DOMAIN_CNAME_TARGET=go.shotlink.in`
 - `IP_HASH_SALT=...`
 - `CSRF_SECRET=...`
-- `ALLOWED_ORIGINS=https://shotlink.in`
+- `ALLOWED_ORIGINS=https://shotlink.in,https://www.shotlink.in`
 - `RAZORPAY_KEY_ID=...`
 - `RAZORPAY_KEY_SECRET=...`
 - `RAZORPAY_WEBHOOK_SECRET=...`
@@ -80,11 +74,10 @@ Environment variables:
 - `RAZORPAY_PLAN_ID_BUSINESS_MONTHLY=...`
 - `SUPPORT_EMAIL=...`
 - `METRICS_TOKEN=...`
-- `RAILWAY_DEPLOYMENT_DRAINING_SECONDS=15`
 
 After deploy:
 
-- run `npm run migrate:redirect-outbox` and `npm run migrate:health-queue` once
+- confirm the Blueprint pre-deploy command completed all three migrations
 - add `api.shotlink.in` as a custom domain
 - add `go.shotlink.in` as another custom domain
 - keep the frontend rewrite for `shotlink.in/<code>` pointing to `api.shotlink.in/<code>`
@@ -160,10 +153,10 @@ Webhook events:
 
 For each customer branded domain:
 
-1. Add the customer hostname to the Railway backend service as a custom domain.
+1. Add the customer hostname to the Render API service as a custom domain.
 2. Ask the customer to create `CNAME go.customerbrand.in -> go.shotlink.in`.
 3. Ask the customer to create the dashboard-provided TXT verification record.
-4. Wait for Railway SSL/domain verification.
+4. Wait for Render TLS/domain verification.
 5. Click Verify in this app's workspace dashboard.
 6. Create customer links using that branded domain.
 

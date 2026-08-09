@@ -6,8 +6,8 @@ This is the shortest path from this repo to a paid, public product.
 
 - GitHub
 - MongoDB Atlas
-- Railway
-- Railway Redis
+- Render
+- Render Key Value
 - Vercel
 - Razorpay
 - A domain provider such as Namecheap, GoDaddy, Cloudflare, or Hostinger
@@ -17,11 +17,11 @@ This is the shortest path from this repo to a paid, public product.
 Use one domain and three subdomains:
 
 - `shotlink.in` for the website, dashboard, and every default public short link
-- `api.shotlink.in` for authenticated backend APIs on Railway
-- `go.shotlink.in` as the direct Railway redirect origin and customer-domain CNAME target
+- `api.shotlink.in` for authenticated backend APIs on Render
+- `go.shotlink.in` as the direct Render redirect origin and customer-domain CNAME target
 
 Vercel proxies single-segment short codes such as `shotlink.in/abc123` to the
-Railway backend. The reserved website routes continue to serve the frontend.
+Render backend. The reserved website routes continue to serve the frontend.
 
 ## 3. MongoDB Atlas
 
@@ -33,7 +33,10 @@ Use a database name like:
 shotlink
 ```
 
-In Network Access, allow Railway to connect. For the first launch, you can temporarily allow access from anywhere, then tighten it after your Railway service is stable.
+In Network Access, allow Render to connect. Without Render Dedicated IPs, the
+first launch can temporarily allow `0.0.0.0/0`; keep the application user
+least-privileged and replace the broad rule if you later purchase fixed outbound
+IPs or a private connection.
 
 Copy the connection string. It becomes:
 
@@ -41,67 +44,43 @@ Copy the connection string. It becomes:
 MONGO_URI=mongodb+srv://...
 ```
 
-## 4. Railway backend
+## 4. Render backend
 
-Add a Redis database to the Railway project, then create a new backend service
-from GitHub. In the backend service, add a reference variable named `REDIS_URL`
-with value `${{Redis.REDIS_URL}}` (use the actual Redis service name if you named
-it differently).
+The repository root contains `render.yaml`. Create a Render Blueprint from the
+GitHub repository to provision these Singapore-region resources together:
 
-Use these service settings:
+- `shotlink-api`: Starter web service
+- `shotlink-health-worker`: Starter background worker
+- `shotlink-cache`: Free Render Key Value for the initial beta
 
-- Root Directory: `/backend`
-- Config File: `/backend/railway.toml`
-- Start Command: leave blank if Railway reads the config file, or set `npm start`
-- Healthcheck Path: `/health`
+The initial beta profile is approximately two Starter compute instances. Render
+does not offer Free background workers, and Render explicitly does not recommend
+Free web or Key Value instances for production. Upgrade Key Value to a persistent
+paid plan before treating cache continuity as an availability guarantee. Shotlink
+keeps authoritative links, queues, and usage data in MongoDB, so a cache restart
+does not erase those records.
 
-Set these variables:
+During the first Blueprint sync, Render asks for the variables marked
+`sync: false`. Enter them in the Render dashboard, never in Git or chat:
 
 ```text
-NODE_ENV=production
 MONGO_URI=mongodb+srv://username:password@cluster.mongodb.net/shotlink?retryWrites=true&w=majority
-REDIS_URL=${{Redis.REDIS_URL}}
-BASE_URL=https://go.shotlink.in
-SHORTLINK_BASE_URL=https://shotlink.in
-APP_BASE_URL=https://shotlink.in
-CUSTOM_DOMAIN_CNAME_TARGET=go.shotlink.in
-IP_HASH_SALT=make-this-long-random-and-private
-CSRF_SECRET=generate-a-different-long-random-secret
-ALLOWED_ORIGINS=https://shotlink.in
 RAZORPAY_KEY_ID=rzp_live_or_test_key
 RAZORPAY_KEY_SECRET=razorpay_secret
 RAZORPAY_WEBHOOK_SECRET=your_webhook_secret
 RAZORPAY_PLAN_ID_PRO_MONTHLY=plan_live_or_test_id
 RAZORPAY_PLAN_ID_BUSINESS_MONTHLY=plan_live_or_test_id
-SUPPORT_EMAIL=support@shotlink.in
-METRICS_TOKEN=generate-a-long-random-monitoring-token
-RAILWAY_DEPLOYMENT_DRAINING_SECONDS=15
 ```
 
-Add these Railway domains to the same backend service:
+The Blueprint generates the session, IP-hashing, and monitoring secrets, shares
+the internal Key Value connection with both services, runs all three database
+migrations before each API deploy, and adds these domains to `shotlink-api`:
 
 - `api.shotlink.in`
 - `go.shotlink.in`
 
-Before directing production traffic to this release, run the durable redirect
-outbox, URL-health queue, and analytics-retention migrations once from the Railway backend shell:
-
-```text
-npm run migrate:redirect-outbox
-npm run migrate:health-queue
-npm run migrate:analytics-retention
-```
-
-Create a second Railway service from the same repository for URL-health work:
-
-- Root Directory: `/backend`
-- Config File: `/backend/railway.health-worker.toml`
-- Start Command: leave blank if Railway reads the config file, or set `npm run worker:health`
-- Public domain: none
-- Variables: `NODE_ENV=production` plus references to the backend's `MONGO_URI` and `REDIS_URL`
-
-Deploy at least one worker replica. Scale worker replicas independently from API
-replicas; the queue and URL-level leases coordinate concurrent workers.
+The worker has no public domain. Scale it independently from the API; the queue
+and URL-level leases coordinate concurrent workers.
 
 After deploy, verify `/health` reports both `mongodb: connected` and
 `redis: connected`. A `degraded` response remains HTTP 200 so redirects can fall
@@ -188,8 +167,8 @@ After the test mode flow works:
 
 1. Switch Razorpay keys from test to live.
 2. Recreate or update the live Razorpay webhook.
-3. Update Railway variables with live keys and the live webhook secret.
-4. Redeploy Railway.
+3. Update Render variables with live keys and the live webhook secret.
+4. Redeploy the Render services.
 5. Make one real low-value payment to confirm the production flow.
 
 ## 9. Branded customer domains
@@ -201,18 +180,18 @@ CNAME go.customerbrand.in -> go.shotlink.in
 TXT _shotlink.go.customerbrand.in -> value shown inside the dashboard
 ```
 
-Also add `go.customerbrand.in` as a custom domain on the Railway backend service:
+Also add `go.customerbrand.in` as a custom domain on the Render API web service:
 
-1. Open Railway.
-2. Open the backend service.
-3. Go to Settings -> Networking -> Public Networking.
+1. Open Render.
+2. Open `shotlink-api`.
+3. Go to Settings -> Custom Domains.
 4. Add `go.customerbrand.in` as a custom domain.
-5. Add any Railway-provided DNS verification records if Railway shows them.
-6. Wait until Railway shows the domain as verified with SSL.
+5. Add any Render-provided DNS verification records if Render shows them.
+6. Wait until Render shows the domain as verified with TLS.
 
 Then open the workspace dashboard, click Verify on that domain, and create links using that branded domain in the link builder.
 
-Later, automate this with Railway's Domains API so customers can add domains without you manually opening Railway.
+Later, automate this with Render's Custom Domains API so customers can add domains without you manually opening Render.
 
 ## 10. First money plan
 

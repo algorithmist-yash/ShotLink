@@ -70,6 +70,14 @@ function extractClientIp(req, env = process.env) {
     if (railwayClientIp) return railwayClientIp;
   }
 
+  const isRenderRequest = env.RENDER === "true" || Boolean(env.RENDER_SERVICE_ID);
+  if (isRenderRequest) {
+    const forwardedClientIp = normalizeIpAddress(
+      String(getHeader(req, "x-forwarded-for") || "").split(",")[0]
+    );
+    if (forwardedClientIp) return forwardedClientIp;
+  }
+
   return (
     normalizeIpAddress(req?.ip) ||
     normalizeIpAddress(req?.socket?.remoteAddress) ||

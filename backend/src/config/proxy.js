@@ -20,6 +20,10 @@ function getTrustProxySetting(env = process.env) {
     return RAILWAY_TRUSTED_PROXY_RANGES;
   }
 
+  if (env.RENDER === "true" || env.RENDER_SERVICE_ID) {
+    return true;
+  }
+
   return false;
 }
 

@@ -36,6 +36,8 @@ test("validateProductionEnv accepts a fully configured production environment", 
 test("deployment metadata is detected independently of NODE_ENV", () => {
   assert.equal(isDeployedEnvironment({ RAILWAY_ENVIRONMENT: "production" }), true);
   assert.equal(isDeployedEnvironment({ RAILWAY_PROJECT_ID: "project-1" }), true);
+  assert.equal(isDeployedEnvironment({ RENDER: "true" }), true);
+  assert.equal(isDeployedEnvironment({ RENDER_SERVICE_ID: "service-1" }), true);
   assert.equal(isDeployedEnvironment({}), false);
 });
 
@@ -98,4 +100,21 @@ test("runtime validation accepts a fully configured Railway production service",
   );
 
   assert.deepEqual(validateRuntimeEnv(env), { port: 5000 });
+});
+
+test("runtime validation accepts a fully configured Render production service", () => {
+  const env = REQUIRED_PRODUCTION_ENV.reduce(
+    (currentEnv, key) => ({
+      ...currentEnv,
+      [key]: "configured",
+    }),
+    {
+      NODE_ENV: "production",
+      PORT: "10000",
+      RENDER: "true",
+      RENDER_SERVICE_ID: "service-1",
+    }
+  );
+
+  assert.deepEqual(validateRuntimeEnv(env), { port: 10000 });
 });

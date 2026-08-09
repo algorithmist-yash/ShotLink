@@ -198,7 +198,7 @@ processes without asking Playwright to manage their process trees.
 - Link creation requires a signed-in user and required compliance consent fields.
 - Direct private/local IP destinations are rejected.
 - Health checks also reject hostnames that resolve to private or local network addresses.
-- Railway proxy ranges are trusted automatically. On other proxy deployments, set `TRUST_PROXY_CIDRS` to the exact proxy CIDRs; never use a blanket `true` trust setting.
+- Railway proxy ranges are trusted automatically. Render's managed proxy chain is enabled only when Render-provided deployment metadata is present, and its documented forwarded client IP is validated before use. On other proxy deployments, set `TRUST_PROXY_CIDRS` to the exact proxy CIDRs; never use a blanket `true` trust setting.
 - Keep `.env` files out of version control.
 - Alert on nonzero dead jobs and sustained pending growth for both the
   `redirect_event` and `url_health` queues.

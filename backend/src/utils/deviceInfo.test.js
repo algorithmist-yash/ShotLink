@@ -53,3 +53,29 @@ test("extractClientIp uses Railway's documented real IP header on Railway", () =
     "203.0.113.44"
   );
 });
+
+test("extractClientIp uses Render's forwarded client IP on Render", () => {
+  assert.equal(
+    extractClientIp(
+      {
+        ip: "10.0.0.5",
+        headers: { "x-forwarded-for": "203.0.113.45, 198.51.100.7" },
+      },
+      { RENDER: "true", RENDER_SERVICE_ID: "service-1" }
+    ),
+    "203.0.113.45"
+  );
+});
+
+test("extractClientIp rejects malformed Render forwarding data", () => {
+  assert.equal(
+    extractClientIp(
+      {
+        ip: "10.0.0.5",
+        headers: { "x-forwarded-for": "not-an-ip, 203.0.113.45" },
+      },
+      { RENDER: "true" }
+    ),
+    "10.0.0.5"
+  );
+});
