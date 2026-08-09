@@ -19,7 +19,6 @@ services:
     buildCommand: npm ci --omit=dev && npm run migrate:redirect-outbox && npm run migrate:health-queue && npm run migrate:analytics-retention
     startCommand: npm start
     healthCheckPath: /health
-    maxShutdownDelaySeconds: 30
     autoDeployTrigger: checksPass
     domains:
       - api.shotlink.in
