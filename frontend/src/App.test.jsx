@@ -132,6 +132,7 @@ describe("Shotlink frontend workflows", () => {
     const officialResource = screen.getByLabelText("Official resource URL");
     expect(officialResource).toBeInTheDocument();
     expect(screen.getByText("Official link and identity domains")).toBeInTheDocument();
+    expect(screen.queryByText("Social publisher")).not.toBeInTheDocument();
 
     fireEvent.change(officialResource, { target: { value: "https://docs.google.com/spreadsheets/d/campus-sheet/edit" } });
     expect(screen.getByText("Google Sheet detected")).toBeInTheDocument();
@@ -192,6 +193,69 @@ describe("Shotlink frontend workflows", () => {
         "launch-video-2026-08-10"
       );
     });
+  });
+
+  test("prepares a creator post package and opens the selected social composer", async () => {
+    const user = userEvent.setup();
+    const socialLink = {
+      shortCode: "launch-video",
+      shortUrl: "https://shotlink.in/launch-video",
+      originalUrl: "https://www.youtube.com/watch?v=launch",
+      destinationLabel: "Video",
+      clicks: 0,
+      isActive: true,
+      expiresAt: null,
+      createdAt: "2026-08-10T00:00:00.000Z",
+    };
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    Object.defineProperty(navigator, "clipboard", {
+      configurable: true,
+      value: { writeText },
+    });
+    const openSpy = vi.spyOn(window, "open").mockReturnValue({ opener: null });
+
+    fetch.mockImplementation(async (input) => {
+      const path = getRequestPath(input);
+      if (path === "/api/v1/auth/me") return jsonResponse(200, sessionPayload);
+      if (path === "/api/v1/links") return jsonResponse(200, { links: [socialLink] });
+      if (path === "/api/v1/billing/plans") return jsonResponse(200, { plans: [] });
+      if (path === "/api/v1/billing/summary") {
+        return jsonResponse(200, {
+          currentPlan: sessionPayload.workspace.billing,
+          plans: [],
+          recentPayments: [],
+        });
+      }
+      if (path === "/api/v1/links/launch-video/analytics") {
+        return jsonResponse(200, {
+          ...socialLink,
+          deviceBreakdown: [],
+          recentEvents: [],
+        });
+      }
+      throw new Error(`Unexpected request: ${path}`);
+    });
+
+    render(<App />);
+
+    expect(
+      await screen.findByRole("heading", { name: "Prepare and share from one workspace" })
+    ).toBeInTheDocument();
+    await user.type(screen.getByLabelText(/^Caption/), "Watch the full launch video");
+    await user.click(screen.getByRole("button", { name: "Select X" }));
+    await user.click(screen.getByRole("button", { name: "Prepare post for X →" }));
+
+    expect(writeText).toHaveBeenCalledWith(
+      "Watch the full launch video\n\nhttps://shotlink.in/launch-video"
+    );
+    expect(openSpy).toHaveBeenCalledWith(
+      expect.stringContaining("https://twitter.com/intent/tweet?text="),
+      "_blank",
+      "noopener,noreferrer"
+    );
+    expect(
+      await screen.findByText(/X post package copied\. Complete the final review/)
+    ).toBeInTheDocument();
   });
 
   test("creates a temporary homepage link and QR with a maximum 30-minute choice", async () => {

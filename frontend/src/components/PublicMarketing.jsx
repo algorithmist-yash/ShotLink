@@ -118,6 +118,12 @@ const CAPABILITIES = [
     text: "See clicks, devices, browsers, operating systems, referrers, and recent activity so the next post starts with better evidence.",
     tags: ["Click analytics", "Referrers", "Device mix", "Campaign exports"],
   },
+  {
+    number: "005",
+    title: "Assisted social publishing",
+    text: "Write a caption once, attach an active Shotlink, select a social platform, and open a share-ready post package for final review.",
+    tags: ["Instagram", "Facebook", "X", "LinkedIn", "TikTok", "YouTube"],
+  },
 ];
 
 const WORKFLOW = [
@@ -178,6 +184,11 @@ const FAQS = [
     question: "Does Shotlink automatically find a new Sheet or social upload?",
     answer:
       "Not yet. Paste the Google Sheet, video, reel, or social-post URL and Shotlink will recognise it and suggest a structured short path. Background discovery would require a separate Google or social-platform connection and explicit account permission.",
+  },
+  {
+    question: "Does the Social Publisher need my platform password?",
+    answer:
+      "No. The assisted publisher copies your caption and Shotlink, then opens the selected platform for your final confirmation. Direct account publishing will use official OAuth permissions when that later integration is enabled.",
   },
 ];
 
@@ -585,7 +596,7 @@ export function PublicLanding({ onStart }) {
       <section className="mk-capabilities mk-section" id="features">
         <div className="mk-section-heading mk-section-heading-row">
           <div><p>What creators get</p><h2>Publish fast.<br />Learn what travels.</h2></div>
-          <span>Four connected tools take a destination from first share to measurable campaign.</span>
+          <span>Five connected tools take a destination from first share to measurable campaign.</span>
         </div>
         <div className="mk-capability-list">
           {CAPABILITIES.map((capability, index) => {

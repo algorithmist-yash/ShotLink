@@ -27,11 +27,12 @@ const LINK_POLICY_VERSION = "2026-08-09";
 
 const CREATOR_DASHBOARD_NAV_ITEMS = [
   { id: "builder-panel", label: "Create link", index: "01" },
-  { id: "links-panel", label: "Link library", index: "02" },
-  { id: "analytics-panel", label: "Analytics", index: "03" },
-  { id: "domains-panel", label: "Domains", index: "04" },
-  { id: "billing-panel", label: "Billing", index: "05" },
-  { id: "docs-panel", label: "Operator guide", index: "06" },
+  { id: "social-panel", label: "Social publisher", index: "02" },
+  { id: "links-panel", label: "Link library", index: "03" },
+  { id: "analytics-panel", label: "Analytics", index: "04" },
+  { id: "domains-panel", label: "Domains", index: "05" },
+  { id: "billing-panel", label: "Billing", index: "06" },
+  { id: "docs-panel", label: "Operator guide", index: "07" },
 ];
 
 const DOC_SECTIONS = [
@@ -139,6 +140,62 @@ const CREATOR_CONTENT_OPTIONS = [
   { value: "portfolio", label: "Portfolio" },
   { value: "campaign", label: "Campaign" },
 ];
+
+const SOCIAL_PUBLISH_PLATFORMS = [
+  {
+    id: "instagram",
+    name: "Instagram",
+    mark: "IG",
+    helper: "Copy the post package and open Instagram for final review.",
+    openUrl: "https://www.instagram.com/",
+  },
+  {
+    id: "facebook",
+    name: "Facebook",
+    mark: "FB",
+    helper: "Open Facebook's sharing dialog with the Shotlink attached.",
+  },
+  {
+    id: "x",
+    name: "X",
+    mark: "X",
+    helper: "Open a prepared X post with the caption and Shotlink.",
+  },
+  {
+    id: "linkedin",
+    name: "LinkedIn",
+    mark: "IN",
+    helper: "Copy the caption and open LinkedIn's sharing dialog.",
+  },
+  {
+    id: "tiktok",
+    name: "TikTok",
+    mark: "TT",
+    helper: "Copy the post package and open TikTok Upload.",
+    openUrl: "https://www.tiktok.com/upload",
+  },
+  {
+    id: "youtube",
+    name: "YouTube",
+    mark: "YT",
+    helper: "Copy the post package and open YouTube Upload.",
+    openUrl: "https://www.youtube.com/upload",
+  },
+];
+
+function getSocialShareUrl(platformId, shortUrl, caption) {
+  const message = [String(caption || "").trim(), shortUrl].filter(Boolean).join("\n\n");
+  if (platformId === "x") {
+    return `https://twitter.com/intent/tweet?text=${encodeURIComponent(message)}`;
+  }
+  if (platformId === "facebook") {
+    return `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(shortUrl)}`;
+  }
+  if (platformId === "linkedin") {
+    return `https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(shortUrl)}`;
+  }
+  return SOCIAL_PUBLISH_PLATFORMS.find((platform) => platform.id === platformId)?.openUrl || "";
+}
 
 function getLocalDateInputValue() {
   const today = new Date();
@@ -516,6 +573,10 @@ function App() {
   const [creatorContentKind, setCreatorContentKind] = useState("video");
   const [creatorContentTitle, setCreatorContentTitle] = useState("");
   const [resourceDate, setResourceDate] = useState(getLocalDateInputValue);
+  const [socialPlatform, setSocialPlatform] = useState("instagram");
+  const [socialCaption, setSocialCaption] = useState("");
+  const [socialMessage, setSocialMessage] = useState("");
+  const [socialError, setSocialError] = useState("");
   const [fallbackInput, setFallbackInput] = useState("");
   const [expiry, setExpiry] = useState(30);
   const [loading, setLoading] = useState(false);
@@ -575,6 +636,9 @@ function App() {
     setLinkComplianceAccepted(false);
     setLinkError("");
     setAnalyticsError("");
+    setSocialCaption("");
+    setSocialMessage("");
+    setSocialError("");
   }, []);
 
   const authorizedFetch = useCallback(
@@ -1689,6 +1753,35 @@ function App() {
     window.setTimeout(() => setCopied(""), 1800);
   };
 
+  const prepareSocialPost = async () => {
+    if (!selectedShareLink?.shortUrl) {
+      setSocialError("Create or select an active Shotlink before preparing a social post.");
+      setSocialMessage("");
+      return;
+    }
+
+    const platform = SOCIAL_PUBLISH_PLATFORMS.find((item) => item.id === socialPlatform);
+    const postPackage = [socialCaption.trim(), selectedShareLink.shortUrl]
+      .filter(Boolean)
+      .join("\n\n");
+    const shareUrl = getSocialShareUrl(socialPlatform, selectedShareLink.shortUrl, socialCaption);
+    const openedWindow = shareUrl
+      ? window.open(shareUrl, "_blank", "noopener,noreferrer")
+      : null;
+    if (openedWindow) openedWindow.opener = null;
+
+    try {
+      await navigator.clipboard.writeText(postPackage);
+      setSocialError("");
+      setSocialMessage(
+        `${platform?.name || "Platform"} post package copied. Complete the final review in the opened platform tab; allow pop-ups if no tab appeared.`
+      );
+    } catch {
+      setSocialMessage("");
+      setSocialError("Could not copy the post package. Check browser clipboard permission and try again.");
+    }
+  };
+
   const downloadQR = () => {
     const canvas = document.getElementById("qr-code");
     if (!canvas) return;
@@ -1745,6 +1838,11 @@ function App() {
   const institutionGovernanceEnabled =
     isInstitutionWorkspace && currentPlan.effectivePlanId === "enterprise";
   const activeLinks = links.filter(isUsableLink);
+  const selectedShareLink =
+    activeLinks.find((link) => link.shortCode === selectedShortCode) || activeLinks[0] || null;
+  const selectedSocialPlatform =
+    SOCIAL_PUBLISH_PLATFORMS.find((platform) => platform.id === socialPlatform) ||
+    SOCIAL_PUBLISH_PLATFORMS[0];
   const expiredLinkCount = Math.max(links.length - activeLinks.length, 0);
   const activeLinkCount =
     billingSummary?.currentPlan?.linkCountUsed ?? activeLinks.length;
@@ -2171,7 +2269,15 @@ function App() {
           </div>
         </nav>
 
-        <main className="sl-dashboard-main" style={styles.dashboardGrid}>
+        <main
+          className="sl-dashboard-main"
+          style={{
+            ...styles.dashboardGrid,
+            gridTemplateAreas: isInstitutionWorkspace
+              ? '"builder links" "analytics analytics" "domains domains" "billing billing" "docs docs"'
+              : styles.dashboardGrid.gridTemplateAreas,
+          }}
+        >
           <section id="builder-panel" style={{ ...styles.builderCard, ...enterpriseDashboardStyles.builderCard, gridArea: "builder" }}>
             <div style={styles.panelTitleRow}>
               <div>
@@ -2569,6 +2675,121 @@ function App() {
               </div>
             ) : <p style={styles.emptyState}>Your published links will appear here.</p>}
           </section>
+
+          {!isInstitutionWorkspace ? (
+            <section
+              id="social-panel"
+              className="sl-social-publisher"
+              style={{ ...styles.panelCard, ...enterpriseDashboardStyles.panelCard, gridArea: "social" }}
+            >
+              <div className="sl-social-publisher-header">
+                <div>
+                  <p style={styles.sectionEyebrow}>Creator automation · Stage 01</p>
+                  <h2 style={styles.panelTitle}>Prepare and share from one workspace</h2>
+                  <p style={styles.panelLead}>
+                    Choose an active Shotlink, write the caption once, then open the selected platform with a share-ready post package.
+                  </p>
+                </div>
+                <StatusPill label="No password required" tone="healthy" />
+              </div>
+
+              <div className="sl-social-publisher-grid">
+                <div className="sl-social-composer">
+                  <label style={styles.label}>
+                    Shotlink to share
+                    <select
+                      style={styles.select}
+                      value={selectedShareLink?.shortCode || ""}
+                      disabled={!activeLinks.length}
+                      onChange={(event) => {
+                        setSelectedShortCode(event.target.value);
+                        setSocialMessage("");
+                        setSocialError("");
+                      }}
+                    >
+                      {!activeLinks.length ? <option value="">Create an active link first</option> : null}
+                      {activeLinks.map((link) => (
+                        <option key={link.shortCode} value={link.shortCode}>
+                          {link.shortUrl} · {getDestinationLabel(link)}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <label style={styles.label}>
+                    Caption
+                    <textarea
+                      style={styles.textarea}
+                      value={socialCaption}
+                      maxLength={2000}
+                      placeholder="Tell your audience what this link is about..."
+                      onChange={(event) => {
+                        setSocialCaption(event.target.value);
+                        setSocialMessage("");
+                        setSocialError("");
+                      }}
+                    />
+                    <span style={styles.miniHelperText}>
+                      {socialCaption.length}/2000 · Review each platform's caption limits before publishing.
+                    </span>
+                  </label>
+
+                  <fieldset className="sl-social-platform-fieldset">
+                    <legend>Post to</legend>
+                    <div className="sl-social-platform-grid">
+                      {SOCIAL_PUBLISH_PLATFORMS.map((platform) => {
+                        const isSelected = socialPlatform === platform.id;
+                        return (
+                          <button
+                            key={platform.id}
+                            type="button"
+                            className={isSelected ? "is-selected" : ""}
+                            aria-label={`Select ${platform.name}`}
+                            aria-pressed={isSelected}
+                            onClick={() => {
+                              setSocialPlatform(platform.id);
+                              setSocialMessage("");
+                              setSocialError("");
+                            }}
+                          >
+                            <span>{platform.mark}</span>
+                            <strong>{platform.name}</strong>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </fieldset>
+                </div>
+
+                <aside className="sl-social-preview" aria-label="Social post preview">
+                  <div className="sl-social-preview-top">
+                    <span>{selectedSocialPlatform.mark}</span>
+                    <div>
+                      <strong>{selectedSocialPlatform.name}</strong>
+                      <small>Review before posting</small>
+                    </div>
+                  </div>
+                  <p>{socialCaption.trim() || "Your caption preview will appear here."}</p>
+                  <a href={selectedShareLink?.shortUrl || undefined} target="_blank" rel="noreferrer">
+                    {selectedShareLink?.shortUrl || "Create a Shotlink to continue"}
+                  </a>
+                  <small>{selectedSocialPlatform.helper}</small>
+                  <button
+                    type="button"
+                    className="sl-social-publish-button"
+                    disabled={!selectedShareLink}
+                    onClick={prepareSocialPost}
+                  >
+                    Prepare post for {selectedSocialPlatform.name} →
+                  </button>
+                  <FeedbackMessage message={socialError} />
+                  <FeedbackMessage message={socialMessage} tone="success" />
+                  <p className="sl-social-security-note">
+                    Shotlink copies the post package and opens the platform. You remain in control and confirm the final post there.
+                  </p>
+                </aside>
+              </div>
+            </section>
+          ) : null}
 
           <section id="domains-panel" style={{ ...styles.panelCard, ...enterpriseDashboardStyles.panelCard, gridArea: "domains" }}>
             <div style={styles.panelTitleRow}>

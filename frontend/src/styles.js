@@ -1344,7 +1344,7 @@ const styles = {
     display: "grid",
     gridTemplateColumns: "minmax(0, 1.42fr) minmax(320px, 0.78fr)",
     gridTemplateAreas:
-      '"builder links" "analytics analytics" "domains domains" "billing billing" "docs docs"',
+      '"builder links" "social social" "analytics analytics" "domains domains" "billing billing" "docs docs"',
     gap: 24,
     alignItems: "start",
   },
