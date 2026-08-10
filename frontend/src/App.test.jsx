@@ -135,6 +135,54 @@ describe("Shotlink frontend workflows", () => {
 
     fireEvent.change(officialResource, { target: { value: "https://docs.google.com/spreadsheets/d/campus-sheet/edit" } });
     expect(screen.getByText("Google Sheet detected")).toBeInTheDocument();
+
+    fireEvent.change(screen.getByLabelText("Department / course"), { target: { value: "CSE" } });
+    fireEvent.change(screen.getByLabelText("Class / section"), { target: { value: "42" } });
+    fireEvent.change(screen.getByLabelText("Resource date"), { target: { value: "2026-08-10" } });
+
+    await waitFor(() => {
+      expect(screen.getByLabelText("Custom alias")).toHaveValue(
+        "cse-42-attendance-2026-08-10"
+      );
+    });
+    expect(screen.getByText("shotlink.in/cse-42-attendance-2026-08-10")).toBeInTheDocument();
+  });
+
+  test("generates a creator video path from the content template", async () => {
+    fetch.mockImplementation(async (input) => {
+      const path = getRequestPath(input);
+      if (path === "/api/v1/auth/me") return jsonResponse(200, sessionPayload);
+      if (path === "/api/v1/links") return jsonResponse(200, { links: [] });
+      if (path === "/api/v1/billing/plans") return jsonResponse(200, { plans: [] });
+      if (path === "/api/v1/billing/summary") {
+        return jsonResponse(200, {
+          currentPlan: sessionPayload.workspace.billing,
+          plans: [],
+          recentPayments: [],
+        });
+      }
+      throw new Error(`Unexpected request: ${path}`);
+    });
+
+    render(<App />);
+
+    expect(await screen.findByText("Creator link template")).toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText("Campaign destination"), {
+      target: { value: "https://www.youtube.com/watch?v=creator-video" },
+    });
+    fireEvent.change(screen.getByLabelText("Content / campaign name"), {
+      target: { value: "Campus Vlog" },
+    });
+    fireEvent.change(screen.getByLabelText("Publish date"), {
+      target: { value: "2026-08-10" },
+    });
+
+    await waitFor(() => {
+      expect(screen.getByLabelText("Custom alias")).toHaveValue(
+        "campus-vlog-video-2026-08-10"
+      );
+    });
+    expect(screen.getByText("shotlink.in/campus-vlog-video-2026-08-10")).toBeInTheDocument();
   });
 
   test("creates a temporary homepage link and QR with a maximum 30-minute choice", async () => {

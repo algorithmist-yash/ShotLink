@@ -70,8 +70,8 @@ const INSTITUTION_FEATURES = [
   {
     index: "01",
     title: "Resource-aware publishing",
-    text: "Recognise Google Sheets, forms, Drive documents, YouTube, Vimeo, Loom, and direct video files before an official link is published.",
-    tag: "Sheets / Forms / Video",
+    text: "Recognise Google Sheets, forms, Drive documents, and video resources, then generate structured paths such as cse-42-attendance-2026-08-10.",
+    tag: "Smart official paths",
   },
   {
     index: "02",
@@ -97,8 +97,8 @@ const CAPABILITIES = [
   {
     number: "001",
     title: "Creator campaign links",
-    text: "Turn long post, shop, portfolio, booking, and sponsor URLs into clean links that are easier to remember and safer to share.",
-    tags: ["Custom aliases", "Campaign labels", "Automatic expiry", "Fallback routes"],
+    text: "Turn long video, reel, post, shop, portfolio, booking, and sponsor URLs into clean links with a suggested content-and-date path.",
+    tags: ["Smart creator paths", "Campaign labels", "Automatic expiry", "Fallback routes"],
   },
   {
     number: "002",
@@ -129,7 +129,7 @@ const WORKFLOW = [
   {
     step: "02",
     title: "Make the short link + QR",
-    text: "Choose an expiry for a quick link, or create a workspace for a permanent campaign link and downloadable QR code.",
+    text: "Choose a content template and let Shotlink suggest a dated path, or replace it with your own alias before creating the link and QR code.",
   },
   {
     step: "03",
@@ -173,6 +173,11 @@ const FAQS = [
     question: "Do universities and institutions get the creator dashboard?",
     answer:
       "No. Institution workspaces use a separate official-publishing interface with resource recognition, link lifecycle controls, identity-domain governance, roles, and audit history.",
+  },
+  {
+    question: "Does Shotlink automatically find a new Sheet or social upload?",
+    answer:
+      "Not yet. Paste the Google Sheet, video, reel, or social-post URL and Shotlink will recognise it and suggest a structured short path. Background discovery would require a separate Google or social-platform connection and explicit account permission.",
   },
 ];
 

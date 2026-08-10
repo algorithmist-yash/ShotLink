@@ -121,6 +121,94 @@ const WORKSPACE_TYPE_OPTIONS = [
   },
 ];
 
+const INSTITUTION_RESOURCE_OPTIONS = [
+  { value: "attendance", label: "Attendance sheet" },
+  { value: "registration", label: "Registration form" },
+  { value: "notice", label: "Official notice" },
+  { value: "results", label: "Results sheet" },
+  { value: "lecture", label: "Lecture resource" },
+  { value: "resource", label: "General resource" },
+];
+
+const CREATOR_CONTENT_OPTIONS = [
+  { value: "video", label: "Video" },
+  { value: "reel", label: "Reel / short" },
+  { value: "post", label: "Social post" },
+  { value: "collab", label: "Collaboration" },
+  { value: "live", label: "Live event" },
+  { value: "portfolio", label: "Portfolio" },
+  { value: "campaign", label: "Campaign" },
+];
+
+function getLocalDateInputValue() {
+  const today = new Date();
+  const offset = today.getTimezoneOffset() * 60 * 1000;
+  return new Date(today.getTime() - offset).toISOString().slice(0, 10);
+}
+
+function slugifyAliasPart(value) {
+  return String(value || "")
+    .normalize("NFKD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+}
+
+function getDestinationAliasStem(rawUrl) {
+  try {
+    const hostname = new URL(String(rawUrl || "")).hostname.toLowerCase().replace(/^www\./, "");
+    const matchesHost = (provider) => hostname === provider || hostname.endsWith(`.${provider}`);
+    if (matchesHost("youtu.be") || matchesHost("youtube.com")) return "youtube";
+    if (matchesHost("instagram.com")) return "instagram";
+    if (matchesHost("tiktok.com")) return "tiktok";
+    if (matchesHost("x.com") || matchesHost("twitter.com")) return "x";
+    if (matchesHost("facebook.com")) return "facebook";
+    if (matchesHost("linkedin.com")) return "linkedin";
+    if (matchesHost("vimeo.com")) return "vimeo";
+    if (matchesHost("loom.com")) return "loom";
+    return slugifyAliasPart(hostname.split(".")[0]);
+  } catch {
+    return "";
+  }
+}
+
+function buildDatedAlias(prefixParts, kind, date) {
+  const suffixParts = [slugifyAliasPart(kind), slugifyAliasPart(date)].filter(Boolean);
+  const suffix = suffixParts.join("-");
+  const prefix = prefixParts.map(slugifyAliasPart).filter(Boolean).join("-");
+  if (!prefix && !suffix) return "";
+  if (!prefix) return suffix.slice(0, 48).replace(/-+$/g, "");
+
+  const prefixBudget = Math.max(48 - suffix.length - 1, 1);
+  const safePrefix = prefix.slice(0, prefixBudget).replace(/-+$/g, "");
+  return [safePrefix, suffix].filter(Boolean).join("-");
+}
+
+function buildSmartAlias({
+  workspaceType,
+  url,
+  institutionResourceKind,
+  institutionUnit,
+  institutionGroup,
+  creatorContentKind,
+  creatorContentTitle,
+  resourceDate,
+}) {
+  if (workspaceType === "institution") {
+    if (!String(url || "").trim() && !institutionUnit.trim() && !institutionGroup.trim()) return "";
+    return buildDatedAlias(
+      [institutionUnit, institutionGroup],
+      institutionResourceKind,
+      resourceDate
+    );
+  }
+
+  const creatorStem = creatorContentTitle.trim() || getDestinationAliasStem(url);
+  if (!creatorStem) return "";
+  return buildDatedAlias([creatorStem], creatorContentKind, resourceDate);
+}
+
 function classifyDestinationInput(rawUrl) {
   try {
     const parsed = new URL(String(rawUrl || ""));
@@ -414,6 +502,13 @@ function App() {
   const [analytics, setAnalytics] = useState(null);
   const [url, setUrl] = useState("");
   const [customAlias, setCustomAlias] = useState("");
+  const [customAliasManuallyEdited, setCustomAliasManuallyEdited] = useState(false);
+  const [institutionResourceKind, setInstitutionResourceKind] = useState("attendance");
+  const [institutionUnit, setInstitutionUnit] = useState("");
+  const [institutionGroup, setInstitutionGroup] = useState("");
+  const [creatorContentKind, setCreatorContentKind] = useState("video");
+  const [creatorContentTitle, setCreatorContentTitle] = useState("");
+  const [resourceDate, setResourceDate] = useState(getLocalDateInputValue);
   const [fallbackInput, setFallbackInput] = useState("");
   const [expiry, setExpiry] = useState(30);
   const [loading, setLoading] = useState(false);
@@ -1496,6 +1591,10 @@ function App() {
       setSelectedShortCode(data.link.shortCode);
       setUrl("");
       setCustomAlias("");
+      setCustomAliasManuallyEdited(false);
+      setInstitutionUnit("");
+      setInstitutionGroup("");
+      setCreatorContentTitle("");
       setFallbackInput("");
       setExpiry(30);
       setLinkComplianceAccepted(false);
@@ -1618,6 +1717,19 @@ function App() {
     ? INSTITUTION_DASHBOARD_NAV_ITEMS
     : CREATOR_DASHBOARD_NAV_ITEMS;
   const detectedDestination = classifyDestinationInput(url);
+  const smartAliasSuggestion = buildSmartAlias({
+    workspaceType,
+    url,
+    institutionResourceKind,
+    institutionUnit,
+    institutionGroup,
+    creatorContentKind,
+    creatorContentTitle,
+    resourceDate,
+  });
+  useEffect(() => {
+    if (!customAliasManuallyEdited) setCustomAlias(smartAliasSuggestion);
+  }, [customAliasManuallyEdited, smartAliasSuggestion]);
   const customDomains = session?.workspace?.customDomains || [];
   const managedEmailDomains = session?.workspace?.managedEmailDomains || [];
   const verifiedDomains = customDomains.filter((domain) => domain.status === "verified");
@@ -2103,6 +2215,111 @@ function App() {
                   </select>
                 </label>
               </div>
+              <div className="sl-smart-path-card">
+                <div className="sl-smart-path-heading">
+                  <div>
+                    <p>{isInstitutionWorkspace ? "Official link template" : "Creator link template"}</p>
+                    <strong>{isInstitutionWorkspace ? "Generate a structured campus path" : "Generate a share-ready content path"}</strong>
+                  </div>
+                  <span>Auto path</span>
+                </div>
+                {isInstitutionWorkspace ? (
+                  <div className="sl-smart-path-fields">
+                    <label style={styles.label}>
+                      Resource type
+                      <select
+                        style={styles.select}
+                        value={institutionResourceKind}
+                        onChange={(event) => setInstitutionResourceKind(event.target.value)}
+                      >
+                        {INSTITUTION_RESOURCE_OPTIONS.map((option) => (
+                          <option key={option.value} value={option.value}>{option.label}</option>
+                        ))}
+                      </select>
+                    </label>
+                    <label style={styles.label}>
+                      Department / course
+                      <input
+                        style={styles.input}
+                        value={institutionUnit}
+                        maxLength={18}
+                        placeholder="CSE"
+                        onChange={(event) => setInstitutionUnit(event.target.value)}
+                      />
+                    </label>
+                    <label style={styles.label}>
+                      Class / section
+                      <input
+                        style={styles.input}
+                        value={institutionGroup}
+                        maxLength={12}
+                        placeholder="42"
+                        onChange={(event) => setInstitutionGroup(event.target.value)}
+                      />
+                    </label>
+                    <label style={styles.label}>
+                      Resource date
+                      <input
+                        style={styles.input}
+                        type="date"
+                        value={resourceDate}
+                        onChange={(event) => setResourceDate(event.target.value)}
+                      />
+                    </label>
+                  </div>
+                ) : (
+                  <div className="sl-smart-path-fields sl-smart-path-fields-creator">
+                    <label style={styles.label}>
+                      Content type
+                      <select
+                        style={styles.select}
+                        value={creatorContentKind}
+                        onChange={(event) => setCreatorContentKind(event.target.value)}
+                      >
+                        {CREATOR_CONTENT_OPTIONS.map((option) => (
+                          <option key={option.value} value={option.value}>{option.label}</option>
+                        ))}
+                      </select>
+                    </label>
+                    <label style={styles.label}>
+                      Content / campaign name
+                      <input
+                        style={styles.input}
+                        value={creatorContentTitle}
+                        maxLength={32}
+                        placeholder="campus-vlog"
+                        onChange={(event) => setCreatorContentTitle(event.target.value)}
+                      />
+                    </label>
+                    <label style={styles.label}>
+                      Publish date
+                      <input
+                        style={styles.input}
+                        type="date"
+                        value={resourceDate}
+                        onChange={(event) => setResourceDate(event.target.value)}
+                      />
+                    </label>
+                  </div>
+                )}
+                <div className="sl-smart-path-preview" aria-live="polite">
+                  <span>Suggested short link</span>
+                  <strong>
+                    {selectedDomainHost || "shotlink.in"}/{smartAliasSuggestion || (isInstitutionWorkspace ? "cse-42-attendance-2026-08-10" : "youtube-video-2026-08-10")}
+                  </strong>
+                  {smartAliasSuggestion && customAliasManuallyEdited && customAlias !== smartAliasSuggestion ? (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setCustomAliasManuallyEdited(false);
+                        setCustomAlias(smartAliasSuggestion);
+                      }}
+                    >
+                      Use suggested path
+                    </button>
+                  ) : null}
+                </div>
+              </div>
               <div style={styles.label}>
                 <label htmlFor="primary-destination">
                   {isInstitutionWorkspace ? "Official resource URL" : "Campaign destination"}
@@ -2138,10 +2355,15 @@ function App() {
                     style={{ ...styles.input, ...styles.aliasInput }}
                     aria-describedby="custom-alias-help"
                     value={customAlias}
-                    onChange={(event) => setCustomAlias(event.target.value)}
+                    onChange={(event) => {
+                      setCustomAliasManuallyEdited(true);
+                      setCustomAlias(event.target.value);
+                    }}
                   />
                 </div>
-                <span id="custom-alias-help" style={styles.miniHelperText}>Optional. Use 3-48 letters, numbers, hyphens, or underscores.</span>
+                <span id="custom-alias-help" style={styles.miniHelperText}>
+                  Auto-filled from the template. You can replace it with any available 3-48 character path.
+                </span>
               </div>
               <div style={styles.label}>
                 <label htmlFor="fallback-destinations">
