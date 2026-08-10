@@ -70,6 +70,7 @@ const registerContract = {
   email: optionalString(254),
   password: optionalString(128),
   workspaceName: optionalString(100),
+  workspaceType: optionalString(32),
   consents: optionalConsentObject(accountConsentFields),
 };
 

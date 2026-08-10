@@ -56,6 +56,7 @@ function serializeWorkspaceSettings(workspace) {
       id: workspace._id,
       name: workspace.name,
       slug: workspace.slug,
+      workspaceType: workspace.workspaceType || "creator",
       plan: workspace.plan,
       customDomains: workspace.customDomains.map(serializeDomain),
       managedEmailDomains: (workspace.managedEmailDomains || []).map(

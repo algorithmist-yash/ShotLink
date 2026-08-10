@@ -115,6 +115,7 @@ function serializeAuthPayload(user, workspace, sessionDetails) {
       id: workspace._id,
       name: workspace.name,
       slug: workspace.slug,
+      workspaceType: workspace.workspaceType || "creator",
       plan: workspace.plan,
       memberCount: workspace.members.length,
       billing: serializeBillingSnapshot(workspace),
@@ -147,6 +148,7 @@ exports.register = async (req, res) => {
     const email = String(req.body.email || "").trim().toLowerCase();
     const password = String(req.body.password || "");
     const workspaceName = String(req.body.workspaceName || `${name}'s workspace`).trim();
+    const workspaceType = String(req.body.workspaceType || "creator").trim().toLowerCase();
 
     if (!name) {
       return res.status(400).json({ error: "Name is required" });
@@ -161,6 +163,10 @@ exports.register = async (req, res) => {
         error:
           "Password must be at least 8 characters and include uppercase, lowercase, and a number",
       });
+    }
+
+    if (!["creator", "institution"].includes(workspaceType)) {
+      return res.status(400).json({ error: "Choose a creator or institution workspace" });
     }
 
     const consentValidation = validateAccountConsents(req.body);
@@ -208,6 +214,7 @@ exports.register = async (req, res) => {
       name: workspaceName || `${name}'s workspace`,
       slug: await generateWorkspaceSlug(workspaceName || `${name}'s workspace`),
       ownerId: user._id,
+      workspaceType,
       members: [{ userId: user._id, role: "owner" }],
     });
 
@@ -222,7 +229,7 @@ exports.register = async (req, res) => {
       targetId: user._id,
       workspaceId: workspace._id,
       actorUserId: user._id,
-      metadata: { emailDomain: email.split("@")[1] || "" },
+      metadata: { emailDomain: email.split("@")[1] || "", workspaceType },
     });
 
     return res.status(201).json(serializeAuthPayload(user, workspace, sessionDetails));

@@ -66,6 +66,33 @@ const CREATOR_TYPES = [
   },
 ];
 
+const INSTITUTION_FEATURES = [
+  {
+    index: "01",
+    title: "Resource-aware publishing",
+    text: "Recognise Google Sheets, forms, Drive documents, YouTube, Vimeo, Loom, and direct video files before an official link is published.",
+    tag: "Sheets / Forms / Video",
+  },
+  {
+    index: "02",
+    title: "Official identity control",
+    text: "Connect a verified link domain and, on the Institution plan, claim the university or organisation email domain for governed onboarding.",
+    tag: "Domain governance",
+  },
+  {
+    index: "03",
+    title: "Expiry and fallback routes",
+    text: "Time-limit admission notices, event forms, circulars, or recordings and send visitors to a safe fallback when a resource closes.",
+    tag: "Lifecycle control",
+  },
+  {
+    index: "04",
+    title: "Roles and audit history",
+    text: "Keep publishing actions inside a controlled workspace with owner, administrator, publisher, analyst, and viewer responsibilities.",
+    tag: "Accountability",
+  },
+];
+
 const CAPABILITIES = [
   {
     number: "001",
@@ -141,6 +168,11 @@ const FAQS = [
     question: "Is Studio meant for a talent manager or creator team?",
     answer:
       "Yes. Studio is designed for managers, agencies, photographers, and small creator teams coordinating multiple profiles, branded domains, QR assets, and campaign exports.",
+  },
+  {
+    question: "Do universities and institutions get the creator dashboard?",
+    answer:
+      "No. Institution workspaces use a separate official-publishing interface with resource recognition, link lifecycle controls, identity-domain governance, roles, and audit history.",
   },
 ];
 
@@ -391,6 +423,41 @@ function CreatorPlans({ onStart }) {
   );
 }
 
+function InstitutionWorkspace({ onStart }) {
+  return (
+    <section className="mk-institutions mk-section" id="institutions">
+      <div className="mk-institution-intro">
+        <div>
+          <p>University and institution workspace</p>
+          <h2>Official resources need<br />official controls.</h2>
+        </div>
+        <div>
+          <span>
+            This is not a creator dashboard with different wording. It is a separate publishing
+            workflow for universities, government teams, and larger organisations.
+          </span>
+          <button type="button" onClick={() => onStart("institution")}>
+            Create an institution workspace <Arrow />
+          </button>
+        </div>
+      </div>
+      <div className="mk-institution-grid">
+        {INSTITUTION_FEATURES.map((feature) => (
+          <article key={feature.index}>
+            <div><span>{feature.index}</span><small>{feature.tag}</small></div>
+            <h3>{feature.title}</h3>
+            <p>{feature.text}</p>
+          </article>
+        ))}
+      </div>
+      <div className="mk-institution-resource-strip" aria-label="Recognised institution resource types">
+        <span>Google Sheets</span><span>Google Forms</span><span>Drive documents</span>
+        <span>YouTube</span><span>Vimeo</span><span>Loom</span>
+      </div>
+    </section>
+  );
+}
+
 export function PublicHeader({ onLogin, onStart }) {
   const [menuOpen, setMenuOpen] = useState(false);
 
@@ -404,7 +471,7 @@ export function PublicHeader({ onLogin, onStart }) {
       <nav className="mk-desktop-nav" aria-label="Primary navigation">
         <a href="/#create">Create</a>
         <a href="/#creators">Creators</a>
-        <a href="/#solutions">Use cases</a>
+        <a href="/#institutions">Institutions</a>
         <a href="/pricing">Pricing</a>
       </nav>
       <div className="mk-header-actions">
@@ -424,7 +491,7 @@ export function PublicHeader({ onLogin, onStart }) {
         <nav className="mk-mobile-menu" aria-label="Mobile navigation">
           <a href="/#create" onClick={closeMenu}>Create a link</a>
           <a href="/#creators" onClick={closeMenu}>Creators</a>
-          <a href="/#solutions" onClick={closeMenu}>Use cases</a>
+          <a href="/#institutions" onClick={closeMenu}>Institutions</a>
           <a href="/pricing" onClick={closeMenu}>Pricing</a>
           <button type="button" onClick={() => { closeMenu(); onLogin(); }}>Sign in</button>
           <button type="button" className="mk-mobile-cta" onClick={() => { closeMenu(); onStart(); }}>
@@ -447,43 +514,45 @@ export function PublicLanding({ onStart }) {
         <div className="mk-orbit mk-orbit-one" aria-hidden="true" />
         <div className="mk-orbit mk-orbit-two" aria-hidden="true" />
         <div className="mk-hero-topline">
-          <span>Link infrastructure for every public profile</span>
-          <span>Influencers · Models · Streamers · Artists</span>
+          <span>Two purpose-built link workspaces</span>
+          <span>Creators · Universities · Institutions</span>
         </div>
         <div className="mk-hero-copy">
-          <p className="mk-kicker"><i /> Built for the next post.</p>
-          <h1>One link.<br /><em>Everywhere you create.</em></h1>
+          <p className="mk-kicker"><i /> Built for public campaigns and official resources.</p>
+          <h1>One link platform.<br /><em>Two different workspaces.</em></h1>
           <div className="mk-hero-bottom">
             <p>
-              Make a 30-minute short link and QR instantly. Create a free workspace for permanent
-              campaign links, then upgrade later for branded domains and deeper audience insight.
+              Creators get campaign links, QR assets, and audience signals. Universities and
+              institutions get official resource publishing, destination recognition, governance,
+              expiry, and audit controls.
             </p>
             <div className="mk-hero-actions">
               <a className="mk-primary-button" href="#create">
                 Create a free link <Arrow />
               </a>
               <a className="mk-secondary-button" href="#creators">
-                Explore creator plans <Arrow diagonal />
+                Compare workspaces <Arrow diagonal />
               </a>
             </div>
           </div>
         </div>
         <CreatorConsole />
         <div className="mk-hero-footnote">
-          <span>Instant QR generation</span><span>Automatic expiry</span><span>Creator analytics</span>
+          <span>Instant QR generation</span><span>Automatic expiry</span><span>Destination-aware publishing</span>
         </div>
       </section>
 
       <TemporaryLinkStudio onStart={onStart} />
       <CreatorPlans onStart={onStart} />
+      <InstitutionWorkspace onStart={onStart} />
 
       <section className="mk-statement mk-section" id="solutions">
         <div className="mk-statement-label"><span>Why Shotlink</span><strong>01 / 05</strong></div>
         <div className="mk-statement-copy">
-          <h2>Turn every post into <em>a campaign you can measure.</em></h2>
+          <h2>Give every shared destination <em>the right publishing workflow.</em></h2>
           <p>
-            Shotlink gives creators one clean place to shorten, share, brand, and measure the links
-            behind every post, collaboration, portfolio, release, and live event.
+            Creator links are organised around campaigns and audiences. Institution links are
+            organised around official resources, identity, expiry, roles, and accountability.
           </p>
         </div>
       </section>
@@ -582,7 +651,7 @@ export function PublicLanding({ onStart }) {
       <section className="mk-faq mk-section">
         <div className="mk-section-heading mk-section-heading-row">
           <div><p>FAQ</p><h2>Before your<br />first campaign.</h2></div>
-          <span>Clear answers for independent creators, talent managers, and small creator teams.</span>
+          <span>Clear answers for creators, talent teams, universities, agencies, and institutions.</span>
         </div>
         <div className="mk-faq-list">
           {FAQS.map((faq, index) => {
@@ -611,12 +680,12 @@ export function PublicFooter({ onStart }) {
       </div>
       <div className="mk-footer-main">
         <div className="mk-footer-brand">
-          <p>Short links, QR codes, and campaign insight for content creators and talent teams.</p>
+          <p>Purpose-built creator campaigns and official institution resource links on one secure routing platform.</p>
           <a href="mailto:support@shotlink.in">support@shotlink.in</a>
           <a href="tel:+918797053635">+91 87970 53635</a>
         </div>
         <div className="mk-footer-column">
-          <strong>Platform</strong><a href="/#create">Quick link</a><a href="/#creators">Creator plans</a><a href="/#features">Features</a><a href="/pricing">Pricing</a>
+          <strong>Platform</strong><a href="/#create">Quick link</a><a href="/#creators">Creators</a><a href="/#institutions">Institutions</a><a href="/pricing">Pricing</a>
         </div>
         <div className="mk-footer-column">
           <strong>Legal</strong><a href="/terms">Terms</a><a href="/privacy">Privacy</a><a href="/shipping-policy">Digital delivery</a><a href="/refund-policy">Cancellations &amp; refunds</a>
@@ -626,7 +695,7 @@ export function PublicFooter({ onStart }) {
         </div>
       </div>
       <div className="mk-footer-bottom">
-        <span>© 2026 Shotlink. All rights reserved.</span><span>Built in India for creators everywhere.</span>
+        <span>© 2026 Shotlink. All rights reserved.</span><span>Built in India for creators and institutions.</span>
       </div>
     </footer>
   );

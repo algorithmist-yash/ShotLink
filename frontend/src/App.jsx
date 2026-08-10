@@ -25,7 +25,7 @@ const LEGACY_SESSION_STORAGE_KEY = "url-shortener-session-token";
 const ACCOUNT_POLICY_VERSION = "2026-08-09";
 const LINK_POLICY_VERSION = "2026-08-09";
 
-const DASHBOARD_NAV_ITEMS = [
+const CREATOR_DASHBOARD_NAV_ITEMS = [
   { id: "builder-panel", label: "Create link", index: "01" },
   { id: "links-panel", label: "Link library", index: "02" },
   { id: "analytics-panel", label: "Analytics", index: "03" },
@@ -107,6 +107,90 @@ const EXPIRY_OPTIONS = [
   { label: "1 day", value: 1440 },
   { label: "7 days", value: 10080 },
 ];
+
+const WORKSPACE_TYPE_OPTIONS = [
+  {
+    id: "creator",
+    label: "Creator",
+    description: "Campaigns, portfolios, releases, QR codes, and audience insight.",
+  },
+  {
+    id: "institution",
+    label: "University / Institution",
+    description: "Official resources, controlled domains, audit history, and team access.",
+  },
+];
+
+function classifyDestinationInput(rawUrl) {
+  try {
+    const parsed = new URL(String(rawUrl || ""));
+    const hostname = parsed.hostname.toLowerCase().replace(/^www\./, "");
+    const pathname = parsed.pathname.toLowerCase();
+
+    if (hostname === "docs.google.com" && pathname.startsWith("/spreadsheets/")) {
+      return {
+        type: "google_sheet",
+        label: "Google Sheet detected",
+        guidance:
+          "Confirm the Sheet sharing setting before publishing. Shotlink controls the route and expiry, but Google still controls who can open the Sheet.",
+      };
+    }
+    if (hostname === "docs.google.com" && pathname.startsWith("/forms/")) {
+      return {
+        type: "form",
+        label: "Google Form detected",
+        guidance:
+          "Use expiry and a fallback page for time-bound registrations. Google Form access settings still apply after the redirect.",
+      };
+    }
+    if (
+      (hostname === "docs.google.com" && pathname.startsWith("/document/")) ||
+      hostname === "drive.google.com"
+    ) {
+      return {
+        type: "document",
+        label: "Google document detected",
+        guidance: "Check the Drive sharing audience before publishing an official resource link.",
+      };
+    }
+    if (
+      ["youtube.com", "youtu.be", "vimeo.com", "loom.com"].some(
+        (provider) => hostname === provider || hostname.endsWith(`.${provider}`)
+      ) ||
+      /\.(mp4|mov|m4v|webm)(?:$|[?#])/i.test(parsed.href)
+    ) {
+      return {
+        type: "video",
+        label: "Video destination detected",
+        guidance:
+          "Shotlink measures visits to the video. Watch time and completion remain available from the video host, such as YouTube or Vimeo.",
+      };
+    }
+    if (
+      ["instagram.com", "tiktok.com", "facebook.com", "x.com", "twitter.com", "linkedin.com"].includes(
+        hostname
+      )
+    ) {
+      return {
+        type: "social",
+        label: "Social post detected",
+        guidance: "Use a memorable alias and compare Shotlink referrers across campaign placements.",
+      };
+    }
+    return {
+      type: "website",
+      label: "Website destination",
+      guidance: "Add a fallback route when this destination is important or time-sensitive.",
+    };
+  } catch {
+    return null;
+  }
+}
+
+function getDestinationLabel(link) {
+  if (link?.destinationLabel) return link.destinationLabel;
+  return classifyDestinationInput(link?.originalUrl)?.label.replace(" detected", "") || "Website";
+}
 
 const DEFAULT_PUBLIC_PLANS = [
   {
@@ -190,6 +274,15 @@ const DEFAULT_PUBLIC_PLANS = [
       "Custom SLA and procurement support",
     ],
   },
+];
+
+const INSTITUTION_DASHBOARD_NAV_ITEMS = [
+  { id: "builder-panel", label: "Publish resource", index: "01" },
+  { id: "links-panel", label: "Official links", index: "02" },
+  { id: "analytics-panel", label: "Usage analytics", index: "03" },
+  { id: "domains-panel", label: "Domain control", index: "04" },
+  { id: "billing-panel", label: "Plan & access", index: "05" },
+  { id: "docs-panel", label: "Governance guide", index: "06" },
 ];
 
 const DEFAULT_CHECKOUT_AVAILABILITY = Object.freeze({
@@ -310,6 +403,7 @@ function App() {
     email: "",
     password: "",
     workspaceName: "",
+    workspaceType: "creator",
     consents: createDefaultConsents(),
   });
   const [authLoading, setAuthLoading] = useState(true);
@@ -773,7 +867,7 @@ function App() {
 
     if (plan.id === "enterprise") {
       const supportEmail = billingSummary?.supportEmail || "support@shotlink.in";
-      window.location.href = `mailto:${supportEmail}?subject=Shotlink Enterprise plan`;
+      window.location.href = `mailto:${supportEmail}?subject=Shotlink Institution onboarding`;
       return;
     }
 
@@ -896,7 +990,11 @@ function App() {
     window.scrollTo({ top: 0, left: 0, behavior: "auto" });
   };
 
-  const openRegistrationPanel = () => openAuthView("register");
+  const openRegistrationPanel = (requestedWorkspaceType = "creator") => {
+    const workspaceType = requestedWorkspaceType === "institution" ? "institution" : "creator";
+    setAuthForm((current) => ({ ...current, workspaceType }));
+    openAuthView("register");
+  };
   const openLoginPanel = () => openAuthView("login");
 
   const closeAuthView = () => {
@@ -910,46 +1008,50 @@ function App() {
     <div
       style={{
         ...styles.planGrid,
-        gridTemplateColumns: isMobile || compact ? "1fr" : "repeat(3, minmax(0, 1fr))",
+        gridTemplateColumns: isMobile || compact ? "1fr" : "repeat(4, minmax(0, 1fr))",
       }}
     >
-      {publicPlans.filter((plan) => plan.id !== "enterprise").map((plan) => (
-        <div
-          key={plan.id}
-          className="sl-lift"
-          style={plan.id === "pro" ? { ...styles.planCard, ...styles.planCardFeatured } : styles.planCard}
-        >
-          <div style={styles.planHeader}>
-            <strong style={styles.planName}>{plan.name}</strong>
-            <StatusPill
-              label={
-                plan.id !== "free" && !checkoutAvailability.enabled
+      {publicPlans.map((plan) => {
+        const isInstitutionPlan = plan.id === "enterprise";
+        const displayName = isInstitutionPlan ? "Institution" : plan.name;
+        return (
+          <div
+            key={plan.id}
+            className="sl-lift"
+            style={plan.id === "pro" ? { ...styles.planCard, ...styles.planCardFeatured } : styles.planCard}
+          >
+            <div style={styles.planHeader}>
+              <strong style={styles.planName}>{displayName}</strong>
+              <StatusPill
+                label={isInstitutionPlan
+                  ? "Official control"
+                  : plan.id !== "free" && !checkoutAvailability.enabled
                     ? "Coming soon"
-                    : `${plan.linkLimit} links`
-              }
-              tone={getPlanTone(plan.id)}
-            />
+                    : `${plan.linkLimit} links`}
+                tone={getPlanTone(plan.id)}
+              />
+            </div>
+            <p style={styles.planPrice}>{formatPlanPrice(plan)}</p>
+            <div style={styles.planFeatureList}>
+              {plan.features.slice(0, compact ? 3 : plan.features.length).map((feature) => (
+                <p key={feature} style={styles.planFeatureItem}>{feature}</p>
+              ))}
+            </div>
+            {!compact ? (
+              <button
+                style={styles.primaryButton}
+                onClick={() => openRegistrationPanel(isInstitutionPlan ? "institution" : "creator")}
+              >
+                {isInstitutionPlan
+                  ? "Create institution workspace"
+                  : plan.id !== "free" && !checkoutAvailability.enabled
+                    ? "Create a free workspace"
+                    : `Start with ${displayName}`}
+              </button>
+            ) : null}
           </div>
-          <p style={styles.planPrice}>{formatPlanPrice(plan)}</p>
-          <div style={styles.planFeatureList}>
-            {plan.features.slice(0, compact ? 3 : plan.features.length).map((feature) => (
-              <p key={feature} style={styles.planFeatureItem}>
-                {feature}
-              </p>
-            ))}
-          </div>
-          {!compact ? (
-            <button
-              style={styles.primaryButton}
-              onClick={openRegistrationPanel}
-            >
-              {plan.id !== "free" && !checkoutAvailability.enabled
-                ? "Create a free workspace"
-                : `Start with ${plan.name}`}
-            </button>
-          ) : null}
-        </div>
-      ))}
+        );
+      })}
     </div>
   );
 
@@ -958,10 +1060,11 @@ function App() {
       return (
         <section className="sl-reveal" style={styles.publicPageCard}>
           <p style={styles.sectionEyebrow}>Pricing</p>
-          <h1 style={styles.publicTitle}>Plans built for content creators.</h1>
+          <h1 style={styles.publicTitle}>Plans for creators and institutions.</h1>
           <p style={styles.publicLead}>
-            Start free, choose Creator Pro for an independent profile, or use Studio when a
-            manager or creator team coordinates multiple campaigns.
+            Creators can start free, choose Creator Pro, or use Studio for managed talent.
+            Universities and organisations can start an Institution workspace with a separate
+            official-publishing interface, then activate domain governance through onboarding.
           </p>
           {!checkoutAvailability.enabled ? (
             <div role="status" style={styles.checkoutNotice}>
@@ -1101,6 +1204,7 @@ function App() {
         email: authForm.email,
         password: "",
         workspaceName: "",
+        workspaceType: "creator",
         consents: createDefaultConsents(),
       });
     } catch (requestError) {
@@ -1508,12 +1612,19 @@ function App() {
     usage: {},
   };
   const billingRecords = billingSummary?.recentPayments || [];
+  const workspaceType = session?.workspace?.workspaceType || "creator";
+  const isInstitutionWorkspace = workspaceType === "institution";
+  const dashboardNavItems = isInstitutionWorkspace
+    ? INSTITUTION_DASHBOARD_NAV_ITEMS
+    : CREATOR_DASHBOARD_NAV_ITEMS;
+  const detectedDestination = classifyDestinationInput(url);
   const customDomains = session?.workspace?.customDomains || [];
   const managedEmailDomains = session?.workspace?.managedEmailDomains || [];
   const verifiedDomains = customDomains.filter((domain) => domain.status === "verified");
   const domainLimit = currentPlan.domainLimit ?? 0;
   const cnameTarget = session?.workspace?.domainSetup?.cnameTarget || "go.shotlink.in";
-  const institutionGovernanceEnabled = currentPlan.effectivePlanId === "enterprise";
+  const institutionGovernanceEnabled =
+    isInstitutionWorkspace && currentPlan.effectivePlanId === "enterprise";
   const activeLinks = links.filter(isUsableLink);
   const expiredLinkCount = Math.max(links.length - activeLinks.length, 0);
   const activeLinkCount =
@@ -1589,7 +1700,9 @@ function App() {
                   </h1>
                   <p style={styles.authSubtitle}>
                     {authMode === "register"
-                      ? "Start with free campaign links, QR codes, and creator analytics."
+                      ? authForm.workspaceType === "institution"
+                        ? "Create an official workspace for university, institute, or organisation links."
+                        : "Start with free campaign links, QR codes, and creator analytics."
                       : "Continue to your links, analytics, domains, and billing."}
                   </p>
                 </div>
@@ -1642,21 +1755,45 @@ function App() {
                 </label>
 
                 {authMode === "register" ? (
-                  <label style={styles.label}>
-                    Workspace name
-                    <input
-                      style={styles.input}
-                      value={authForm.workspaceName}
-                      autoComplete="organization"
-                      required
-                      onChange={(event) =>
-                        setAuthForm((current) => ({
-                          ...current,
-                          workspaceName: event.target.value,
-                        }))
-                      }
-                    />
-                  </label>
+                  <>
+                    <fieldset style={styles.workspaceTypeFieldset}>
+                      <legend style={styles.labelText}>Choose your workspace</legend>
+                      <div className="sl-workspace-type-grid" style={styles.workspaceTypeGrid}>
+                        {WORKSPACE_TYPE_OPTIONS.map((option) => {
+                          const isSelected = authForm.workspaceType === option.id;
+                          return (
+                            <button
+                              key={option.id}
+                              type="button"
+                              aria-pressed={isSelected}
+                              style={isSelected ? styles.workspaceTypeButtonSelected : styles.workspaceTypeButton}
+                              onClick={() =>
+                                setAuthForm((current) => ({ ...current, workspaceType: option.id }))
+                              }
+                            >
+                              <strong>{option.label}</strong>
+                              <span>{option.description}</span>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </fieldset>
+                    <label style={styles.label}>
+                      {authForm.workspaceType === "institution" ? "Institution name" : "Workspace name"}
+                      <input
+                        style={styles.input}
+                        value={authForm.workspaceName}
+                        autoComplete="organization"
+                        required
+                        onChange={(event) =>
+                          setAuthForm((current) => ({
+                            ...current,
+                            workspaceName: event.target.value,
+                          }))
+                        }
+                      />
+                    </label>
+                  </>
                 ) : null}
 
                 {authMode === "register" ? (
@@ -1724,13 +1861,18 @@ function App() {
 
             <aside className="sl-auth-visual" style={styles.authVisualPane}>
               <div style={styles.authVisualCopy}>
-                <p style={styles.freePlanBadge}>Link intelligence built in</p>
+                <p style={styles.freePlanBadge}>
+                  {authForm.workspaceType === "institution" ? "Official publishing controls" : "Creator intelligence built in"}
+                </p>
                 <h2 style={styles.authVisualTitle}>
-                  Create, protect, and measure every campaign route.
+                  {authForm.workspaceType === "institution"
+                    ? "Publish Sheets, forms, videos, and official resources with control."
+                    : "Create, protect, and measure every campaign route."}
                 </h2>
                 <p style={styles.authVisualText}>
-                  Branded links, QR codes, click analytics, and fallback destinations live in one
-                  clean workspace.
+                  {authForm.workspaceType === "institution"
+                    ? "Resource detection, official domains, audit history, expiry, and fallback routes live in one institutional workspace."
+                    : "Branded links, QR codes, click analytics, and fallback destinations live in one clean workspace."}
                 </p>
               </div>
               <ShortenerPreview onStart={openRegistrationPanel} />
@@ -1780,7 +1922,11 @@ function App() {
   const userFirstName = session.user.name.split(/\s+/).filter(Boolean)[0] || session.user.name;
 
   return (
-    <div className="sl-page sl-dashboard-page" style={{ ...styles.page, ...enterpriseDashboardStyles.page }}>
+    <div
+      className="sl-page sl-dashboard-page"
+      data-workspace-type={workspaceType}
+      style={{ ...styles.page, ...enterpriseDashboardStyles.page }}
+    >
       <div className="sl-grid-overlay" style={{ ...styles.backgroundGrid, ...enterpriseDashboardStyles.backgroundGrid }} />
       <div className="sl-glow sl-glow-top" style={{ ...styles.backgroundGlowTop, ...enterpriseDashboardStyles.backgroundGlowTop }} />
       <div className="sl-glow sl-glow-bottom" style={{ ...styles.backgroundGlowBottom, ...enterpriseDashboardStyles.backgroundGlowBottom }} />
@@ -1800,6 +1946,10 @@ function App() {
           </div>
           <div className="sl-header-actions" style={styles.headerActions}>
             <StatusPill label={`${activeLinkCount}/${activeLinkLimit} active links`} tone="accent" />
+            <StatusPill
+              label={isInstitutionWorkspace ? "Institution workspace" : "Creator workspace"}
+              tone={isInstitutionWorkspace ? "neutral" : "healthy"}
+            />
             <StatusPill label={formatLabel(currentPlan.billingStatus)} tone={getBillingTone(currentPlan.billingStatus)} />
             <button
               className="sl-header-new-link"
@@ -1821,8 +1971,9 @@ function App() {
               <p style={styles.sectionEyebrow}>Welcome back, {userFirstName}</p>
               <h1 style={styles.overviewTitle}>{session.workspace.name}</h1>
               <p className="sl-overview-copy">
-                One clean workspace for every post, collaboration, portfolio, release, and live
-                event. Publish faster, learn what travels, and keep every campaign route organised.
+                {isInstitutionWorkspace
+                  ? "An official workspace for Sheets, forms, videos, notices, and public resources. Publish with expiry, domain control, usage evidence, and an auditable route history."
+                  : "One clean workspace for every post, collaboration, portfolio, release, and live event. Publish faster, learn what travels, and keep every campaign route organised."}
               </p>
             </div>
             <span className="sl-live-indicator" style={styles.overviewTimestamp}>
@@ -1830,7 +1981,7 @@ function App() {
             </span>
           </div>
           <article className="sl-lift sl-command-card" data-accent="blue" style={{ ...styles.commandCard, ...enterpriseDashboardStyles.commandCard }}>
-            <div style={styles.commandCardTop}><span style={styles.commandIndex}>01</span><p style={styles.metricLabel}>Active links</p></div>
+            <div style={styles.commandCardTop}><span style={styles.commandIndex}>01</span><p style={styles.metricLabel}>{isInstitutionWorkspace ? "Official links" : "Active links"}</p></div>
             <strong style={styles.commandValue}>{activeLinkCount}</strong>
             <span style={styles.metricHint}>{remainingLinkSlots} slots available</span>
           </article>
@@ -1840,9 +1991,9 @@ function App() {
             <span style={styles.metricHint}>selected link telemetry</span>
           </article>
           <article className="sl-lift sl-command-card" data-accent="amber" style={{ ...styles.commandCard, ...enterpriseDashboardStyles.commandCard }}>
-            <div style={styles.commandCardTop}><span style={styles.commandIndex}>03</span><p style={styles.metricLabel}>Branded domains</p></div>
-            <strong style={styles.commandValue}>{customDomains.length}</strong>
-            <span style={styles.metricHint}>{verifiedDomains.length} verified · {domainLimit} allowed</span>
+            <div style={styles.commandCardTop}><span style={styles.commandIndex}>03</span><p style={styles.metricLabel}>{isInstitutionWorkspace ? "Controlled domains" : "Branded domains"}</p></div>
+            <strong style={styles.commandValue}>{isInstitutionWorkspace ? customDomains.length + managedEmailDomains.length : customDomains.length}</strong>
+            <span style={styles.metricHint}>{isInstitutionWorkspace ? `${managedEmailDomains.length} identity · ${customDomains.length} link` : `${verifiedDomains.length} verified · ${domainLimit} allowed`}</span>
           </article>
           <article className="sl-lift sl-command-card" data-accent="violet" style={{ ...styles.commandCard, ...enterpriseDashboardStyles.commandCard }}>
             <div style={styles.commandCardTop}><span style={styles.commandIndex}>04</span><p style={styles.metricLabel}>Current plan</p></div>
@@ -1864,7 +2015,7 @@ function App() {
             </div>
           </div>
           <div className="sl-dashboard-nav-items" style={styles.dashboardNavItems}>
-            {DASHBOARD_NAV_ITEMS.map((item) => (
+            {dashboardNavItems.map((item) => (
               <button
                 key={item.id}
                 style={styles.dashboardNavItem}
@@ -1905,9 +2056,9 @@ function App() {
           <section id="builder-panel" style={{ ...styles.builderCard, ...enterpriseDashboardStyles.builderCard, gridArea: "builder" }}>
             <div style={styles.panelTitleRow}>
               <div>
-                <p style={styles.sectionEyebrow}>Create</p>
-                <h2 style={styles.panelTitle}>Publish a short link</h2>
-                <p style={styles.panelLead}>Set the destination, branded path, expiry, and failover behavior.</p>
+                <p style={styles.sectionEyebrow}>{isInstitutionWorkspace ? "Official publishing" : "Create"}</p>
+                <h2 style={styles.panelTitle}>{isInstitutionWorkspace ? "Publish an official resource" : "Publish a short link"}</h2>
+                <p style={styles.panelLead}>{isInstitutionWorkspace ? "Classify the resource, set its official path and expiry, then add a continuity route when needed." : "Set the destination, branded path, expiry, and failover behavior."}</p>
               </div>
               <StatusPill label={currentPlan.effectivePlanName} tone={getPlanTone(currentPlan.effectivePlanId)} />
             </div>
@@ -1953,17 +2104,30 @@ function App() {
                 </label>
               </div>
               <div style={styles.label}>
-                <label htmlFor="primary-destination">Primary destination</label>
+                <label htmlFor="primary-destination">
+                  {isInstitutionWorkspace ? "Official resource URL" : "Campaign destination"}
+                </label>
                 <input
                   id="primary-destination"
                   style={styles.input}
                   type="url"
                   autoComplete="url"
                   aria-describedby="primary-destination-help"
+                  placeholder={isInstitutionWorkspace ? "https://docs.google.com/spreadsheets/..." : "https://youtube.com/watch?v=..."}
                   value={url}
                   onChange={(event) => setUrl(event.target.value)}
                 />
-                <span id="primary-destination-help" style={styles.miniHelperText}>The HTTPS page visitors should reach.</span>
+                <span id="primary-destination-help" style={styles.miniHelperText}>
+                  {isInstitutionWorkspace
+                    ? "Paste a Google Sheet, form, document, video, notice, or other official HTTPS resource."
+                    : "Paste the post, video, portfolio, store, booking, or sponsor page your audience should reach."}
+                </span>
+                {detectedDestination && detectedDestination.type !== "website" ? (
+                  <div role="status" style={styles.destinationInsight}>
+                    <strong>{detectedDestination.label}</strong>
+                    <span>{detectedDestination.guidance}</span>
+                  </div>
+                ) : null}
               </div>
               <div style={styles.label}>
                 <label htmlFor="custom-alias">Custom alias</label>
@@ -2020,7 +2184,7 @@ function App() {
               <div className="sl-dashboard-result" style={{ ...styles.resultCard, ...enterpriseDashboardStyles.panelCard }}>
                 <div style={styles.resultTopRow}>
                   <div>
-                    <p style={styles.mutedLabel}>Selected short URL</p>
+                    <p style={styles.mutedLabel}>Selected short URL · {getDestinationLabel(analytics)}</p>
                     <a href={analytics.shortUrl} target="_blank" rel="noreferrer" style={styles.link}>{analytics.shortUrl}</a>
                   </div>
                   <div style={styles.inlineActions}>
@@ -2057,10 +2221,13 @@ function App() {
                 <p style={styles.sectionEyebrow}>Analytics console</p>
                 <h2 style={styles.panelTitle}>Protected workspace analytics</h2>
               </div>
-              <StatusPill
-                label={analytics?.isActive ? "active" : selectedShortCode ? "expired" : "select a link"}
-                tone={analytics?.isActive ? "healthy" : selectedShortCode ? "danger" : "neutral"}
-              />
+              <div style={styles.inlineActions}>
+                {analytics ? <StatusPill label={getDestinationLabel(analytics)} tone="accent" /> : null}
+                <StatusPill
+                  label={analytics?.isActive ? "active" : selectedShortCode ? "expired" : "select a link"}
+                  tone={analytics?.isActive ? "healthy" : selectedShortCode ? "danger" : "neutral"}
+                />
+              </div>
             </div>
             <FeedbackMessage message={analyticsError} />
             <div className="sl-analytics-metrics" style={styles.metricsGrid}>
@@ -2158,7 +2325,13 @@ function App() {
               <div className="sl-link-library-list" style={styles.linkList}>
                 {activeLinks.map((link) => (
                   <button key={link.shortCode} style={link.shortCode === selectedShortCode ? styles.linkListItemActive : styles.linkListItem} onClick={() => setSelectedShortCode(link.shortCode)}>
-                    <div style={styles.linkListTopRow}><span style={styles.linkShortCode}>{link.shortCode}</span><StatusPill label={link.isActive ? "active" : "expired"} tone={getActiveTone(link)} /></div>
+                    <div style={styles.linkListTopRow}>
+                      <span style={styles.linkShortCode}>{link.shortCode}</span>
+                      <div style={styles.inlineActions}>
+                        <StatusPill label={getDestinationLabel(link)} tone="neutral" />
+                        <StatusPill label={link.isActive ? "active" : "expired"} tone={getActiveTone(link)} />
+                      </div>
+                    </div>
                     {link.customDomainHost ? <p style={styles.mutedLabel}>{link.customDomainHost}</p> : null}
                     <p style={styles.linkOriginal}>{link.originalUrl}</p>
                     <div style={styles.linkListFooter}><span>{link.clicks} clicks</span><span>{formatDate(link.createdAt)}</span></div>
@@ -2170,8 +2343,18 @@ function App() {
 
           <section id="domains-panel" style={{ ...styles.panelCard, ...enterpriseDashboardStyles.panelCard, gridArea: "domains" }}>
             <div style={styles.panelTitleRow}>
-              <div><p style={styles.sectionEyebrow}>Domains</p><h2 style={styles.panelTitle}>Branded link domains</h2></div>
-              <StatusPill label={`${customDomains.length} connected`} tone={domainLimit ? "accent" : "neutral"} />
+              <div>
+                <p style={styles.sectionEyebrow}>Domains</p>
+                <h2 style={styles.panelTitle}>
+                  {isInstitutionWorkspace ? "Official link and identity domains" : "Branded link domains"}
+                </h2>
+              </div>
+              <StatusPill
+                label={isInstitutionWorkspace
+                  ? `${customDomains.length} link · ${managedEmailDomains.length} identity`
+                  : `${customDomains.length} connected`}
+                tone={domainLimit ? "accent" : "neutral"}
+              />
             </div>
             <FeedbackMessage message={domainError} />
             <FeedbackMessage message={domainMessage} tone="success" />
@@ -2185,7 +2368,13 @@ function App() {
                 {domainSaving ? "Adding..." : "Add domain"}
               </button>
             </div>
-            {domainLimit === 0 ? <p style={styles.helperText}>Upgrade to Creator Pro or Studio to publish branded campaign links.</p> : null}
+            {domainLimit === 0 ? (
+              <p style={styles.helperText}>
+                {isInstitutionWorkspace
+                  ? "Activate the Institution plan to connect an official link domain and email identity domain."
+                  : "Upgrade to Creator Pro or Studio to publish branded campaign links."}
+              </p>
+            ) : null}
             {customDomains.length ? (
               <div style={styles.domainList}>
                 {customDomains.map((domain) => (
@@ -2206,7 +2395,7 @@ function App() {
               </div>
             ) : <p style={styles.emptyState}>Add your branded subdomain, publish the DNS records, then verify it here.</p>}
 
-            {institutionGovernanceEnabled ? <div style={{ ...styles.paymentCard, marginTop: 20 }}>
+            {isInstitutionWorkspace ? <div style={{ ...styles.paymentCard, marginTop: 20 }}>
               <div style={styles.panelTitleRow}>
                 <div>
                   <p style={styles.sectionEyebrow}>Institution access</p>
@@ -2217,10 +2406,16 @@ function App() {
                   </p>
                 </div>
                 <StatusPill
-                  label={institutionGovernanceEnabled ? "Enterprise enabled" : "Enterprise control"}
+                  label={institutionGovernanceEnabled ? "Governance enabled" : "Institution control"}
                   tone={institutionGovernanceEnabled ? "healthy" : "neutral"}
                 />
               </div>
+              {!institutionGovernanceEnabled ? (
+                <p style={styles.helperText}>
+                  Official email-domain governance is activated with the Institution plan. Contact
+                  support@shotlink.in when your university, agency, or company is ready to claim its domain.
+                </p>
+              ) : null}
               <FeedbackMessage message={managedEmailDomainError} />
               <FeedbackMessage message={managedEmailDomainMessage} tone="success" />
               <div className="sl-inline-form" style={styles.inlineForm}>
@@ -2325,16 +2520,24 @@ function App() {
                 </p>
               </div>
               <div style={styles.compactPlanGrid}>
-                {publicPlans.filter((plan) => plan.id !== "free" && plan.id !== "enterprise").map((plan) => {
+                {publicPlans.filter((plan) =>
+                  plan.id !== "free" && (isInstitutionWorkspace ? plan.id === "enterprise" : plan.id !== "enterprise")
+                ).map((plan) => {
+                  const isInstitutionPlan = plan.id === "enterprise";
                   const isCurrentPlan = currentPlan.effectivePlanId === plan.id;
                   const isCheckoutLoading = checkoutLoadingPlanId === plan.id;
-                  const isPaidCheckoutUnavailable = !checkoutAvailability.enabled;
+                  const isPaidCheckoutUnavailable = !checkoutAvailability.enabled && !isInstitutionPlan;
+                  const displayName = isInstitutionPlan ? "Institution" : plan.name;
                   return (
                     <div key={plan.id} style={{ ...styles.compactPlanCard, ...enterpriseDashboardStyles.compactPlanCard }}>
-                      <div style={styles.planHeader}><strong style={styles.planName}>{plan.name}</strong><span style={styles.compactPlanPrice}>{formatPlanPrice(plan)}</span></div>
-                      <p style={styles.miniHelperText}>{plan.linkLimit} links and {plan.domainLimit} branded {plan.domainLimit === 1 ? "domain" : "domains"}.</p>
+                      <div style={styles.planHeader}><strong style={styles.planName}>{displayName}</strong><span style={styles.compactPlanPrice}>{formatPlanPrice(plan)}</span></div>
+                      <p style={styles.miniHelperText}>
+                        {isInstitutionPlan
+                          ? "Official link domains, email-domain governance, roles, and audit control."
+                          : `${plan.linkLimit} links and ${plan.domainLimit} branded ${plan.domainLimit === 1 ? "domain" : "domains"}.`}
+                      </p>
                       <button style={isCurrentPlan || isCheckoutLoading || isPaidCheckoutUnavailable ? { ...styles.secondaryButton, opacity: 0.65, cursor: "not-allowed" } : styles.primaryButton} onClick={() => startPlanCheckout(plan)} disabled={isCurrentPlan || isPaidCheckoutUnavailable || Boolean(checkoutLoadingPlanId)}>
-                        {isCurrentPlan ? "Current plan" : isCheckoutLoading ? "Opening..." : isPaidCheckoutUnavailable ? "Live checkout coming soon" : `Upgrade to ${plan.name}`}
+                        {isCurrentPlan ? "Current plan" : isCheckoutLoading ? "Opening..." : isPaidCheckoutUnavailable ? "Live checkout coming soon" : isInstitutionPlan ? "Contact institution onboarding" : `Upgrade to ${plan.name}`}
                       </button>
                     </div>
                   );

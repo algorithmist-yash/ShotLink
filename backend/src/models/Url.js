@@ -33,6 +33,13 @@ const urlSchema = new mongoose.Schema(
       index: true,
     },
     originalUrl: { type: String, required: true },
+    destinationType: {
+      type: String,
+      enum: ["website", "google_sheet", "document", "form", "video", "social"],
+      default: "website",
+      index: true,
+    },
+    destinationProvider: { type: String, default: "website", trim: true },
     shortCode: { type: String, required: true, unique: true },
     customDomainHost: { type: String, default: "", trim: true, lowercase: true, index: true },
     clicks: { type: Number, default: 0 },

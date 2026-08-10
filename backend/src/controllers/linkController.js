@@ -11,6 +11,7 @@ const {
   validateLinkConsents,
 } = require("../utils/consentUtils");
 const { normalizeHostname } = require("../utils/domainUtils");
+const { classifyDestination } = require("../utils/destinationClassifier");
 const { isReservedShortCode, validateShortenPayload } = require("../utils/urlUtils");
 const {
   needsHealthRefresh,
@@ -57,12 +58,22 @@ function buildShortUrl(req, url) {
 }
 
 function serializeLinkSummary(req, url) {
+  const destination = classifyDestination(url.originalUrl);
   return {
     id: url._id,
     shortCode: url.shortCode,
     shortUrl: buildShortUrl(req, url),
     customDomainHost: url.customDomainHost || "",
     originalUrl: url.originalUrl,
+    destinationType:
+      url.destinationType && !(url.destinationType === "website" && destination.type !== "website")
+        ? url.destinationType
+        : destination.type,
+    destinationProvider:
+      url.destinationProvider && url.destinationProvider !== "website"
+        ? url.destinationProvider
+        : destination.provider,
+    destinationLabel: destination.label,
     clicks: url.clicks,
     createdAt: url.createdAt,
     expiresAt: url.expiresAt,
@@ -203,10 +214,13 @@ exports.createGuestLink = async (req, res) => {
       });
     }
 
+    const destination = classifyDestination(originalUrl);
     const url = await Url.create({
       workspaceId: null,
       createdBy: null,
       originalUrl,
+      destinationType: destination.type,
+      destinationProvider: destination.provider,
       shortCode: await generateUniqueShortCode(),
       expiresAt: new Date(Date.now() + requestedExpiry * 60 * 1000),
       isActive: true,
@@ -285,12 +299,15 @@ exports.createLink = async (req, res) => {
       }
     }
 
+    const destination = classifyDestination(originalUrl);
     const url = await createUrlWithinPlanLimit({
       workspaceId: req.auth.workspace._id,
       urlAttributes: {
         workspaceId: req.auth.workspace._id,
         createdBy: req.auth.user._id,
         originalUrl,
+        destinationType: destination.type,
+        destinationProvider: destination.provider,
         shortCode,
         customDomainHost,
         expiresAt,
@@ -313,6 +330,7 @@ exports.createLink = async (req, res) => {
         shortCode: url.shortCode,
         customDomainHost: url.customDomainHost || "",
         expiresAt: url.expiresAt.toISOString(),
+        destinationType: url.destinationType,
       },
     });
 

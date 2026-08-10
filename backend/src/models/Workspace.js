@@ -60,6 +60,12 @@ const workspaceSchema = new mongoose.Schema(
       required: true,
       index: true,
     },
+    workspaceType: {
+      type: String,
+      enum: ["creator", "institution"],
+      default: "creator",
+      index: true,
+    },
     plan: {
       type: String,
       enum: ["free", "pro", "business", "enterprise"],

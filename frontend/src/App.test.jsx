@@ -80,6 +80,63 @@ describe("Shotlink frontend workflows", () => {
     expect(window.location.pathname).toBe("/register");
   });
 
+  test("creates an institution workspace with the official publishing interface", async () => {
+    const institutionSession = {
+      ...sessionPayload,
+      workspace: {
+        ...sessionPayload.workspace,
+        name: "North Campus University",
+        workspaceType: "institution",
+      },
+    };
+
+    fetch.mockImplementation(async (input, options = {}) => {
+      const path = getRequestPath(input);
+      const method = options.method || "GET";
+
+      if (path === "/api/v1/auth/me") return jsonResponse(401, { error: "Authentication required" });
+      if (path === "/api/v1/billing/plans") return jsonResponse(200, { plans: [] });
+      if (path === "/api/v1/auth/register" && method === "POST") {
+        const payload = JSON.parse(options.body);
+        expect(payload.workspaceType).toBe("institution");
+        expect(payload.workspaceName).toBe("North Campus University");
+        return jsonResponse(201, institutionSession);
+      }
+      if (path === "/api/v1/links") return jsonResponse(200, { links: [] });
+      if (path === "/api/v1/billing/summary") {
+        return jsonResponse(200, {
+          currentPlan: institutionSession.workspace.billing,
+          plans: [],
+          recentPayments: [],
+        });
+      }
+
+      throw new Error(`Unexpected request: ${method} ${path}`);
+    });
+
+    render(<App />);
+    fireEvent.click(await screen.findByRole("button", { name: "Create an institution workspace" }));
+
+    const form = screen.getByRole("heading", { name: "Create your Shotlink workspace" }).closest("form");
+    expect(within(form).getByRole("button", { name: /University \/ Institution/ })).toHaveAttribute("aria-pressed", "true");
+
+    fireEvent.change(within(form).getByLabelText("Full name"), { target: { value: "Campus Admin" } });
+    fireEvent.change(within(form).getByLabelText(/^Email/), { target: { value: "admin@northcampus.edu" } });
+    fireEvent.change(within(form).getByLabelText("Password"), { target: { value: "StrongPass1" } });
+    fireEvent.change(within(form).getByLabelText("Institution name"), { target: { value: "North Campus University" } });
+    for (const checkbox of within(form).getAllByRole("checkbox")) fireEvent.click(checkbox);
+    fireEvent.click(within(form).getByRole("button", { name: "Create workspace" }));
+
+    expect(await screen.findByRole("heading", { name: "North Campus University" })).toBeInTheDocument();
+    expect(document.querySelector(".sl-dashboard-page")).toHaveAttribute("data-workspace-type", "institution");
+    const officialResource = screen.getByLabelText("Official resource URL");
+    expect(officialResource).toBeInTheDocument();
+    expect(screen.getByText("Official link and identity domains")).toBeInTheDocument();
+
+    fireEvent.change(officialResource, { target: { value: "https://docs.google.com/spreadsheets/d/campus-sheet/edit" } });
+    expect(screen.getByText("Google Sheet detected")).toBeInTheDocument();
+  });
+
   test("creates a temporary homepage link and QR with a maximum 30-minute choice", async () => {
     const user = userEvent.setup();
     const temporaryLink = {
@@ -181,10 +238,10 @@ describe("Shotlink frontend workflows", () => {
 
     render(<App />);
 
-    expect(await screen.findByRole("heading", { name: /Plans built for content creators/ })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: /Plans for creators and institutions/ })).toBeInTheDocument();
     expect(screen.getByRole("status")).toHaveTextContent("No real payment is collected yet.");
     expect(screen.getAllByText("Coming soon").length).toBeGreaterThan(0);
-    expect(screen.queryByText("Enterprise")).not.toBeInTheDocument();
+    expect(screen.getByText("Institution")).toBeInTheDocument();
   });
 
   test("shows a rejected sign-in beside the authentication form", async () => {
@@ -285,7 +342,7 @@ describe("Shotlink frontend workflows", () => {
     ).toBeInTheDocument();
 
     const builderPanel = document.querySelector("#builder-panel");
-    const destination = within(builderPanel).getByLabelText("Primary destination");
+    const destination = within(builderPanel).getByLabelText("Campaign destination");
     const policyCheckbox = within(builderPanel).getByRole("checkbox");
 
     expect(destination).toHaveAttribute("type", "url");
@@ -540,7 +597,7 @@ describe("Shotlink frontend workflows", () => {
 
     expect(
       await screen.findByRole("heading", {
-        name: /One link\./,
+        name: /One link platform\./,
       })
     ).toBeInTheDocument();
   });

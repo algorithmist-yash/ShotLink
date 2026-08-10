@@ -57,7 +57,7 @@ export const LEGAL_PAGE_CONTENT = Object.freeze({
         title: "2. Accounts and workspaces",
         paragraphs: [
           "Provide accurate information, protect your sign-in credentials, and promptly notify support if you suspect unauthorised access. You are responsible for activity performed through your account and for assigning appropriate workspace roles.",
-          "Workspace owners may invite collaborators where their plan allows it. Keep access limited to people who are authorised to manage your creator links, domains, QR codes, and analytics.",
+          "Workspace owners may invite collaborators where their plan allows it. Keep access limited to people who are authorised to manage creator campaigns or official institution links, domains, QR codes, and analytics.",
         ],
       },
       {
@@ -65,6 +65,7 @@ export const LEGAL_PAGE_CONTENT = Object.freeze({
         paragraphs: [
           "You retain responsibility for every destination, alias, fallback route, QR code, and campaign you create. You must have the right to share the destination and must keep its content lawful, accurate, and safe.",
           "Temporary links expire automatically. Permanent links and workspace features are subject to plan limits, technical safeguards, and abuse controls.",
+          "Institution workspace owners are responsible for ensuring that any Google Sheet, form, document, video, or other official resource has appropriate source-platform sharing permissions. Shotlink controls the redirect route, not access inside Google Drive or a video platform.",
         ],
       },
       {
@@ -296,7 +297,7 @@ export const LEGAL_PAGE_CONTENT = Object.freeze({
     eyebrow: "Contact Us",
     title: "Talk to the person operating Shotlink.",
     lead:
-      "Use these verified channels for creator account help, billing questions, privacy requests, partnerships, and abuse reports.",
+      "Use these verified channels for creator or institution account help, billing questions, privacy requests, partnerships, and abuse reports.",
     contactRows: [
       { label: "Brand", value: "Shotlink" },
       { label: "Operator", value: "Yash Raj — Individual / Unregistered Business" },
@@ -320,6 +321,7 @@ export const LEGAL_PAGE_CONTENT = Object.freeze({
           { label: "Report abuse or phishing", href: "mailto:support@shotlink.in?subject=Shotlink%20abuse%20report" },
           { label: "Privacy request", href: "mailto:support@shotlink.in?subject=Shotlink%20privacy%20request" },
           { label: "Creator partnership", href: "mailto:support@shotlink.in?subject=Shotlink%20creator%20partnership" },
+          { label: "Institution onboarding", href: "mailto:support@shotlink.in?subject=Shotlink%20institution%20onboarding" },
         ],
       },
     ],

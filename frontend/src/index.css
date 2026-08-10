@@ -1311,6 +1311,97 @@ button:disabled {
   position: relative;
 }
 
+/* Institution workspaces deliberately use a distinct civic-blue system. */
+.sl-dashboard-page[data-workspace-type="institution"] {
+  --sl-action: #2563eb;
+  background:
+    radial-gradient(circle at 8% 2%, rgba(96, 165, 250, 0.2), transparent 27rem),
+    radial-gradient(circle at 96% 18%, rgba(14, 165, 233, 0.14), transparent 28rem),
+    #edf3fb !important;
+}
+
+.sl-dashboard-page[data-workspace-type="institution"] .sl-dashboard-header,
+.sl-dashboard-page[data-workspace-type="institution"] .sl-dashboard-nav {
+  background: rgba(237, 243, 251, 0.94) !important;
+  border-color: rgba(37, 99, 235, 0.16) !important;
+}
+
+.sl-dashboard-page[data-workspace-type="institution"] .sl-command-strip {
+  background:
+    radial-gradient(circle at 14% 88%, rgba(14, 165, 233, 0.32), transparent 34%),
+    radial-gradient(circle at 86% 10%, rgba(96, 165, 250, 0.25), transparent 30%),
+    #071b33 !important;
+}
+
+.sl-dashboard-page[data-workspace-type="institution"] .sl-command-strip > div:first-child p:first-child {
+  color: #8bdcff !important;
+}
+
+.sl-dashboard-page[data-workspace-type="institution"] .sl-command-card::after {
+  background: #60a5fa !important;
+}
+
+.sl-dashboard-page[data-workspace-type="institution"] .sl-live-indicator > span {
+  background: #7dd3fc;
+  box-shadow: 0 0 0 5px rgba(125, 211, 252, 0.14);
+}
+
+.sl-dashboard-page[data-workspace-type="institution"] .sl-dashboard-nav-items button:hover,
+.sl-dashboard-page[data-workspace-type="institution"] .sl-dashboard-nav-items button[data-active="true"] {
+  background: #123c69 !important;
+  border-color: #123c69 !important;
+}
+
+.sl-dashboard-page[data-workspace-type="institution"] .sl-dashboard-nav .sl-dashboard-nav-plan > strong {
+  color: #ffffff !important;
+  background: #2563eb;
+}
+
+.sl-dashboard-page[data-workspace-type="institution"] .sl-header-new-link,
+.sl-dashboard-page[data-workspace-type="institution"] .sl-dashboard-main #builder-panel button[type="submit"] {
+  color: #ffffff !important;
+  background: #2563eb !important;
+  border-color: #2563eb !important;
+}
+
+.sl-dashboard-page[data-workspace-type="institution"] .sl-dashboard-main #builder-panel {
+  background:
+    radial-gradient(circle at 96% 2%, rgba(125, 211, 252, 0.2), transparent 30%),
+    #071b33 !important;
+}
+
+.sl-dashboard-page[data-workspace-type="institution"] .sl-dashboard-main #builder-panel input:focus,
+.sl-dashboard-page[data-workspace-type="institution"] .sl-dashboard-main #builder-panel select:focus,
+.sl-dashboard-page[data-workspace-type="institution"] .sl-dashboard-main #builder-panel textarea:focus {
+  border-color: #7dd3fc !important;
+  box-shadow: 0 0 0 4px rgba(125, 211, 252, 0.14) !important;
+}
+
+.sl-dashboard-page[data-workspace-type="institution"] .sl-dashboard-main #builder-panel .sl-alias-prefix {
+  color: #071b33 !important;
+  background: #7dd3fc !important;
+}
+
+.sl-dashboard-page[data-workspace-type="institution"] .sl-dashboard-main #links-panel {
+  background:
+    linear-gradient(rgba(255, 255, 255, 0.22) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.22) 1px, transparent 1px),
+    #7dd3fc !important;
+  background-size: 40px 40px !important;
+}
+
+.sl-dashboard-page[data-workspace-type="institution"] .sl-dashboard-main #domains-panel {
+  background: #dbeafe !important;
+}
+
+.sl-dashboard-page[data-workspace-type="institution"] .sl-dashboard-main #billing-panel {
+  background: #e0e7ff !important;
+}
+
+.sl-dashboard-page[data-workspace-type="institution"] .sl-dashboard-main #docs-panel {
+  background: #e0f2fe !important;
+}
+
 @media (max-width: 1040px) {
   .sl-marketing-hero {
     grid-template-columns: 1fr !important;
@@ -1340,6 +1431,10 @@ button:disabled {
 }
 
 @media (max-width: 720px) {
+  .sl-workspace-type-grid {
+    grid-template-columns: 1fr !important;
+  }
+
   .sl-page {
     padding: 12px 12px 36px !important;
   }
