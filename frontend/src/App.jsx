@@ -204,9 +204,16 @@ function buildSmartAlias({
     );
   }
 
-  const creatorStem = creatorContentTitle.trim() || getDestinationAliasStem(url);
+  const creatorStem = slugifyAliasPart(creatorContentTitle.trim() || getDestinationAliasStem(url));
   if (!creatorStem) return "";
-  return buildDatedAlias([creatorStem], creatorContentKind, resourceDate);
+  const normalizedKind = slugifyAliasPart(creatorContentKind);
+  const kindAlreadyInName =
+    creatorStem === normalizedKind || creatorStem.endsWith(`-${normalizedKind}`);
+  return buildDatedAlias(
+    [creatorStem],
+    kindAlreadyInName ? "" : normalizedKind,
+    resourceDate
+  );
 }
 
 function classifyDestinationInput(rawUrl) {

@@ -183,6 +183,15 @@ describe("Shotlink frontend workflows", () => {
       );
     });
     expect(screen.getByText("shotlink.in/campus-vlog-video-2026-08-10")).toBeInTheDocument();
+
+    fireEvent.change(screen.getByLabelText("Content / campaign name"), {
+      target: { value: "Launch Video" },
+    });
+    await waitFor(() => {
+      expect(screen.getByLabelText("Custom alias")).toHaveValue(
+        "launch-video-2026-08-10"
+      );
+    });
   });
 
   test("creates a temporary homepage link and QR with a maximum 30-minute choice", async () => {
