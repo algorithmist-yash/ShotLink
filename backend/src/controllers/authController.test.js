@@ -4,8 +4,16 @@ const test = require("node:test");
 const Session = require("../models/Session");
 const User = require("../models/User");
 const Workspace = require("../models/Workspace");
+const emailService = require("../services/emailService");
 const { hashPassword, hashSessionToken } = require("../utils/authUtils");
-const { login, logout, register } = require("./authController");
+const {
+  login,
+  logout,
+  register,
+  requestPasswordReset,
+  resetPassword,
+  verifyEmail,
+} = require("./authController");
 
 function createResponse() {
   return {
@@ -174,4 +182,142 @@ test("registration cannot create a shadow workspace for a governed institution d
   assert.equal(response.statusCode, 409);
   assert.equal(response.body.code, "INSTITUTION_DOMAIN_MANAGED");
   assert.match(response.body.error, /Acme University/);
+});
+
+test("password reset requests do not reveal whether an account exists", async (t) => {
+  const originalFindOneAndUpdate = User.findOneAndUpdate;
+  const originalSendPasswordResetEmail = emailService.sendPasswordResetEmail;
+  let deliveryCount = 0;
+
+  User.findOneAndUpdate = async () => null;
+  emailService.sendPasswordResetEmail = async () => {
+    deliveryCount += 1;
+  };
+  t.after(() => {
+    User.findOneAndUpdate = originalFindOneAndUpdate;
+    emailService.sendPasswordResetEmail = originalSendPasswordResetEmail;
+  });
+
+  const missingAccountResponse = createResponse();
+  await requestPasswordReset(
+    { body: { email: "missing@example.com" } },
+    missingAccountResponse
+  );
+  const malformedEmailResponse = createResponse();
+  await requestPasswordReset({ body: { email: "not-an-email" } }, malformedEmailResponse);
+
+  assert.equal(missingAccountResponse.statusCode, 202);
+  assert.equal(malformedEmailResponse.statusCode, 202);
+  assert.deepEqual(missingAccountResponse.body, malformedEmailResponse.body);
+  assert.equal(deliveryCount, 0);
+});
+
+test("password reset stores a hashed token and sends only the raw action token", async (t) => {
+  const originalFindOneAndUpdate = User.findOneAndUpdate;
+  const originalSendPasswordResetEmail = emailService.sendPasswordResetEmail;
+  const user = {
+    _id: "user-reset",
+    name: "Owner",
+    email: "owner@example.com",
+    passwordResetRequestedAt: null,
+    async save() {},
+  };
+  let delivered = null;
+
+  User.findOneAndUpdate = async (filter, update, options) => {
+    assert.equal(filter.email, user.email);
+    assert.equal(options.returnDocument, "after");
+    Object.assign(user, update.$set);
+    return user;
+  };
+  emailService.sendPasswordResetEmail = async (payload) => {
+    delivered = payload;
+  };
+  t.after(() => {
+    User.findOneAndUpdate = originalFindOneAndUpdate;
+    emailService.sendPasswordResetEmail = originalSendPasswordResetEmail;
+  });
+
+  const response = createResponse();
+  await requestPasswordReset({ body: { email: user.email } }, response);
+
+  assert.equal(response.statusCode, 202);
+  assert.ok(user.passwordResetExpiresAt > new Date());
+  assert.equal(user.passwordResetTokenHash, hashSessionToken(delivered.token));
+  assert.equal(delivered.tokenHash, user.passwordResetTokenHash);
+  assert.notEqual(delivered.token, user.passwordResetTokenHash);
+});
+
+test("resetting a password consumes the token and revokes every session", async (t) => {
+  const originalFindOneAndUpdate = User.findOneAndUpdate;
+  const originalDeleteMany = Session.deleteMany;
+  const oldHash = await hashPassword("OldPassword1");
+  const user = {
+    _id: "user-reset",
+    defaultWorkspaceId: null,
+    passwordHash: oldHash,
+    passwordResetTokenHash: "stored",
+    passwordResetExpiresAt: new Date(Date.now() + 60_000),
+    passwordResetRequestedAt: new Date(),
+    async save() {},
+  };
+  let revokedFilter = null;
+
+  User.findOneAndUpdate = async (filter, update, options) => {
+    assert.equal(filter.passwordResetTokenHash, hashSessionToken("raw-reset-token"));
+    assert.equal(options.returnDocument, "after");
+    Object.assign(user, update.$set);
+    return user;
+  };
+  Session.deleteMany = async (filter) => {
+    revokedFilter = filter;
+    return { deletedCount: 2 };
+  };
+  t.after(() => {
+    User.findOneAndUpdate = originalFindOneAndUpdate;
+    Session.deleteMany = originalDeleteMany;
+  });
+
+  const response = createResponse();
+  await resetPassword(
+    { body: { token: "raw-reset-token", password: "NewPassword2" } },
+    response
+  );
+
+  assert.equal(response.statusCode, 200);
+  assert.deepEqual(revokedFilter, { userId: user._id });
+  assert.equal(user.passwordResetTokenHash, "");
+  assert.equal(user.passwordResetExpiresAt, null);
+  assert.equal(await require("../utils/authUtils").verifyPassword("NewPassword2", user.passwordHash), true);
+  assert.equal(response.clearedCookies.length, 1);
+});
+
+test("email verification consumes a valid single-use token", async (t) => {
+  const originalFindOneAndUpdate = User.findOneAndUpdate;
+  const user = {
+    _id: "user-verify",
+    defaultWorkspaceId: null,
+    emailVerificationTokenHash: "stored",
+    emailVerificationExpiresAt: new Date(Date.now() + 60_000),
+    emailVerifiedAt: null,
+    async save() {},
+  };
+
+  User.findOneAndUpdate = async (filter, update, options) => {
+    assert.equal(filter.emailVerificationTokenHash, hashSessionToken("raw-verify-token"));
+    assert.equal(options.returnDocument, "after");
+    Object.assign(user, update.$set);
+    return user;
+  };
+  t.after(() => {
+    User.findOneAndUpdate = originalFindOneAndUpdate;
+  });
+
+  const response = createResponse();
+  await verifyEmail({ body: { token: "raw-verify-token" } }, response);
+
+  assert.equal(response.statusCode, 200);
+  assert.ok(user.emailVerifiedAt instanceof Date);
+  assert.equal(user.emailVerificationTokenHash, "");
+  assert.equal(user.emailVerificationExpiresAt, null);
 });

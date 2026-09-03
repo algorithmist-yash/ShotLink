@@ -197,6 +197,25 @@ function getSocialShareUrl(platformId, shortUrl, caption) {
   return SOCIAL_PUBLISH_PLATFORMS.find((platform) => platform.id === platformId)?.openUrl || "";
 }
 
+const AUTH_PATH_BY_MODE = Object.freeze({
+  register: "/register",
+  login: "/login",
+  "forgot-password": "/forgot-password",
+  "reset-password": "/reset-password",
+  "verify-email": "/verify-email",
+});
+
+function getAuthModeForPath(pathname) {
+  const normalizedPath = String(pathname || "").replace(/\/$/, "") || "/";
+  return Object.entries(AUTH_PATH_BY_MODE).find(([, path]) => path === normalizedPath)?.[0] || "register";
+}
+
+function getAuthActionToken(location = window.location) {
+  const queryToken = new URLSearchParams(location.search).get("token") || "";
+  const fragmentToken = new URLSearchParams(location.hash.replace(/^#/, "")).get("token") || "";
+  return fragmentToken || queryToken;
+}
+
 function getLocalDateInputValue() {
   const today = new Date();
   const offset = today.getTimezoneOffset() * 60 * 1000;
@@ -400,9 +419,9 @@ const DEFAULT_PUBLIC_PLANS = [
     features: [
       "Up to 10,000 active campaign links",
       "Up to 10 branded domains",
-      "Team workspaces for talent and campaign managers",
       "5,000 campaign QR codes",
-      "Campaign analytics and exports",
+      "Audience, device, and referrer analytics",
+      "Editable destinations and fallback routing",
       "Priority onboarding support",
     ],
   },
@@ -542,11 +561,12 @@ function toBrowserSession(data) {
 
 function App() {
   const initialAuthPath = window.location.pathname.replace(/\/$/, "") || "/";
-  const [authMode, setAuthMode] = useState(
-    initialAuthPath === "/login" ? "login" : "register"
+  const [authMode, setAuthMode] = useState(() => getAuthModeForPath(initialAuthPath));
+  const [authViewOpen, setAuthViewOpen] = useState(() =>
+    Object.values(AUTH_PATH_BY_MODE).includes(initialAuthPath)
   );
-  const [authViewOpen, setAuthViewOpen] = useState(
-    initialAuthPath === "/login" || initialAuthPath === "/register"
+  const [authActionToken, setAuthActionToken] = useState(
+    () => getAuthActionToken()
   );
   const [publicPage, setPublicPage] = usePublicPage();
   const [session, setSession] = useState(null);
@@ -554,6 +574,7 @@ function App() {
     name: "",
     email: "",
     password: "",
+    confirmPassword: "",
     workspaceName: "",
     workspaceType: "creator",
     consents: createDefaultConsents(),
@@ -583,6 +604,10 @@ function App() {
   const [refreshingHealth, setRefreshingHealth] = useState(false);
   const [countdown, setCountdown] = useState("");
   const [authError, setAuthError] = useState("");
+  const [authMessage, setAuthMessage] = useState("");
+  const [emailVerificationSubmitting, setEmailVerificationSubmitting] = useState(false);
+  const [emailVerificationMessage, setEmailVerificationMessage] = useState("");
+  const [emailVerificationError, setEmailVerificationError] = useState("");
   const [linkError, setLinkError] = useState("");
   const [analyticsError, setAnalyticsError] = useState("");
   const [copied, setCopied] = useState("");
@@ -716,12 +741,35 @@ function App() {
   }, [session]);
 
   useEffect(() => {
+    const currentUrl = new URL(window.location.href);
+    const path = currentUrl.pathname.replace(/\/$/, "") || "/";
+    if (
+      (path === AUTH_PATH_BY_MODE["reset-password"] ||
+        path === AUTH_PATH_BY_MODE["verify-email"]) &&
+      (currentUrl.searchParams.has("token") ||
+        new URLSearchParams(currentUrl.hash.replace(/^#/, "")).has("token"))
+    ) {
+      currentUrl.searchParams.delete("token");
+      const fragmentParams = new URLSearchParams(currentUrl.hash.replace(/^#/, ""));
+      fragmentParams.delete("token");
+      currentUrl.hash = fragmentParams.toString();
+      const cleanedSearch = currentUrl.searchParams.toString();
+      window.history.replaceState(
+        {},
+        "",
+        `${currentUrl.pathname}${cleanedSearch ? `?${cleanedSearch}` : ""}${currentUrl.hash}`
+      );
+    }
+  }, []);
+
+  useEffect(() => {
     if (session) return undefined;
 
     const syncAuthRoute = () => {
       const path = window.location.pathname.replace(/\/$/, "") || "/";
-      if (path === "/login" || path === "/register") {
-        setAuthMode(path === "/login" ? "login" : "register");
+      if (Object.values(AUTH_PATH_BY_MODE).includes(path)) {
+        setAuthMode(getAuthModeForPath(path));
+        setAuthActionToken(getAuthActionToken());
         setAuthViewOpen(true);
         return;
       }
@@ -1152,7 +1200,10 @@ function App() {
     setPublicPage("home");
     setAuthMode(mode);
     setAuthViewOpen(true);
-    window.history.pushState({}, "", mode === "login" ? "/login" : "/register");
+    setAuthError("");
+    setAuthMessage("");
+    setAuthActionToken("");
+    window.history.pushState({}, "", AUTH_PATH_BY_MODE[mode] || "/register");
     window.scrollTo({ top: 0, left: 0, behavior: "auto" });
   };
 
@@ -1162,8 +1213,16 @@ function App() {
     openAuthView("register");
   };
   const openLoginPanel = () => openAuthView("login");
+  const openForgotPasswordPanel = () => openAuthView("forgot-password");
 
   const closeAuthView = () => {
+    setAuthViewOpen(false);
+    setPublicPage("home");
+    window.history.pushState({}, "", "/");
+    window.scrollTo({ top: 0, left: 0, behavior: "auto" });
+  };
+
+  const openDashboard = () => {
     setAuthViewOpen(false);
     setPublicPage("home");
     window.history.pushState({}, "", "/");
@@ -1331,6 +1390,29 @@ function App() {
     return <PublicLanding onStart={openRegistrationPanel} />;
   };
 
+  const renderPublicShell = ({ authenticated = false } = {}) => (
+    <div className="sl-page sl-public-page" style={{ ...styles.page, ...styles.publicPageRoot }}>
+      <div className="mk-public-shell">
+        <PublicHeader
+          authenticated={authenticated}
+          onDashboard={openDashboard}
+          onLogin={openLoginPanel}
+          onStart={openRegistrationPanel}
+        />
+
+        <main style={styles.publicMain}>
+          {renderPublicContent()}
+        </main>
+
+        <PublicFooter
+          authenticated={authenticated}
+          onDashboard={openDashboard}
+          onStart={openRegistrationPanel}
+        />
+      </div>
+    </div>
+  );
+
   const updateAuthConsent = (field, checked) => {
     setAuthForm((current) => ({
       ...current,
@@ -1344,12 +1426,63 @@ function App() {
   const submitAuth = async () => {
     setAuthSubmitting(true);
     setAuthError("");
+    setAuthMessage("");
 
     try {
+      if (authMode === "forgot-password") {
+        const response = await apiFetch("/api/v1/auth/forgot-password", {
+          method: "POST",
+          body: JSON.stringify({ email: authForm.email }),
+        });
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error || "Could not request a reset link");
+        setAuthMessage(data.message);
+        return;
+      }
+
+      if (authMode === "reset-password") {
+        if (authForm.password !== authForm.confirmPassword) {
+          throw new Error("Passwords do not match.");
+        }
+        const response = await apiFetch("/api/v1/auth/reset-password", {
+          method: "POST",
+          body: JSON.stringify({ token: authActionToken, password: authForm.password }),
+        });
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error || "Could not reset the password");
+        clearSession();
+        setAuthActionToken("");
+        setAuthForm((current) => ({ ...current, password: "", confirmPassword: "" }));
+        setAuthMessage(data.message);
+        return;
+      }
+
+      if (authMode === "verify-email") {
+        const response = await apiFetch("/api/v1/auth/verify-email", {
+          method: "POST",
+          body: JSON.stringify({ token: authActionToken }),
+        });
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error || "Could not verify the email");
+        setSession((current) => current
+          ? { ...current, user: { ...current.user, emailVerifiedAt: data.emailVerifiedAt } }
+          : current);
+        setAuthActionToken("");
+        setAuthMessage(data.message);
+        return;
+      }
+
       const { consents, ...registerFields } = authForm;
       const payload =
         authMode === "register"
-          ? { ...registerFields, consents }
+          ? {
+              name: registerFields.name,
+              email: registerFields.email,
+              password: registerFields.password,
+              workspaceName: registerFields.workspaceName,
+              workspaceType: registerFields.workspaceType,
+              consents,
+            }
           : { email: authForm.email, password: authForm.password };
 
       const response = await apiFetch(`/api/v1/auth/${authMode}`, {
@@ -1369,6 +1502,7 @@ function App() {
         name: "",
         email: authForm.email,
         password: "",
+        confirmPassword: "",
         workspaceName: "",
         workspaceType: "creator",
         consents: createDefaultConsents(),
@@ -1782,6 +1916,25 @@ function App() {
     }
   };
 
+  const resendVerificationEmail = async () => {
+    setEmailVerificationSubmitting(true);
+    setEmailVerificationError("");
+    setEmailVerificationMessage("");
+    try {
+      const response = await apiFetch("/api/v1/auth/resend-verification", {
+        method: "POST",
+        body: JSON.stringify({ email: session?.user?.email || "" }),
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || "Could not send a verification email");
+      setEmailVerificationMessage(data.message);
+    } catch (requestError) {
+      setEmailVerificationError(requestError.message || "Could not send a verification email");
+    } finally {
+      setEmailVerificationSubmitting(false);
+    }
+  };
+
   const downloadQR = () => {
     const canvas = document.getElementById("qr-code");
     if (!canvas) return;
@@ -1853,9 +2006,48 @@ function App() {
   const requiredAccountConsentsAccepted = REQUIRED_AUTH_CONSENTS.every(
     (item) => authForm.consents[item.id]
   );
+  const isRegistrationMode = authMode === "register";
+  const isLoginMode = authMode === "login";
+  const isForgotPasswordMode = authMode === "forgot-password";
+  const isResetPasswordMode = authMode === "reset-password";
+  const isVerifyEmailMode = authMode === "verify-email";
+  const shouldRenderAuthAction =
+    authViewOpen && (isResetPasswordMode || isVerifyEmailMode);
+  const authHeading = isRegistrationMode
+    ? "Create your Shotlink workspace"
+    : isLoginMode
+      ? "Sign in"
+      : isForgotPasswordMode
+        ? "Reset your password"
+        : isResetPasswordMode
+          ? "Choose a new password"
+          : "Verify your email";
+  const authEyebrow = isRegistrationMode
+    ? "Start for free"
+    : isLoginMode
+      ? "Welcome back"
+      : "Account security";
+  const authSubtitle = isRegistrationMode
+    ? authForm.workspaceType === "institution"
+      ? "Create an official workspace for university, institute, or organisation links."
+      : "Start with free campaign links, QR codes, and creator analytics."
+    : isLoginMode
+      ? "Continue to your links, analytics, domains, and billing."
+      : isForgotPasswordMode
+        ? "Enter your account email and we will send a single-use reset link."
+        : isResetPasswordMode
+          ? "This link can be used once. Your existing sessions will be signed out."
+          : "Confirm that this email address belongs to you.";
   const authSubmitDisabled =
-    authSubmitting || (authMode === "register" && !requiredAccountConsentsAccepted);
-  const linkSubmitDisabled = loading || remainingLinkSlots <= 0 || !linkComplianceAccepted;
+    authSubmitting ||
+    (isRegistrationMode && !requiredAccountConsentsAccepted) ||
+    ((isResetPasswordMode || isVerifyEmailMode) && !authActionToken) ||
+    (isResetPasswordMode && authForm.password !== authForm.confirmPassword);
+  const linkSubmitDisabled =
+    loading ||
+    remainingLinkSlots <= 0 ||
+    !linkComplianceAccepted ||
+    !session?.user?.emailVerifiedAt;
   if (authLoading) {
     return (
       <div className="sl-page sl-dashboard-page" style={styles.page}>
@@ -1871,7 +2063,7 @@ function App() {
     );
   }
 
-  if (!session) {
+  if (!session || shouldRenderAuthAction) {
     if (authViewOpen) {
       return (
         <div className="sl-page sl-auth-page" style={{ ...styles.page, ...styles.publicPageRoot }}>
@@ -1888,13 +2080,35 @@ function App() {
               <BrandLogo style={styles.navLogo} />
             </a>
             <div style={styles.authHeaderSwitch}>
-              <span>{authMode === "register" ? "Already have an account?" : "New to Shotlink?"}</span>
+              <span>
+                {isRegistrationMode
+                  ? "Already have an account?"
+                  : isLoginMode
+                    ? "New to Shotlink?"
+                    : session
+                      ? "Return to your workspace"
+                      : "Remembered your password?"}
+              </span>
               <button
                 type="button"
                 style={styles.authHeaderButton}
-                onClick={authMode === "register" ? openLoginPanel : openRegistrationPanel}
+                onClick={
+                  isRegistrationMode
+                    ? openLoginPanel
+                    : isLoginMode
+                      ? openRegistrationPanel
+                      : session
+                        ? openDashboard
+                        : openLoginPanel
+                }
               >
-                {authMode === "register" ? "Sign in" : "Create account"}
+                {isRegistrationMode
+                  ? "Sign in"
+                  : isLoginMode
+                    ? "Create account"
+                    : session
+                      ? "Open workspace"
+                      : "Back to sign in"}
               </button>
             </div>
           </header>
@@ -1910,21 +2124,13 @@ function App() {
               >
                 <div>
                   <p style={styles.sectionEyebrow}>
-                    {authMode === "register" ? "Start for free" : "Welcome back"}
+                    {authEyebrow}
                   </p>
-                  <h1 style={styles.authTitle}>
-                    {authMode === "register" ? "Create your Shotlink workspace" : "Sign in"}
-                  </h1>
-                  <p style={styles.authSubtitle}>
-                    {authMode === "register"
-                      ? authForm.workspaceType === "institution"
-                        ? "Create an official workspace for university, institute, or organisation links."
-                        : "Start with free campaign links, QR codes, and creator analytics."
-                      : "Continue to your links, analytics, domains, and billing."}
-                  </p>
+                  <h1 style={styles.authTitle}>{authHeading}</h1>
+                  <p style={styles.authSubtitle}>{authSubtitle}</p>
                 </div>
 
-                {authMode === "register" ? (
+                {isRegistrationMode ? (
                   <label style={styles.label}>
                     Full name
                     <input
@@ -1939,39 +2145,63 @@ function App() {
                   </label>
                 ) : null}
 
-                <label style={styles.label}>
-                  Email
-                  <input
-                    style={styles.input}
-                    type="email"
-                    value={authForm.email}
-                    autoComplete="email"
-                    required
-                    onChange={(event) =>
-                      setAuthForm((current) => ({ ...current, email: event.target.value }))
-                    }
-                  />
-                  {authMode === "register" ? (
-                    <span style={styles.miniHelperText}>Use an email address you can access and verify.</span>
-                  ) : null}
-                </label>
+                {isRegistrationMode || isLoginMode || isForgotPasswordMode ? (
+                  <label style={styles.label}>
+                    Email
+                    <input
+                      style={styles.input}
+                      type="email"
+                      value={authForm.email}
+                      autoComplete="email"
+                      required
+                      onChange={(event) =>
+                        setAuthForm((current) => ({ ...current, email: event.target.value }))
+                      }
+                    />
+                    {isRegistrationMode ? (
+                      <span style={styles.miniHelperText}>Use an email address you can access and verify.</span>
+                    ) : null}
+                  </label>
+                ) : null}
 
-                <label style={styles.label}>
-                  Password
-                  <input
-                    style={styles.input}
-                    type="password"
-                    value={authForm.password}
-                    autoComplete={authMode === "register" ? "new-password" : "current-password"}
-                    minLength={8}
-                    required
-                    onChange={(event) =>
-                      setAuthForm((current) => ({ ...current, password: event.target.value }))
-                    }
-                  />
-                </label>
+                {isRegistrationMode || isLoginMode || isResetPasswordMode ? (
+                  <label style={styles.label}>
+                    {isResetPasswordMode ? "New password" : "Password"}
+                    <input
+                      style={styles.input}
+                      type="password"
+                      value={authForm.password}
+                      autoComplete={isRegistrationMode || isResetPasswordMode ? "new-password" : "current-password"}
+                      minLength={8}
+                      required
+                      onChange={(event) =>
+                        setAuthForm((current) => ({ ...current, password: event.target.value }))
+                      }
+                    />
+                  </label>
+                ) : null}
 
-                {authMode === "register" ? (
+                {isResetPasswordMode ? (
+                  <label style={styles.label}>
+                    Confirm new password
+                    <input
+                      style={styles.input}
+                      type="password"
+                      value={authForm.confirmPassword}
+                      autoComplete="new-password"
+                      minLength={8}
+                      required
+                      onChange={(event) =>
+                        setAuthForm((current) => ({ ...current, confirmPassword: event.target.value }))
+                      }
+                    />
+                    {authForm.confirmPassword && authForm.password !== authForm.confirmPassword ? (
+                      <span style={styles.miniHelperText}>Passwords must match.</span>
+                    ) : null}
+                  </label>
+                ) : null}
+
+                {isRegistrationMode ? (
                   <>
                     <fieldset style={styles.workspaceTypeFieldset}>
                       <legend style={styles.labelText}>Choose your workspace</legend>
@@ -2013,7 +2243,7 @@ function App() {
                   </>
                 ) : null}
 
-                {authMode === "register" ? (
+                {isRegistrationMode ? (
                   <div className="sl-consent-box" style={styles.consentBox}>
                     <div>
                       <p style={styles.sectionEyebrow}>Required consent</p>
@@ -2039,13 +2269,29 @@ function App() {
                       Optional: send me product updates and launch offers by email.
                     </ConsentCheckbox>
                   </div>
-                ) : (
+                ) : isLoginMode ? (
                   <p style={styles.authSecurityNote}>
                     Secure cookie session · CSRF protected · Automatic session expiry
                   </p>
-                )}
+                ) : null}
+
+                {isLoginMode ? (
+                  <p style={styles.authInlineSwitch}>
+                    <button
+                      type="button"
+                      style={styles.inlineTextButton}
+                      onClick={openForgotPasswordPanel}
+                    >
+                      Forgot your password?
+                    </button>
+                  </p>
+                ) : null}
 
                 <FeedbackMessage message={authError} />
+                <FeedbackMessage message={authMessage} tone="success" />
+                {(isResetPasswordMode || isVerifyEmailMode) && !authActionToken ? (
+                  <FeedbackMessage message="This link is incomplete. Request a new email and use its full address." />
+                ) : null}
 
                 <button
                   type="submit"
@@ -2058,19 +2304,45 @@ function App() {
                 >
                   {authSubmitting
                     ? "Working..."
-                    : authMode === "register"
+                    : isRegistrationMode
                       ? "Create workspace"
-                      : "Sign in"}
+                      : isLoginMode
+                        ? "Sign in"
+                        : isForgotPasswordMode
+                          ? "Send reset link"
+                          : isResetPasswordMode
+                            ? "Update password"
+                            : "Verify email"}
                 </button>
 
                 <p style={styles.authInlineSwitch}>
-                  {authMode === "register" ? "Already use Shotlink?" : "Need a workspace?"}{" "}
+                  {isRegistrationMode
+                    ? "Already use Shotlink?"
+                    : isLoginMode
+                      ? "Need a workspace?"
+                      : session
+                        ? "Verification complete?"
+                        : "Ready to sign in?"}{" "}
                   <button
                     type="button"
                     style={styles.inlineTextButton}
-                    onClick={authMode === "register" ? openLoginPanel : openRegistrationPanel}
+                    onClick={
+                      isRegistrationMode
+                        ? openLoginPanel
+                        : isLoginMode
+                          ? openRegistrationPanel
+                          : session
+                            ? openDashboard
+                            : openLoginPanel
+                    }
                   >
-                    {authMode === "register" ? "Sign in" : "Create one for free"}
+                    {isRegistrationMode
+                      ? "Sign in"
+                      : isLoginMode
+                        ? "Create one for free"
+                        : session
+                          ? "Open workspace"
+                          : "Back to sign in"}
                   </button>
                 </p>
               </form>
@@ -2096,7 +2368,7 @@ function App() {
               <div style={styles.authVisualStats}>
                 <div><strong>9+</strong><span>analytics signals</span></div>
                 <div><strong>3</strong><span>routing layers</span></div>
-                <div><strong>24/7</strong><span>health checks</span></div>
+                <div><strong>On-demand</strong><span>health checks</span></div>
               </div>
             </aside>
           </main>
@@ -2114,19 +2386,11 @@ function App() {
       );
     }
 
-    return (
-      <div className="sl-page sl-public-page" style={{ ...styles.page, ...styles.publicPageRoot }}>
-        <div className="mk-public-shell">
-          <PublicHeader onLogin={openLoginPanel} onStart={openRegistrationPanel} />
+    return renderPublicShell();
+  }
 
-          <main style={styles.publicMain}>
-            {renderPublicContent()}
-          </main>
-
-          <PublicFooter onStart={openRegistrationPanel} />
-        </div>
-      </div>
-    );
+  if (publicPage !== "home") {
+    return renderPublicShell({ authenticated: true });
   }
 
   const workspaceInitials = session.workspace.name
@@ -2181,6 +2445,27 @@ function App() {
             <button style={styles.secondaryButton} onClick={logout}>Sign out</button>
           </div>
         </header>
+
+        {!session.user.emailVerifiedAt ? (
+          <section style={{ ...styles.checkoutNotice, margin: "18px 24px 0" }} aria-label="Email verification">
+            <strong>Verify {session.user.email}</strong>
+            <span>
+              Confirm your address before creating permanent links, managing domains, or changing billing.
+            </span>
+            <div style={styles.inlineActions}>
+              <button
+                type="button"
+                style={styles.secondaryButton}
+                onClick={resendVerificationEmail}
+                disabled={emailVerificationSubmitting}
+              >
+                {emailVerificationSubmitting ? "Sending..." : "Send verification email"}
+              </button>
+            </div>
+            <FeedbackMessage message={emailVerificationError} />
+            <FeedbackMessage message={emailVerificationMessage} tone="success" />
+          </section>
+        ) : null}
 
         <section className="sl-command-strip" style={styles.commandStrip}>
           <div style={styles.commandStripHeading}>
@@ -2418,7 +2703,7 @@ function App() {
                 <div className="sl-smart-path-preview" aria-live="polite">
                   <span>Suggested short link</span>
                   <strong>
-                    {selectedDomainHost || "shotlink.in"}/{smartAliasSuggestion || (isInstitutionWorkspace ? "cse-42-attendance-2026-08-10" : "youtube-video-2026-08-10")}
+                    {selectedDomainHost || "shotlink.in"}/{smartAliasSuggestion || `${isInstitutionWorkspace ? "cse-42-attendance" : "youtube-video"}-${resourceDate || getLocalDateInputValue()}`}
                   </strong>
                   {smartAliasSuggestion && customAliasManuallyEdited && customAlias !== smartAliasSuggestion ? (
                     <button

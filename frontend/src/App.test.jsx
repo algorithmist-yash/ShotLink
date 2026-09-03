@@ -15,6 +15,7 @@ const sessionPayload = {
     id: "user-test",
     name: "Test Owner",
     email: "owner@example.com",
+    emailVerifiedAt: "2026-08-01T00:00:00.000Z",
   },
   workspace: {
     id: "workspace-test",
@@ -196,7 +197,6 @@ describe("Shotlink frontend workflows", () => {
   });
 
   test("prepares a creator post package and opens the selected social composer", async () => {
-    const user = userEvent.setup();
     const socialLink = {
       shortCode: "launch-video",
       shortUrl: "https://shotlink.in/launch-video",
@@ -241,9 +241,11 @@ describe("Shotlink frontend workflows", () => {
     expect(
       await screen.findByRole("heading", { name: "Prepare and share from one workspace" })
     ).toBeInTheDocument();
-    await user.type(screen.getByLabelText(/^Caption/), "Watch the full launch video");
-    await user.click(screen.getByRole("button", { name: "Select X" }));
-    await user.click(screen.getByRole("button", { name: "Prepare post for X →" }));
+    fireEvent.change(screen.getByLabelText(/^Caption/), {
+      target: { value: "Watch the full launch video" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Select X" }));
+    fireEvent.click(screen.getByRole("button", { name: "Prepare post for X →" }));
 
     expect(writeText).toHaveBeenCalledWith(
       "Watch the full launch video\n\nhttps://shotlink.in/launch-video"
@@ -259,7 +261,6 @@ describe("Shotlink frontend workflows", () => {
   });
 
   test("creates a temporary homepage link and QR with a maximum 30-minute choice", async () => {
-    const user = userEvent.setup();
     const temporaryLink = {
       shortCode: "creator15",
       shortUrl: "https://shotlink.in/creator15",
@@ -294,14 +295,11 @@ describe("Shotlink frontend workflows", () => {
 
     render(<App />);
 
-    await user.type(
-      await screen.findByLabelText("Destination URL"),
-      temporaryLink.originalUrl
-    );
-    await user.click(
-      screen.getByLabelText(/I am authorised to share this destination/)
-    );
-    await user.click(screen.getByRole("button", { name: /Create short link \+ QR/ }));
+    fireEvent.change(await screen.findByLabelText("Destination URL"), {
+      target: { value: temporaryLink.originalUrl },
+    });
+    fireEvent.click(screen.getByLabelText(/I am authorised to share this destination/));
+    fireEvent.click(screen.getByRole("button", { name: /Create short link \+ QR/ }));
 
     expect(
       await screen.findByRole("link", { name: temporaryLink.shortUrl })
@@ -338,6 +336,37 @@ describe("Shotlink frontend workflows", () => {
     ).toBe(true);
     expect(screen.getByRole("link", { name: "Terms" })).toHaveAttribute("href", "/terms");
     expect(screen.getByRole("link", { name: "Privacy" })).toHaveAttribute("href", "/privacy");
+  });
+
+  test("keeps public legal pages available while a workspace session is active", async () => {
+    const user = userEvent.setup();
+    window.history.replaceState({}, "", "/contact");
+    fetch.mockImplementation(async (input) => {
+      const path = getRequestPath(input);
+      if (path === "/api/v1/auth/me") return jsonResponse(200, sessionPayload);
+      if (path === "/api/v1/billing/plans") return jsonResponse(200, { plans: [] });
+      if (path === "/api/v1/links") return jsonResponse(200, { links: [] });
+      if (path === "/api/v1/billing/summary") {
+        return jsonResponse(200, {
+          currentPlan: sessionPayload.workspace.billing,
+          plans: [],
+          recentPayments: [],
+        });
+      }
+      throw new Error(`Unexpected request: ${path}`);
+    });
+
+    render(<App />);
+
+    expect(
+      await screen.findByRole("heading", { name: "Talk to the person operating Shotlink." })
+    ).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "Test Workspace" })).not.toBeInTheDocument();
+
+    await user.click(screen.getAllByRole("button", { name: "Open workspace" })[0]);
+
+    expect(await screen.findByRole("heading", { name: "Test Workspace" })).toBeInTheDocument();
+    expect(window.location.pathname).toBe("/");
   });
 
   test("marks paid pricing as coming soon while live checkout is unavailable", async () => {
@@ -399,6 +428,110 @@ describe("Shotlink frontend workflows", () => {
       "Invalid email or password"
     );
     expect(screen.getAllByRole("alert")).toHaveLength(1);
+  });
+
+  test("requests password recovery without revealing account existence", async () => {
+    const user = userEvent.setup();
+
+    fetch.mockImplementation(async (input, options = {}) => {
+      const path = getRequestPath(input);
+      const method = options.method || "GET";
+      if (path === "/api/v1/billing/plans") return jsonResponse(200, { plans: [] });
+      if (path === "/api/v1/auth/me") return jsonResponse(401, { error: "Authentication required" });
+      if (path === "/api/v1/auth/forgot-password" && method === "POST") {
+        expect(JSON.parse(options.body)).toEqual({ email: "owner@example.com" });
+        return jsonResponse(202, {
+          message: "If that address has an active Shotlink account, a password-reset link has been sent.",
+        });
+      }
+      throw new Error(`Unexpected request: ${method} ${path}`);
+    });
+
+    render(<App />);
+    await user.click(await screen.findByRole("button", { name: "Sign in" }));
+    await user.click(screen.getByRole("button", { name: "Forgot your password?" }));
+    expect(screen.getByRole("heading", { name: "Reset your password" })).toBeInTheDocument();
+
+    await user.type(screen.getByLabelText("Email"), "owner@example.com");
+    await user.click(screen.getByRole("button", { name: "Send reset link" }));
+
+    expect(await screen.findByRole("status")).toHaveTextContent(
+      "If that address has an active Shotlink account"
+    );
+    expect(window.location.pathname).toBe("/forgot-password");
+  });
+
+  test("uses a reset token once and returns the user to sign in", async () => {
+    const user = userEvent.setup();
+    window.history.replaceState({}, "", "/reset-password?token=reset-token-1");
+
+    fetch.mockImplementation(async (input, options = {}) => {
+      const path = getRequestPath(input);
+      const method = options.method || "GET";
+      if (path === "/api/v1/billing/plans") return jsonResponse(200, { plans: [] });
+      if (path === "/api/v1/auth/me") return jsonResponse(401, { error: "Authentication required" });
+      if (path === "/api/v1/auth/reset-password" && method === "POST") {
+        expect(JSON.parse(options.body)).toEqual({
+          token: "reset-token-1",
+          password: "NewPassword2",
+        });
+        return jsonResponse(200, { message: "Password updated. Sign in again on each device." });
+      }
+      throw new Error(`Unexpected request: ${method} ${path}`);
+    });
+
+    render(<App />);
+    expect(await screen.findByRole("heading", { name: "Choose a new password" })).toBeInTheDocument();
+    await waitFor(() => expect(window.location.search).toBe(""));
+    await user.type(screen.getByLabelText("New password"), "NewPassword2");
+    await user.type(screen.getByLabelText("Confirm new password"), "NewPassword2");
+    await user.click(screen.getByRole("button", { name: "Update password" }));
+
+    expect(await screen.findByRole("status")).toHaveTextContent("Password updated");
+    await user.click(screen.getAllByRole("button", { name: "Back to sign in" })[0]);
+    expect(screen.getByRole("heading", { name: "Sign in" })).toBeInTheDocument();
+  });
+
+  test("verifies email from an action link while a workspace session is active", async () => {
+    const user = userEvent.setup();
+    window.history.replaceState({}, "", "/verify-email#token=verify-token-1");
+    const unverifiedSession = {
+      ...sessionPayload,
+      user: { ...sessionPayload.user, emailVerifiedAt: null },
+    };
+
+    fetch.mockImplementation(async (input, options = {}) => {
+      const path = getRequestPath(input);
+      const method = options.method || "GET";
+      if (path === "/api/v1/auth/me") return jsonResponse(200, unverifiedSession);
+      if (path === "/api/v1/billing/plans") return jsonResponse(200, { plans: [] });
+      if (path === "/api/v1/links") return jsonResponse(200, { links: [] });
+      if (path === "/api/v1/billing/summary") {
+        return jsonResponse(200, {
+          currentPlan: sessionPayload.workspace.billing,
+          plans: [],
+          recentPayments: [],
+        });
+      }
+      if (path === "/api/v1/auth/verify-email" && method === "POST") {
+        expect(JSON.parse(options.body)).toEqual({ token: "verify-token-1" });
+        return jsonResponse(200, {
+          message: "Email verified. Your Shotlink account is ready.",
+          emailVerifiedAt: "2026-08-14T08:00:00.000Z",
+        });
+      }
+      throw new Error(`Unexpected request: ${method} ${path}`);
+    });
+
+    render(<App />);
+    expect(await screen.findByRole("heading", { name: "Verify your email" })).toBeInTheDocument();
+    await waitFor(() => expect(window.location.hash).toBe(""));
+    expect(screen.queryByRole("heading", { name: "Test Workspace" })).not.toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Verify email" }));
+    expect(await screen.findByRole("status")).toHaveTextContent("Email verified");
+    await user.click(screen.getAllByRole("button", { name: "Open workspace" })[0]);
+    expect(await screen.findByRole("heading", { name: "Test Workspace" })).toBeInTheDocument();
+    expect(screen.queryByLabelText("Email verification")).not.toBeInTheDocument();
   });
 
   test("submits the link builder from the destination field with Enter", async () => {

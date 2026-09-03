@@ -1,6 +1,7 @@
 const { performance } = require("node:perf_hooks");
 
 const { HttpTestClient, startIntegrationEnvironment } = require("../integration/harness");
+const User = require("../../src/models/User");
 
 const REQUEST_COUNT = Number(process.env.LOAD_REQUEST_COUNT || 120);
 const CONCURRENCY = Number(process.env.LOAD_CONCURRENCY || 20);
@@ -73,6 +74,10 @@ async function main() {
       },
     });
     if (registration.status !== 201) throw new Error("Load fixture registration failed");
+    await User.updateOne(
+      { _id: registration.body.user.id },
+      { emailVerifiedAt: new Date() }
+    );
 
     const link = await client.request("/api/v1/links", {
       method: "POST",

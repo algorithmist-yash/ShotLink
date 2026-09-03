@@ -59,9 +59,9 @@ const BILLING_PLANS = {
     features: [
       "Up to 10,000 active campaign links",
       "Up to 10 branded domains",
-      "Team workspaces for talent and campaign managers",
       "5,000 campaign QR codes",
-      "Campaign analytics and exports",
+      "Audience, device, and referrer analytics",
+      "Editable destinations and fallback routing",
       "Priority onboarding support",
     ],
   },

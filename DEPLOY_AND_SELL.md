@@ -74,6 +74,8 @@ Environment variables:
 - `RAZORPAY_WEBHOOK_SECRET=...`
 - `RAZORPAY_PLAN_ID_PRO_MONTHLY=...`
 - `RAZORPAY_PLAN_ID_BUSINESS_MONTHLY=...`
+- `RESEND_API_KEY=...`
+- `AUTH_EMAIL_FROM=Shotlink <support@shotlink.in>`
 - `SUPPORT_EMAIL=...`
 - `METRICS_TOKEN=...`
 
@@ -84,6 +86,7 @@ After deploy:
 - add `go.shotlink.in` as another custom domain
 - keep the frontend rewrite for `shotlink.in/<code>` pointing to `api.shotlink.in/<code>`
 - confirm `/health` reports MongoDB and Redis as connected
+- verify registration email, resend, and password-reset delivery with a real inbox
 - alert on a `degraded` health body and cache `error`/`bypass` metrics
 - alert on URL-health dead letters or sustained pending-queue growth
 
@@ -240,12 +243,11 @@ Outcome-based version:
 
 ## 13. What to build next after deployment
 
-1. Password reset
-2. Email verification
-3. Invite teammates to workspace
-4. Razorpay subscriptions
-5. Downloadable analytics exports
-6. Team roles and workspace invites
+1. Invite teammates and manage workspace membership
+2. Enable Razorpay live subscriptions after the billing audit
+3. Add downloadable analytics exports
+4. Add hourly and daily analytics rollups for long date ranges
+5. Add SSO and SCIM when an institutional customer requires them
 
 ## 14. Personal reality check
 

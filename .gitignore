@@ -21,3 +21,9 @@ yarn-error.log*
 
 .DS_Store
 Thumbs.db
+
+# Local generation and inspection scratch space
+/tmp/
+
+# Locally generated training/submission artifacts; preserve outside source control
+/deliverables/

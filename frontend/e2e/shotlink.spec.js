@@ -34,6 +34,16 @@ function violationFingerprints(results) {
 }
 
 async function expectNoWcagViolations(page, testInfo) {
+  await page.addStyleTag({
+    content: `
+      *, *::before, *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+        transition-delay: 0ms !important;
+      }
+    `,
+  });
   await page.waitForFunction(
     () =>
       document
@@ -58,7 +68,7 @@ async function openPublicHomepage(page) {
   await expect(
     page.getByRole("heading", {
       level: 1,
-      name: "One link layer. Every audience.",
+      name: "One link platform. Two different workspaces.",
     })
   ).toBeVisible();
 }
@@ -67,7 +77,7 @@ test("public navigation, auth validation, and WCAG guardrails work", async ({ pa
   const runtimeErrors = collectRuntimeErrors(page);
   await openPublicHomepage(page);
 
-  await expect(page).toHaveTitle("Shotlink | Short links and QR codes for creators and institutions");
+  await expect(page).toHaveTitle("Shotlink | Link workspaces for creators and institutions");
   const publicNavigation = page.getByRole("navigation", { name: "Primary navigation" });
   const publicHeader = page.getByRole("banner");
   await expect(publicNavigation).toBeVisible();
@@ -114,7 +124,7 @@ test("public navigation, auth validation, and WCAG guardrails work", async ({ pa
   for (const [linkName, hash] of [
     ["Create", "create"],
     ["Creators", "creators"],
-    ["Institutions", "solutions"],
+    ["Institutions", "institutions"],
   ]) {
     await publicNavigation.getByRole("link", { name: linkName, exact: true }).click();
     await expect(page).toHaveURL(new RegExp(`/#${hash}$`));
@@ -126,7 +136,7 @@ test("public navigation, auth validation, and WCAG guardrails work", async ({ pa
   await expect(
     page.getByRole("heading", {
       level: 1,
-      name: "Plans for creators, studios, and institutions.",
+      name: "Plans for creators and institutions.",
     })
   ).toBeVisible();
 
@@ -234,7 +244,7 @@ test("real registration, cookie session, link redirect, analytics, and logout wo
   await expect(page.getByRole("heading", { level: 1, name: workspaceName })).toBeVisible();
   await expectNoWcagViolations(page, testInfo);
 
-  await page.getByRole("textbox", { name: "Primary destination" }).fill(destination);
+  await page.getByRole("textbox", { name: "Campaign destination" }).fill(destination);
   await page.getByRole("textbox", { name: "Custom alias" }).fill(alias);
   await page.getByRole("checkbox", { name: LINK_POLICY_LABEL, exact: true }).check();
 
@@ -244,7 +254,9 @@ test("real registration, cookie session, link redirect, analytics, and logout wo
   await page.getByRole("button", { name: "Shorten URL", exact: true }).click();
   expect((await createLinkResponsePromise).status()).toBe(201);
 
-  const selectedLink = page.locator(`a[target="_blank"][href*="/${alias}"]`);
+  const selectedLink = page
+    .locator("#builder-panel")
+    .locator(`a[target="_blank"][href*="/${alias}"]`);
   await expect(selectedLink).toBeVisible();
   const shortUrl = await selectedLink.getAttribute("href");
   expect(shortUrl).toBe(`${BACKEND_URL}/${alias}`);
@@ -282,7 +294,7 @@ test("real registration, cookie session, link redirect, analytics, and logout wo
   await expect(
     page.getByRole("heading", {
       level: 1,
-      name: "One link layer. Every audience.",
+      name: "One link platform. Two different workspaces.",
     })
   ).toBeVisible();
   expect((await page.context().cookies()).some((cookie) => cookie.name === "shotlink_session")).toBe(
@@ -305,14 +317,17 @@ test("@mobile public and sign-in layouts fit a 390px viewport", async ({ page },
   expect(page.viewportSize()).toEqual({ width: 390, height: 844 });
   await expect(page.getByRole("banner")).toBeVisible();
   await page.getByRole("button", { name: "Open menu" }).click();
-  await expect(page.getByRole("button", { name: /Create workspace/ })).toBeVisible();
+  const mobileNavigation = page.getByRole("navigation", { name: "Mobile navigation" });
+  await expect(
+    mobileNavigation.getByRole("button", { name: "Create workspace", exact: true })
+  ).toBeVisible();
   expect(
     await page.evaluate(
       () => document.documentElement.scrollWidth <= document.documentElement.clientWidth
     )
   ).toBe(true);
 
-  await page.getByRole("button", { name: "Sign in", exact: true }).click();
+  await mobileNavigation.getByRole("button", { name: "Sign in", exact: true }).click();
   await expect(page.getByRole("heading", { level: 1, name: "Sign in" })).toBeVisible();
   await expect(page.getByRole("textbox", { name: "Email" })).toBeVisible();
   await expectNoWcagViolations(page, testInfo);
@@ -329,7 +344,7 @@ test("public routes ship indexable HTML and keyboard focus remains visible", asy
   request,
 }) => {
   for (const [path, heading] of [
-    ["/pricing", "Plans for creators, studios, and institutions."],
+    ["/pricing", "Plans for creators and institutions."],
     ["/docs", "Build on the Shotlink routing layer."],
     ["/trust", "Clear rules for a link people can trust."],
     ["/terms", "The agreement for using Shotlink."],

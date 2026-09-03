@@ -35,7 +35,7 @@ const CREATOR_PLANS = [
     name: "Studio",
     price: "₹9,999 / month",
     description: "For agencies, studios, and managers coordinating multiple profiles and launches.",
-    features: ["10,000 active links", "Team workspace", "Campaign exports + 10 domains"],
+    features: ["10,000 active links", "10 branded domains", "5,000 campaign QR codes"],
   },
 ];
 
@@ -70,7 +70,7 @@ const INSTITUTION_FEATURES = [
   {
     index: "01",
     title: "Resource-aware publishing",
-    text: "Recognise Google Sheets, forms, Drive documents, and video resources, then generate structured paths such as cse-42-attendance-2026-08-10.",
+    text: "Recognise Google Sheets, forms, Drive documents, and video resources, then generate structured paths such as cse-42-attendance-YYYY-MM-DD.",
     tag: "Smart official paths",
   },
   {
@@ -87,8 +87,8 @@ const INSTITUTION_FEATURES = [
   },
   {
     index: "04",
-    title: "Roles and audit history",
-    text: "Keep publishing actions inside a controlled workspace with owner, administrator, publisher, analyst, and viewer responsibilities.",
+    title: "Ownership and audit history",
+    text: "Keep official publishing inside an owner-controlled workspace with verified domains and a record of administrative actions.",
     tag: "Accountability",
   },
 ];
@@ -116,7 +116,7 @@ const CAPABILITIES = [
     number: "004",
     title: "Audience signals",
     text: "See clicks, devices, browsers, operating systems, referrers, and recent activity so the next post starts with better evidence.",
-    tags: ["Click analytics", "Referrers", "Device mix", "Campaign exports"],
+    tags: ["Click analytics", "Referrers", "Device mix", "Recent activity"],
   },
   {
     number: "005",
@@ -173,12 +173,12 @@ const FAQS = [
   {
     question: "Is Studio meant for a talent manager or creator team?",
     answer:
-      "Yes. Studio is designed for managers, agencies, photographers, and small creator teams coordinating multiple profiles, branded domains, QR assets, and campaign exports.",
+      "Studio expands link, domain, QR, analytics, and API limits for a manager operating the workspace. Multi-user invitations and downloadable exports are not enabled yet.",
   },
   {
     question: "Do universities and institutions get the creator dashboard?",
     answer:
-      "No. Institution workspaces use a separate official-publishing interface with resource recognition, link lifecycle controls, identity-domain governance, roles, and audit history.",
+      "No. Institution workspaces use a separate official-publishing interface with resource recognition, link lifecycle controls, identity-domain governance, and audit history.",
   },
   {
     question: "Does Shotlink automatically find a new Sheet or social upload?",
@@ -474,7 +474,7 @@ function InstitutionWorkspace({ onStart }) {
   );
 }
 
-export function PublicHeader({ onLogin, onStart }) {
+export function PublicHeader({ authenticated = false, onDashboard, onLogin, onStart }) {
   const [menuOpen, setMenuOpen] = useState(false);
 
   const closeMenu = () => setMenuOpen(false);
@@ -491,8 +491,16 @@ export function PublicHeader({ onLogin, onStart }) {
         <a href="/pricing">Pricing</a>
       </nav>
       <div className="mk-header-actions">
-        <button type="button" className="mk-login-button" onClick={onLogin}>Sign in</button>
-        <button type="button" className="mk-nav-cta" onClick={onStart}>Create workspace <Arrow /></button>
+        {authenticated ? (
+          <button type="button" className="mk-nav-cta" onClick={onDashboard}>
+            Open workspace <Arrow />
+          </button>
+        ) : (
+          <>
+            <button type="button" className="mk-login-button" onClick={onLogin}>Sign in</button>
+            <button type="button" className="mk-nav-cta" onClick={onStart}>Create workspace <Arrow /></button>
+          </>
+        )}
       </div>
       <button
         type="button"
@@ -509,10 +517,18 @@ export function PublicHeader({ onLogin, onStart }) {
           <a href="/#creators" onClick={closeMenu}>Creators</a>
           <a href="/#institutions" onClick={closeMenu}>Institutions</a>
           <a href="/pricing" onClick={closeMenu}>Pricing</a>
-          <button type="button" onClick={() => { closeMenu(); onLogin(); }}>Sign in</button>
-          <button type="button" className="mk-mobile-cta" onClick={() => { closeMenu(); onStart(); }}>
-            Create workspace <Arrow />
-          </button>
+          {authenticated ? (
+            <button type="button" className="mk-mobile-cta" onClick={() => { closeMenu(); onDashboard(); }}>
+              Open workspace <Arrow />
+            </button>
+          ) : (
+            <>
+              <button type="button" onClick={() => { closeMenu(); onLogin(); }}>Sign in</button>
+              <button type="button" className="mk-mobile-cta" onClick={() => { closeMenu(); onStart(); }}>
+                Create workspace <Arrow />
+              </button>
+            </>
+          )}
         </nav>
       ) : null}
     </header>
@@ -687,12 +703,15 @@ export function PublicLanding({ onStart }) {
   );
 }
 
-export function PublicFooter({ onStart }) {
+export function PublicFooter({ authenticated = false, onDashboard, onStart }) {
+  const handlePrimaryAction = authenticated ? onDashboard : onStart;
+  const primaryLabel = authenticated ? "Open workspace" : "Start for free";
+
   return (
     <footer className="mk-footer">
       <div className="mk-footer-top">
         <div className="mk-footer-title"><BrandLogo /><h2>Links people can trust.</h2></div>
-        <button type="button" onClick={onStart}>Start for free <Arrow /></button>
+        <button type="button" onClick={handlePrimaryAction}>{primaryLabel} <Arrow /></button>
       </div>
       <div className="mk-footer-main">
         <div className="mk-footer-brand">
@@ -707,7 +726,7 @@ export function PublicFooter({ onStart }) {
           <strong>Legal</strong><a href="/terms">Terms</a><a href="/privacy">Privacy</a><a href="/shipping-policy">Digital delivery</a><a href="/refund-policy">Cancellations &amp; refunds</a>
         </div>
         <div className="mk-footer-column">
-          <strong>Shotlink</strong><button type="button" onClick={onStart}>Create workspace</button><a href="/trust">Trust centre</a><a href="/contact">Contact</a><a href="/login">Sign in</a>
+          <strong>Shotlink</strong><button type="button" onClick={handlePrimaryAction}>{authenticated ? "Open workspace" : "Create workspace"}</button><a href="/trust">Trust centre</a><a href="/contact">Contact</a>{authenticated ? null : <a href="/login">Sign in</a>}
         </div>
       </div>
       <div className="mk-footer-bottom">

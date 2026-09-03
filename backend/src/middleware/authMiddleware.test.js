@@ -8,6 +8,7 @@ const { deriveCsrfToken } = require("../utils/sessionCookieUtils");
 const {
   getWorkspaceRole,
   requireAuth,
+  requireVerifiedEmail,
   requireWorkspaceAdmin,
   requireWorkspaceOwner,
   requireWorkspaceRole,
@@ -289,6 +290,66 @@ test("workspace administration allows admins but denies members", () => {
 
   assert.equal(adminNextCalled, true);
   assert.equal(memberResponse.statusCode, 403);
+});
+
+test("sessions issued before a password change are rejected", async (t) => {
+  const session = {
+    _id: "session-before-password-change",
+    userId: "user-owner",
+    workspaceId: "workspace-1",
+    createdAt: new Date("2026-08-01T00:00:00.000Z"),
+  };
+  const user = {
+    _id: "user-owner",
+    isActive: true,
+    passwordChangedAt: new Date("2026-08-02T00:00:00.000Z"),
+  };
+  const workspace = {
+    _id: "workspace-1",
+    ownerId: "user-owner",
+    members: [],
+  };
+  const stubs = stubAuthModels(t, { session, user, workspace });
+  const response = createMockResponse();
+  let nextCalled = false;
+
+  await requireAuth(createAuthRequest(), response, () => {
+    nextCalled = true;
+  });
+
+  assert.equal(nextCalled, false);
+  assert.equal(response.statusCode, 401);
+  assert.deepEqual(response.body, { error: "Session expired or invalid" });
+  assert.deepEqual(stubs.getDeletedSessionFilter(), { _id: session._id });
+});
+
+test("verified-email authorization blocks protected writes until verification", () => {
+  const deniedResponse = createMockResponse();
+  let deniedNextCalled = false;
+  requireVerifiedEmail(
+    { auth: { user: { emailVerifiedAt: null } } },
+    deniedResponse,
+    () => {
+      deniedNextCalled = true;
+    }
+  );
+
+  let allowedNextCalled = false;
+  requireVerifiedEmail(
+    { auth: { user: { emailVerifiedAt: new Date() } } },
+    createMockResponse(),
+    () => {
+      allowedNextCalled = true;
+    }
+  );
+
+  assert.equal(deniedNextCalled, false);
+  assert.equal(deniedResponse.statusCode, 403);
+  assert.deepEqual(deniedResponse.body, {
+    code: "EMAIL_VERIFICATION_REQUIRED",
+    error: "Verify your email address before performing this action.",
+  });
+  assert.equal(allowedNextCalled, true);
 });
 
 test("role middleware rejects invalid configuration", () => {

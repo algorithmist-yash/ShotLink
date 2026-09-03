@@ -21,6 +21,7 @@ const {
 } = require("../utils/authUtils");
 const { slugifyWorkspaceName } = require("../utils/slugUtils");
 const { recordAuditEvent } = require("../services/auditLogService");
+const emailService = require("../services/emailService");
 const { getDefaultCnameTarget, getTxtRecordName } = require("../utils/domainUtils");
 const {
   getEmailDomain,
@@ -32,6 +33,30 @@ const {
   getSessionCookieToken,
   setSessionCookie,
 } = require("../utils/sessionCookieUtils");
+
+const EMAIL_VERIFICATION_TTL_MS = 24 * 60 * 60 * 1000;
+const PASSWORD_RESET_TTL_MS = 60 * 60 * 1000;
+const EMAIL_RESEND_COOLDOWN_MS = 60 * 1000;
+
+function createActionToken(ttlMs) {
+  const token = generateSessionToken();
+  return {
+    token,
+    tokenHash: hashSessionToken(token),
+    expiresAt: new Date(Date.now() + ttlMs),
+  };
+}
+
+function logAuthFailure(event, error) {
+  console.error(
+    JSON.stringify({
+      timestamp: new Date().toISOString(),
+      level: "error",
+      event,
+      error: error.message,
+    })
+  );
+}
 
 async function generateWorkspaceSlug(name) {
   const baseSlug = slugifyWorkspaceName(name);
@@ -100,6 +125,8 @@ function serializeAuthPayload(user, workspace, sessionDetails) {
       id: user._id,
       name: user.name,
       email: user.email,
+      emailVerifiedAt: user.emailVerifiedAt || null,
+      emailVerificationSentAt: user.emailVerificationSentAt || null,
       defaultWorkspaceId: user.defaultWorkspaceId,
       compliance: {
         policyVersion: user.compliance?.policyVersion || "",
@@ -203,10 +230,14 @@ exports.register = async (req, res) => {
       });
     }
 
+    const verification = createActionToken(EMAIL_VERIFICATION_TTL_MS);
     const user = await User.create({
       name,
       email,
       passwordHash: await hashPassword(password),
+      emailVerificationTokenHash: verification.tokenHash,
+      emailVerificationExpiresAt: verification.expiresAt,
+      emailVerificationSentAt: new Date(),
       compliance: buildAccountComplianceRecord(req, consentValidation.consents),
     });
 
@@ -232,10 +263,232 @@ exports.register = async (req, res) => {
       metadata: { emailDomain: email.split("@")[1] || "", workspaceType },
     });
 
+    try {
+      await emailService.sendEmailVerification({
+        user,
+        token: verification.token,
+        tokenHash: verification.tokenHash,
+      });
+    } catch (error) {
+      logAuthFailure("email_verification_delivery_failed", error);
+    }
+
     return res.status(201).json(serializeAuthPayload(user, workspace, sessionDetails));
   } catch (error) {
     console.error(error);
     return res.status(500).json({ error: "Server error" });
+  }
+};
+
+exports.requestPasswordReset = async (req, res) => {
+  const genericResponse = {
+    message: "If that address has an active Shotlink account, a password-reset link has been sent.",
+  };
+
+  try {
+    const email = String(req.body.email || "").trim().toLowerCase();
+    if (!isValidEmail(email)) {
+      return res.status(202).json(genericResponse);
+    }
+
+    const reset = createActionToken(PASSWORD_RESET_TTL_MS);
+    const requestedAt = new Date();
+    const cooldownCutoff = new Date(requestedAt.getTime() - EMAIL_RESEND_COOLDOWN_MS);
+    const user = await User.findOneAndUpdate(
+      {
+        email,
+        isActive: true,
+        $or: [
+          { passwordResetRequestedAt: null },
+          { passwordResetRequestedAt: { $lte: cooldownCutoff } },
+        ],
+      },
+      {
+        $set: {
+          passwordResetTokenHash: reset.tokenHash,
+          passwordResetExpiresAt: reset.expiresAt,
+          passwordResetRequestedAt: requestedAt,
+        },
+      },
+      { returnDocument: "after" }
+    );
+    if (!user) {
+      return res.status(202).json(genericResponse);
+    }
+
+    try {
+      await emailService.sendPasswordResetEmail({
+        user,
+        token: reset.token,
+        tokenHash: reset.tokenHash,
+      });
+    } catch (error) {
+      logAuthFailure("password_reset_delivery_failed", error);
+    }
+
+    return res.status(202).json(genericResponse);
+  } catch (error) {
+    console.error(error);
+    return res.status(202).json(genericResponse);
+  }
+};
+
+exports.resetPassword = async (req, res) => {
+  try {
+    const token = String(req.body.token || "").trim();
+    const password = String(req.body.password || "");
+
+    if (!token || !isStrongEnoughPassword(password)) {
+      return res.status(400).json({
+        error:
+          "Use a valid reset link and a password with at least 8 characters, uppercase, lowercase, and a number.",
+      });
+    }
+
+    const passwordHash = await hashPassword(password);
+    const passwordChangedAt = new Date();
+    const user = await User.findOneAndUpdate(
+      {
+        passwordResetTokenHash: hashSessionToken(token),
+        passwordResetExpiresAt: { $gt: passwordChangedAt },
+        isActive: true,
+      },
+      {
+        $set: {
+          passwordHash,
+          passwordResetTokenHash: "",
+          passwordResetExpiresAt: null,
+          passwordResetRequestedAt: null,
+          passwordChangedAt,
+        },
+      },
+      { returnDocument: "after" }
+    );
+
+    if (!user) {
+      return res.status(400).json({ error: "This password-reset link is invalid or has expired." });
+    }
+
+    try {
+      await Session.deleteMany({ userId: user._id });
+    } catch (error) {
+      // passwordChangedAt still invalidates older sessions on their next request.
+      logAuthFailure("password_reset_session_cleanup_failed", error);
+    }
+
+    await recordAuditEvent(req, {
+      action: "account.password_reset",
+      targetType: "user",
+      targetId: user._id,
+      workspaceId: user.defaultWorkspaceId,
+      actorUserId: user._id,
+    });
+
+    clearSessionCookie(res);
+    return res.json({ message: "Password updated. Sign in again on each device." });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ error: "Could not reset the password. Please try again." });
+  }
+};
+
+exports.verifyEmail = async (req, res) => {
+  try {
+    const token = String(req.body.token || "").trim();
+    if (!token) {
+      return res.status(400).json({ error: "Email verification link is invalid or has expired." });
+    }
+
+    const emailVerifiedAt = new Date();
+    const user = await User.findOneAndUpdate(
+      {
+        emailVerificationTokenHash: hashSessionToken(token),
+        emailVerificationExpiresAt: { $gt: emailVerifiedAt },
+        isActive: true,
+      },
+      {
+        $set: {
+          emailVerifiedAt,
+          emailVerificationTokenHash: "",
+          emailVerificationExpiresAt: null,
+        },
+      },
+      { returnDocument: "after" }
+    );
+
+    if (!user) {
+      return res.status(400).json({ error: "Email verification link is invalid or has expired." });
+    }
+
+    await recordAuditEvent(req, {
+      action: "account.email_verified",
+      targetType: "user",
+      targetId: user._id,
+      workspaceId: user.defaultWorkspaceId,
+      actorUserId: user._id,
+    });
+
+    return res.json({
+      message: "Email verified. Your Shotlink account is ready.",
+      emailVerifiedAt: user.emailVerifiedAt,
+    });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ error: "Could not verify the email. Please try again." });
+  }
+};
+
+exports.resendEmailVerification = async (req, res) => {
+  const genericResponse = {
+    message: "If that address still needs verification, a new link has been sent.",
+  };
+
+  try {
+    const email = String(req.body.email || "").trim().toLowerCase();
+    if (!isValidEmail(email)) {
+      return res.status(202).json(genericResponse);
+    }
+
+    const verification = createActionToken(EMAIL_VERIFICATION_TTL_MS);
+    const sentAt = new Date();
+    const cooldownCutoff = new Date(sentAt.getTime() - EMAIL_RESEND_COOLDOWN_MS);
+    const user = await User.findOneAndUpdate(
+      {
+        email,
+        isActive: true,
+        emailVerifiedAt: null,
+        $or: [
+          { emailVerificationSentAt: null },
+          { emailVerificationSentAt: { $lte: cooldownCutoff } },
+        ],
+      },
+      {
+        $set: {
+          emailVerificationTokenHash: verification.tokenHash,
+          emailVerificationExpiresAt: verification.expiresAt,
+          emailVerificationSentAt: sentAt,
+        },
+      },
+      { returnDocument: "after" }
+    );
+    if (!user) {
+      return res.status(202).json(genericResponse);
+    }
+
+    try {
+      await emailService.sendEmailVerification({
+        user,
+        token: verification.token,
+        tokenHash: verification.tokenHash,
+      });
+    } catch (error) {
+      logAuthFailure("email_verification_delivery_failed", error);
+    }
+
+    return res.status(202).json(genericResponse);
+  } catch (error) {
+    console.error(error);
+    return res.status(202).json(genericResponse);
   }
 };
 

@@ -10,6 +10,24 @@ const DEFAULT_FRONTEND_URL = "http://127.0.0.1:4173";
 
 let environment;
 let shutdownPromise;
+let restoreEmailDelivery = () => {};
+
+function installE2EEmailVerification() {
+  const emailService = require("../../src/services/emailService");
+  const originalSendEmailVerification = emailService.sendEmailVerification;
+
+  emailService.sendEmailVerification = async ({ user }) => {
+    user.emailVerifiedAt = new Date();
+    user.emailVerificationTokenHash = "";
+    user.emailVerificationExpiresAt = null;
+    await user.save();
+    return { delivered: true, id: "e2e-auto-verified" };
+  };
+
+  return () => {
+    emailService.sendEmailVerification = originalSendEmailVerification;
+  };
+}
 
 async function shutdown(exitCode = 0) {
   if (shutdownPromise) return shutdownPromise;
@@ -20,6 +38,7 @@ async function shutdown(exitCode = 0) {
     for (const stop of [
       () => redirectEventWorker.stop(),
       () => environment?.stop(),
+      () => restoreEmailDelivery(),
     ]) {
       try {
         await stop();
@@ -44,6 +63,7 @@ async function main() {
   const port = Number(process.env.E2E_BACKEND_PORT || DEFAULT_PORT);
   const frontendUrl = process.env.E2E_FRONTEND_URL || DEFAULT_FRONTEND_URL;
 
+  restoreEmailDelivery = installE2EEmailVerification();
   environment = await startIntegrationEnvironment({
     databaseName: "shotlink_browser_e2e",
     frontendUrl,

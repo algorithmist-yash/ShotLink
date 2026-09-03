@@ -11,6 +11,7 @@ const {
 } = require("../controllers/billingController");
 const {
   requireAuth,
+  requireVerifiedEmail,
   requireWorkspaceOwner,
 } = require("../middleware/authMiddleware");
 const { writeRateLimit } = require("../middleware/rateLimitMiddleware");
@@ -29,6 +30,7 @@ router.get("/summary", getBillingSummary);
 router.post(
   "/payment-links",
   requireWorkspaceOwner,
+  requireVerifiedEmail,
   writeRateLimit,
   validateRequestBody(planContract),
   createPaymentLink
@@ -36,6 +38,7 @@ router.post(
 router.post(
   "/subscriptions",
   requireWorkspaceOwner,
+  requireVerifiedEmail,
   writeRateLimit,
   validateRequestBody(planContract),
   createSubscription
@@ -43,6 +46,7 @@ router.post(
 router.post(
   "/subscriptions/cancel",
   requireWorkspaceOwner,
+  requireVerifiedEmail,
   writeRateLimit,
   validateRequestBody(cancelSubscriptionContract, { allowEmpty: true }),
   cancelSubscription
@@ -50,6 +54,7 @@ router.post(
 router.post(
   "/subscriptions/sync",
   requireWorkspaceOwner,
+  requireVerifiedEmail,
   writeRateLimit,
   validateRequestBody(cancelSubscriptionContract, { allowEmpty: true }),
   syncSubscription

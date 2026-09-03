@@ -2,7 +2,9 @@ const assert = require("node:assert/strict");
 const test = require("node:test");
 
 const billingRoutes = require("./billingRoutes");
+const linkRoutes = require("./linkRoutes");
 const workspaceRoutes = require("./workspaceRoutes");
+const { requireVerifiedEmail } = require("../middleware/authMiddleware");
 
 function createMockResponse() {
   return {
@@ -26,6 +28,15 @@ function getFirstRouteMiddleware(router, method, path) {
 
   assert.ok(layer, `${method.toUpperCase()} ${path} route should exist`);
   return layer.route.stack[0].handle;
+}
+
+function routeHasMiddleware(router, method, path, middleware) {
+  const layer = router.stack.find(
+    (candidate) => candidate.route?.path === path && candidate.route.methods[method]
+  );
+
+  assert.ok(layer, `${method.toUpperCase()} ${path} route should exist`);
+  return layer.route.stack.some((candidate) => candidate.handle === middleware);
 }
 
 function runRoleGuard(guard, workspaceRole) {
@@ -71,5 +82,26 @@ test("every custom-domain mutation is restricted to owners and admins", () => {
     assert.equal(runRoleGuard(guard, "owner").nextCalled, true);
     assert.equal(runRoleGuard(guard, "admin").nextCalled, true);
     assert.equal(runRoleGuard(guard, "member").response.statusCode, 403);
+  }
+});
+
+test("account-sensitive writes require a verified email", () => {
+  const protectedRoutes = [
+    [linkRoutes, "post", "/"],
+    [billingRoutes, "post", "/payment-links"],
+    [billingRoutes, "post", "/subscriptions"],
+    [billingRoutes, "post", "/subscriptions/cancel"],
+    [billingRoutes, "post", "/subscriptions/sync"],
+    [workspaceRoutes, "post", "/domains"],
+    [workspaceRoutes, "post", "/domains/:hostname/verify"],
+    [workspaceRoutes, "patch", "/domains/:hostname/primary"],
+    [workspaceRoutes, "delete", "/domains/:hostname"],
+    [workspaceRoutes, "post", "/email-domains"],
+    [workspaceRoutes, "post", "/email-domains/:hostname/verify"],
+    [workspaceRoutes, "delete", "/email-domains/:hostname"],
+  ];
+
+  for (const [router, method, path] of protectedRoutes) {
+    assert.equal(routeHasMiddleware(router, method, path, requireVerifiedEmail), true);
   }
 });

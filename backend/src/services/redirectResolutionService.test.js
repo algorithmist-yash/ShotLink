@@ -214,7 +214,7 @@ test("workspace plan and usage snapshots are cached independently", async (t) =>
           plan: "pro",
           billing: {
             status: "active",
-            currentPeriodEndsAt: new Date("2026-08-20T00:00:00.000Z"),
+            currentPeriodEndsAt: new Date("2099-08-20T00:00:00.000Z"),
           },
         };
       },
