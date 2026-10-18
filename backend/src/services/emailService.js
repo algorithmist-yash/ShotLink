@@ -59,6 +59,7 @@ async function sendTransactionalEmail(
 
   const response = await fetchImpl(RESEND_API_URL, {
     method: "POST",
+    signal: AbortSignal.timeout(15000),
     headers: {
       Authorization: `Bearer ${apiKey}`,
       "Content-Type": "application/json",

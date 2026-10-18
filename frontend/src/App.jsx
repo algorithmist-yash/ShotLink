@@ -2253,7 +2253,7 @@ function App() {
 
                 {isRegistrationMode ? (
                   <details className="sl-signup-options" open={authForm.workspaceType === "institution" ? true : undefined}>
-                    <summary>Workspace settings <span>Optional for personal use · institutions choose here</span></summary>
+                    <summary>Workspace settings <span>Optional for personal use Â· institutions choose here</span></summary>
                     <p style={styles.miniHelperText}>Your free personal workspace uses your name by default. Change it here, or choose an institution workspace.</p>
                     <fieldset style={styles.workspaceTypeFieldset}>
                       <legend style={styles.labelText}>Choose your workspace</legend>
@@ -2527,7 +2527,7 @@ function App() {
             <div><p style={styles.sectionEyebrow}>Get started</p><h2 id="onboarding-title">Create your first link</h2><p>Three steps to a short link and QR code you can share.</p></div>
             <ol>
               <li><strong>1. Account created</strong><span>Your free workspace is ready. No payment details needed.</span></li>
-              <li><strong>{session.user.emailVerifiedAt ? "2. Email verified" : "2. Verify your email"}</strong><span>{session.user.emailVerifiedAt ? "You’re ready to publish." : `Open the verification email sent to ${session.user.email}. Check spam, or resend it above.`}</span></li>
+              <li><strong>{session.user.emailVerifiedAt ? "2. Email verified" : "2. Verify your email"}</strong><span>{session.user.emailVerifiedAt ? "Youâ€™re ready to publish." : `Open the verification email sent to ${session.user.email}. Check spam, or resend it above.`}</span></li>
               <li><strong>3. Create and test a link</strong><span>Paste a destination, choose an expiry, then copy the link or download its QR code.</span></li>
             </ol>
             <button type="button" style={styles.primaryButton} disabled={!session.user.emailVerifiedAt} onClick={() => {
