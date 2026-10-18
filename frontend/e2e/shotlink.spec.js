@@ -68,7 +68,7 @@ async function openPublicHomepage(page) {
   await expect(
     page.getByRole("heading", {
       level: 1,
-      name: "One link platform. Two different workspaces.",
+      name: "Shorten links. Create QR codes.",
     })
   ).toBeVisible();
 }
@@ -294,7 +294,7 @@ test("real registration, cookie session, link redirect, analytics, and logout wo
   await expect(
     page.getByRole("heading", {
       level: 1,
-      name: "One link platform. Two different workspaces.",
+      name: "Shorten links. Create QR codes.",
     })
   ).toBeVisible();
   expect((await page.context().cookies()).some((cookie) => cookie.name === "shotlink_session")).toBe(

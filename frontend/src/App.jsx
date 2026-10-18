@@ -8,6 +8,7 @@ import { PublicFooter, PublicHeader, PublicLanding } from "./components/PublicMa
 import { StatusPill } from "./components/StatusPill";
 import { usePublicPage } from "./hooks/usePublicPage";
 import { useResponsiveLayout } from "./hooks/useResponsiveLayout";
+import { recordMarketingPage, recordFunnelEvent } from "./marketingAnalytics";
 import {
   LEGAL_PAGE_CONTENT,
   OPERATOR_NOTICE,
@@ -50,7 +51,7 @@ const DOC_SECTIONS = [
   },
   {
     title: "Handle billing",
-    body: "Upgrade from the billing panel and wait for the payment webhook to update your plan.",
+    body: "Check plan availability in Billing. After an available checkout completes, return to Billing and use Verify payment if your plan has not updated.",
   },
 ];
 
@@ -61,7 +62,12 @@ const API_SNIPPET_LINES = [
   '  "originalUrl": "https://example.com/campaign",',
   '  "customAlias": "summer-sale",',
   '  "fallbackUrls": ["https://backup.example.com"],',
-  '  "expiresInMinutes": 10080',
+  '  "expiresInMinutes": 10080,',
+  '  "compliance": {',
+  '    "destinationAuthorityAccepted": true,',
+  '    "securityScanAccepted": true,',
+  '    "abusePolicyAccepted": true',
+  '  }',
   "}",
 ];
 
@@ -400,7 +406,7 @@ const DEFAULT_PUBLIC_PLANS = [
       "1 branded domain",
       "250 campaign QR codes",
       "Audience, device, and referrer analytics",
-      "Editable destinations and fallback routing",
+      "Fallback routing for active links",
       "Priority email support",
     ],
   },
@@ -421,7 +427,7 @@ const DEFAULT_PUBLIC_PLANS = [
       "Up to 10 branded domains",
       "5,000 campaign QR codes",
       "Audience, device, and referrer analytics",
-      "Editable destinations and fallback routing",
+      "Fallback routing for active links",
       "Priority onboarding support",
     ],
   },
@@ -539,9 +545,17 @@ function getBillingTone(status) {
 }
 
 function scrollToDashboardSection(sectionId) {
-  document.getElementById(sectionId)?.scrollIntoView({
-    behavior: "smooth",
-    block: "start",
+  const section = document.getElementById(sectionId);
+  if (!section) return;
+  const stickyOffset = [...document.querySelectorAll(".sl-dashboard-header, .sl-dashboard-nav")]
+    .reduce((offset, element) => {
+      const computed = window.getComputedStyle(element);
+      if (!["sticky", "fixed"].includes(computed.position)) return offset;
+      return Math.max(offset, (parseFloat(computed.top) || 0) + element.getBoundingClientRect().height);
+    }, 0);
+  window.scrollTo({
+    top: Math.max(0, window.scrollY + section.getBoundingClientRect().top - stickyOffset - 16),
+    behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth",
   });
 }
 
@@ -560,6 +574,9 @@ function toBrowserSession(data) {
 }
 
 function App() {
+  useEffect(() => {
+    document.documentElement.classList.add("sl-js-ready");
+  }, []);
   const initialAuthPath = window.location.pathname.replace(/\/$/, "") || "/";
   const [authMode, setAuthMode] = useState(() => getAuthModeForPath(initialAuthPath));
   const [authViewOpen, setAuthViewOpen] = useState(() =>
@@ -580,6 +597,9 @@ function App() {
     consents: createDefaultConsents(),
   });
   const [authLoading, setAuthLoading] = useState(true);
+  useEffect(() => {
+    if (!authLoading && !session) recordMarketingPage();
+  }, [authLoading, session, publicPage, authMode, authViewOpen]);
   const [authSubmitting, setAuthSubmitting] = useState(false);
   const [workspaceLoading, setWorkspaceLoading] = useState(false);
   const [links, setLinks] = useState([]);
@@ -871,6 +891,7 @@ function App() {
           try {
             await apiFetch("/api/v1/auth/logout", {
               method: "POST",
+              signal: AbortSignal.timeout(8000),
               headers: { Authorization: `Bearer ${legacyToken}` },
             });
           } catch {
@@ -879,7 +900,9 @@ function App() {
           }
         }
 
-        const response = await apiFetch("/api/v1/auth/me");
+        const response = await apiFetch("/api/v1/auth/me", {
+          signal: AbortSignal.timeout(8000),
+        });
 
         if (!response.ok) {
           throw new Error("Session expired");
@@ -1424,6 +1447,7 @@ function App() {
   };
 
   const submitAuth = async () => {
+    if (authMode === "register") recordFunnelEvent("signup_started");
     setAuthSubmitting(true);
     setAuthError("");
     setAuthMessage("");
@@ -1464,6 +1488,7 @@ function App() {
         });
         const data = await response.json();
         if (!response.ok) throw new Error(data.error || "Could not verify the email");
+        recordFunnelEvent("email_verified");
         setSession((current) => current
           ? { ...current, user: { ...current.user, emailVerifiedAt: data.emailVerifiedAt } }
           : current);
@@ -1496,6 +1521,7 @@ function App() {
       }
 
       setSession(toBrowserSession(data));
+      if (authMode === "register") recordFunnelEvent("signup_completed");
       setAuthViewOpen(false);
       window.history.replaceState({}, "", "/");
       setAuthForm({
@@ -1793,6 +1819,7 @@ function App() {
       }
 
       upsertLink(data.link);
+      recordFunnelEvent("workspace_link_created");
       setSelectedShortCode(data.link.shortCode);
       setUrl("");
       setCustomAlias("");
@@ -1882,9 +1909,13 @@ function App() {
   const copyShortUrl = async () => {
     if (!analytics?.shortUrl) return;
 
-    await navigator.clipboard.writeText(analytics.shortUrl);
-    setCopied("Short URL copied");
-    window.setTimeout(() => setCopied(""), 1800);
+    try {
+      await navigator.clipboard.writeText(analytics.shortUrl);
+      setCopied("Short URL copied");
+      window.setTimeout(() => setCopied(""), 1800);
+    } catch {
+      setLinkError("Copy was blocked by the browser. Select the short URL and copy it manually.");
+    }
   };
 
   const prepareSocialPost = async () => {
@@ -1964,6 +1995,9 @@ function App() {
     usage: {},
   };
   const billingRecords = billingSummary?.recentPayments || [];
+  const billingStatusLabel = currentPlan.effectivePlanId === "free" && currentPlan.billingStatus === "inactive"
+    ? "Free plan · no subscription"
+    : formatLabel(currentPlan.billingStatus);
   const workspaceType = session?.workspace?.workspaceType || "creator";
   const isInstitutionWorkspace = workspaceType === "institution";
   const dashboardNavItems = isInstitutionWorkspace
@@ -2039,6 +2073,7 @@ function App() {
           ? "This link can be used once. Your existing sessions will be signed out."
           : "Confirm that this email address belongs to you.";
   const authSubmitDisabled =
+    authLoading ||
     authSubmitting ||
     (isRegistrationMode && !requiredAccountConsentsAccepted) ||
     ((isResetPasswordMode || isVerifyEmailMode) && !authActionToken) ||
@@ -2048,7 +2083,7 @@ function App() {
     remainingLinkSlots <= 0 ||
     !linkComplianceAccepted ||
     !session?.user?.emailVerifiedAt;
-  if (authLoading) {
+  if (authLoading && session) {
     return (
       <div className="sl-page sl-dashboard-page" style={styles.page}>
         <div className="sl-grid-overlay" style={styles.backgroundGrid} />
@@ -2166,18 +2201,26 @@ function App() {
 
                 {isRegistrationMode || isLoginMode || isResetPasswordMode ? (
                   <label style={styles.label}>
-                    {isResetPasswordMode ? "New password" : "Password"}
+                    <span id="password-label">{isResetPasswordMode ? "New password" : "Password"}</span>
                     <input
+                      aria-labelledby="password-label"
                       style={styles.input}
                       type="password"
                       value={authForm.password}
                       autoComplete={isRegistrationMode || isResetPasswordMode ? "new-password" : "current-password"}
-                      minLength={8}
+                      minLength={isLoginMode ? undefined : 8}
+                      pattern={isRegistrationMode || isResetPasswordMode ? "(?=.*[a-z])(?=.*[A-Z])(?=.*[0-9]).{8,}" : undefined}
+                      aria-describedby={isRegistrationMode || isResetPasswordMode ? "password-requirements" : undefined}
                       required
                       onChange={(event) =>
                         setAuthForm((current) => ({ ...current, password: event.target.value }))
                       }
                     />
+                    {isRegistrationMode || isResetPasswordMode ? (
+                      <span id="password-requirements" style={styles.miniHelperText}>
+                        Use at least 8 characters, including an uppercase letter, a lowercase letter, and a number.
+                      </span>
+                    ) : null}
                   </label>
                 ) : null}
 
@@ -2231,7 +2274,7 @@ function App() {
                         style={styles.input}
                         value={authForm.workspaceName}
                         autoComplete="organization"
-                        required
+                        required={authForm.workspaceType === "institution"}
                         onChange={(event) =>
                           setAuthForm((current) => ({
                             ...current,
@@ -2240,6 +2283,7 @@ function App() {
                         }
                       />
                     </label>
+                    {authForm.workspaceType === "creator" ? <p style={styles.miniHelperText}>Workspace name is optional. Leave it blank to use your name.</p> : null}
                   </>
                 ) : null}
 
@@ -2248,7 +2292,7 @@ function App() {
                     <div>
                       <p style={styles.sectionEyebrow}>Required consent</p>
                       <p style={styles.consentIntro}>
-                        We keep a timestamped consent record for security and compliance.
+                        All five confirmations below are required. Product emails are optional. We keep a timestamped consent record.
                       </p>
                     </div>
 
@@ -2259,6 +2303,8 @@ function App() {
                         onChange={(checked) => updateAuthConsent(item.id, checked)}
                       >
                         {item.label}
+                        {item.id === "termsAccepted" ? <> <a href="/terms" target="_blank" rel="noopener noreferrer">Read terms (new tab)</a></> : null}
+                        {item.id === "privacyAccepted" ? <> <a href="/privacy" target="_blank" rel="noopener noreferrer">Read privacy notice (new tab)</a></> : null}
                       </ConsentCheckbox>
                     ))}
 
@@ -2431,7 +2477,7 @@ function App() {
               label={isInstitutionWorkspace ? "Institution workspace" : "Creator workspace"}
               tone={isInstitutionWorkspace ? "neutral" : "healthy"}
             />
-            <StatusPill label={formatLabel(currentPlan.billingStatus)} tone={getBillingTone(currentPlan.billingStatus)} />
+            <StatusPill label={billingStatusLabel} tone={getBillingTone(currentPlan.billingStatus)} />
             <button
               className="sl-header-new-link"
               style={styles.primaryButton}
@@ -2450,7 +2496,7 @@ function App() {
           <section style={{ ...styles.checkoutNotice, margin: "18px 24px 0" }} aria-label="Email verification">
             <strong>Verify {session.user.email}</strong>
             <span>
-              Confirm your address before creating permanent links, managing domains, or changing billing.
+              Confirm your address before creating workspace links, managing domains, or changing billing.
             </span>
             <div style={styles.inlineActions}>
               <button
@@ -2500,7 +2546,7 @@ function App() {
           <article className="sl-lift sl-command-card" data-accent="violet" style={{ ...styles.commandCard, ...enterpriseDashboardStyles.commandCard }}>
             <div style={styles.commandCardTop}><span style={styles.commandIndex}>04</span><p style={styles.metricLabel}>Current plan</p></div>
             <strong style={styles.commandValue}>{currentPlan.effectivePlanName}</strong>
-            <span style={styles.metricHint}>{formatLabel(currentPlan.billingStatus)}</span>
+            <span style={styles.metricHint}>{billingStatusLabel}</span>
           </article>
         </section>
 
@@ -2568,11 +2614,11 @@ function App() {
               <div>
                 <p style={styles.sectionEyebrow}>{isInstitutionWorkspace ? "Official publishing" : "Create"}</p>
                 <h2 style={styles.panelTitle}>{isInstitutionWorkspace ? "Publish an official resource" : "Publish a short link"}</h2>
-                <p style={styles.panelLead}>{isInstitutionWorkspace ? "Classify the resource, set its official path and expiry, then add a continuity route when needed." : "Set the destination, branded path, expiry, and failover behavior."}</p>
+                <p className="sl-builder-help" style={styles.panelLead}>{isInstitutionWorkspace ? "Classify the resource, set its official path and expiry, then add a continuity route when needed." : "Set the destination, branded path, expiry, and failover behavior."}</p>
               </div>
               <StatusPill label={currentPlan.effectivePlanName} tone={getPlanTone(currentPlan.effectivePlanId)} />
             </div>
-            <p style={styles.helperText}>
+            <p className="sl-builder-help" style={styles.helperText}>
               {remainingLinkSlots > 0
                 ? `${remainingLinkSlots} active link slots remaining on the ${currentPlan.effectivePlanName} plan.`
                 : `You have used all ${activeLinkLimit} active-link slots on the ${currentPlan.effectivePlanName} plan. Upgrade billing to create more links.`}
@@ -2594,7 +2640,44 @@ function App() {
                 if (!linkSubmitDisabled) event.currentTarget.requestSubmit();
               }}
             >
-              <div className="sl-builder-form-grid" style={styles.builderFormGrid}>
+              <div style={styles.label}>
+                <label htmlFor="primary-destination">
+                  {isInstitutionWorkspace ? "Official resource URL" : "Campaign destination"}
+                </label>
+                <input
+                  id="primary-destination"
+                  style={styles.input}
+                  type="url"
+                  autoComplete="url"
+                  aria-describedby="primary-destination-help"
+                  placeholder={isInstitutionWorkspace ? "https://docs.google.com/spreadsheets/..." : "https://youtube.com/watch?v=..."}
+                  value={url}
+                  onChange={(event) => setUrl(event.target.value)}
+                />
+                <span id="primary-destination-help" style={styles.miniHelperText}>
+                  {isInstitutionWorkspace
+                    ? "Paste a Google Sheet, form, document, video, notice, or other official HTTPS resource."
+                    : "Paste the post, video, portfolio, store, booking, or sponsor page your audience should reach."}
+                </span>
+                {detectedDestination && detectedDestination.type !== "website" ? (
+                  <div role="status" style={styles.destinationInsight}>
+                    <strong>{detectedDestination.label}</strong>
+                    <span>{detectedDestination.guidance}</span>
+                  </div>
+                ) : null}
+              </div>
+                <label style={styles.label}>
+                  Link expiry
+                  <select style={styles.select} value={expiry} onChange={(event) => setExpiry(Number(event.target.value))}>
+                    {EXPIRY_OPTIONS.map((option) => (
+                      <option key={option.value} value={option.value}>{option.label}</option>
+                    ))}
+                  </select>
+                </label>
+              <p className="sl-builder-help">This link and its QR code stop working at expiry. Workspace links can last up to seven days.</p>
+              <details className="sl-advanced-options">
+                <summary>Advanced options <span>Custom alias, templates, domains and backups</span></summary>
+                <div className="sl-advanced-content">
                 <label style={styles.label}>
                   Short link domain
                   <select style={styles.select} value={selectedDomainHost} onChange={(event) => setSelectedDomainHost(event.target.value)}>
@@ -2604,15 +2687,6 @@ function App() {
                     ))}
                   </select>
                 </label>
-                <label style={styles.label}>
-                  Link expiry
-                  <select style={styles.select} value={expiry} onChange={(event) => setExpiry(Number(event.target.value))}>
-                    {EXPIRY_OPTIONS.map((option) => (
-                      <option key={option.value} value={option.value}>{option.label}</option>
-                    ))}
-                  </select>
-                </label>
-              </div>
               <div className="sl-smart-path-card">
                 <div className="sl-smart-path-heading">
                   <div>
@@ -2719,32 +2793,6 @@ function App() {
                 </div>
               </div>
               <div style={styles.label}>
-                <label htmlFor="primary-destination">
-                  {isInstitutionWorkspace ? "Official resource URL" : "Campaign destination"}
-                </label>
-                <input
-                  id="primary-destination"
-                  style={styles.input}
-                  type="url"
-                  autoComplete="url"
-                  aria-describedby="primary-destination-help"
-                  placeholder={isInstitutionWorkspace ? "https://docs.google.com/spreadsheets/..." : "https://youtube.com/watch?v=..."}
-                  value={url}
-                  onChange={(event) => setUrl(event.target.value)}
-                />
-                <span id="primary-destination-help" style={styles.miniHelperText}>
-                  {isInstitutionWorkspace
-                    ? "Paste a Google Sheet, form, document, video, notice, or other official HTTPS resource."
-                    : "Paste the post, video, portfolio, store, booking, or sponsor page your audience should reach."}
-                </span>
-                {detectedDestination && detectedDestination.type !== "website" ? (
-                  <div role="status" style={styles.destinationInsight}>
-                    <strong>{detectedDestination.label}</strong>
-                    <span>{detectedDestination.guidance}</span>
-                  </div>
-                ) : null}
-              </div>
-              <div style={styles.label}>
                 <label htmlFor="custom-alias">Custom alias</label>
                 <div className="sl-alias-group" style={styles.aliasInputGroup}>
                   <span className="sl-alias-prefix" style={styles.aliasPrefix}>{selectedDomainHost || "shotlink.in"}/</span>
@@ -2776,6 +2824,8 @@ function App() {
                 />
                 <span id="fallback-destinations-help" style={styles.miniHelperText}>Add one HTTPS backup destination per line, in failover order.</span>
               </div>
+                </div>
+              </details>
               <div className="sl-consent-box" style={styles.consentBox}>
                 <p style={styles.consentIntro}>
                   Link policy version {LINK_POLICY_VERSION}. Required for every link so abusive or illegal destinations can be suspended with a clear audit trail.
@@ -3234,14 +3284,14 @@ function App() {
             <div style={styles.billingOverviewGrid}>
               <div style={{ ...styles.subscriptionCard, ...enterpriseDashboardStyles.subscriptionCard }}>
                 <div><p style={styles.mutedLabel}>Current subscription</p><h3 style={styles.subscriptionTitle}>{currentPlan.effectivePlanName}</h3></div>
-                <StatusPill label={formatLabel(currentPlan.billingStatus)} tone={getBillingTone(currentPlan.billingStatus)} />
+                <StatusPill label={billingStatusLabel} tone={getBillingTone(currentPlan.billingStatus)} />
                 <p style={styles.helperText}>{activeLinkCount}/{activeLinkLimit} active links used. {remainingLinkSlots} slots still available.</p>
                 <p style={styles.miniHelperText}>{currentPlan.currentPeriodEndsAt ? `Renews or ends ${formatDate(currentPlan.currentPeriodEndsAt)}` : "Free tier subscription"}</p>
               </div>
               <div style={styles.billingStatsGrid}>
                 <div style={styles.billingStatCard}><p style={styles.billingStatLabel}>Current plan</p><p style={styles.billingStatValue}>{currentPlan.effectivePlanName}</p></div>
                 <div style={styles.billingStatCard}><p style={styles.billingStatLabel}>Slots left</p><p style={styles.billingStatValue}>{remainingLinkSlots}</p></div>
-                <div style={styles.billingStatCard}><p style={styles.billingStatLabel}>Billing status</p><p style={styles.billingStatValueSmall}>{formatLabel(currentPlan.billingStatus)}</p></div>
+                <div style={styles.billingStatCard}><p style={styles.billingStatLabel}>Billing status</p><p style={styles.billingStatValueSmall}>{billingStatusLabel}</p></div>
                 <div style={styles.billingStatCard}><p style={styles.billingStatLabel}>Current period</p><p style={styles.billingStatValueSmall}>{currentPlan.currentPeriodEndsAt ? formatDate(currentPlan.currentPeriodEndsAt) : "Free tier"}</p></div>
               </div>
             </div>
@@ -3281,7 +3331,7 @@ function App() {
             </div>
             <div style={styles.billingDetailGrid}>
               <div style={styles.paymentCard}>
-                <div style={styles.planHeader}><div><p style={styles.mutedLabel}>Usage</p><p style={styles.helperText}>Monthly quotas reset with your billing cycle.</p></div><StatusPill label={currentPlan.usagePeriodKey || "Current month"} tone="neutral" /></div>
+                <div style={styles.planHeader}><div><p style={styles.mutedLabel}>Usage</p><p style={styles.helperText}>Monthly usage counters reset on the first day of each month (UTC). Active-link and domain limits apply separately.</p></div><StatusPill label={currentPlan.usagePeriodKey || "Current month"} tone="neutral" /></div>
                 <div style={styles.usageGrid}>{Object.values(currentPlan.usage || {}).map((metric) => <UsageBar key={metric.key} metric={metric} />)}</div>
               </div>
               <div style={styles.paymentCard}>

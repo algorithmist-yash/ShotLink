@@ -18,6 +18,9 @@ export default defineConfig({
         refundPolicy: resolve(import.meta.dirname, "refund-policy.html"),
         shippingPolicy: resolve(import.meta.dirname, "shipping-policy.html"),
         contact: resolve(import.meta.dirname, "contact.html"),
+        googleForms: resolve(import.meta.dirname, "google-forms-qr-code.html"),
+        eventQr: resolve(import.meta.dirname, "event-qr-codes.html"),
+        expiringLinks: resolve(import.meta.dirname, "expiring-links.html"),
       },
       output: {
         manualChunks: {

@@ -18,6 +18,9 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 *.log
+.wrangler/
+.dev.vars
+.dev.vars.*
 
 .DS_Store
 Thumbs.db
@@ -27,3 +30,12 @@ Thumbs.db
 
 # Locally generated training/submission artifacts; preserve outside source control
 /deliverables/
+
+# Local assistant state, previews and generated interview material
+/.agents/
+/.codex/
+/interview_guide_render/
+/Shotlink_Interview_Question_and_Answer_Guide.docx
+/build_interview_guide.py
+/desktop-dashboard-fixed.jpg
+/first-link-desktop.jpg

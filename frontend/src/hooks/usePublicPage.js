@@ -16,8 +16,8 @@ const PAGE_BY_PATH = Object.freeze({
 
 const PAGE_METADATA = Object.freeze({
   home: {
-    title: "Shotlink | Link workspaces for creators and institutions",
-    description: "Purpose-built short links and QR codes for creator campaigns plus official university and institution resources, with destination recognition, expiry, and governance.",
+    title: "Free URL Shortener & QR Code Generator | Shotlink",
+    description: "Create free temporary short links and QR codes without signing up. Get links lasting up to seven days and click analytics with a verified free workspace.",
     path: "/",
   },
   pricing: {
@@ -72,7 +72,7 @@ function getPublicPage() {
 
 function updateDocumentMetadata(pageId) {
   const metadata = PAGE_METADATA[pageId] || PAGE_METADATA.home;
-  const canonicalUrl = `https://shotlink.in${metadata.path}`;
+  const canonicalUrl = `https://www.shotlink.in${metadata.path}`;
   document.title = metadata.title;
 
   for (const [selector, attribute, value] of [

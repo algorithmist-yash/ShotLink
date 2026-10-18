@@ -1,5 +1,8 @@
 # Shotlink
 
+Latest project cleanup, visibility findings, validation and publishing steps:
+[18 October 2026 project review](docs/PROJECT_REVIEW_2026-10-18.md).
+
 Shotlink is a full-stack URL shortener with authenticated workspaces, link expiry, custom aliases,
 fallback destinations, click analytics, QR codes, custom domains, and Razorpay-backed billing.
 

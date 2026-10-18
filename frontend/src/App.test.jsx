@@ -48,6 +48,13 @@ function getRequestPath(input) {
 }
 
 describe("Shotlink frontend workflows", () => {
+  test("shows the public link tool while session restoration is pending", () => {
+    fetch.mockImplementation(() => new Promise(() => {}));
+    render(<App />);
+    expect(screen.getByRole("textbox", { name: "Destination URL" })).toBeInTheDocument();
+    expect(screen.queryByText("Loading workspace...")).not.toBeInTheDocument();
+  });
+
   beforeEach(() => {
     window.localStorage.clear();
     window.history.replaceState({}, "", "/");
@@ -245,6 +252,7 @@ describe("Shotlink frontend workflows", () => {
       target: { value: "Watch the full launch video" },
     });
     fireEvent.click(screen.getByRole("button", { name: "Select X" }));
+    await waitFor(() => expect(screen.getByRole("button", { name: "Prepare post for X →" })).toBeEnabled());
     fireEvent.click(screen.getByRole("button", { name: "Prepare post for X →" }));
 
     expect(writeText).toHaveBeenCalledWith(
@@ -851,7 +859,7 @@ describe("Shotlink frontend workflows", () => {
 
     expect(
       await screen.findByRole("heading", {
-        name: /One link platform\./,
+        name: /Shorten links\./,
       })
     ).toBeInTheDocument();
   });

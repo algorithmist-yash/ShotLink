@@ -64,7 +64,7 @@ export const LEGAL_PAGE_CONTENT = Object.freeze({
         title: "3. Links, destinations, and QR codes",
         paragraphs: [
           "You retain responsibility for every destination, alias, fallback route, QR code, and campaign you create. You must have the right to share the destination and must keep its content lawful, accurate, and safe.",
-          "Temporary links expire automatically. Permanent links and workspace features are subject to plan limits, technical safeguards, and abuse controls.",
+          "Temporary links expire automatically. Workspace links (currently up to seven days) and workspace features are subject to plan limits, technical safeguards, and abuse controls.",
           "Institution workspace owners are responsible for ensuring that any Google Sheet, form, document, video, or other official resource has appropriate source-platform sharing permissions. Shotlink controls the redirect route, not access inside Google Drive or a video platform.",
         ],
       },
@@ -151,6 +151,7 @@ export const LEGAL_PAGE_CONTENT = Object.freeze({
         bullets: [
           "Session, security, request, and audit information needed to sign you in and protect workspaces.",
           "For link visits: time, referring page when supplied, device category, browser, operating system, route status, and a one-way hashed network identifier used for analytics and abuse prevention.",
+          "When website measurement is enabled, Vercel Web Analytics processes public page visits and named actions such as registration and link creation. These website metrics are separate from your short-link analytics. Shotlink removes query strings and fragments from the page URLs it sends and does not attach form values, destination URLs, account identifiers, or email-action tokens to these events.",
           "Operational logs, rate-limit counters, error details, and service-health information.",
         ],
       },

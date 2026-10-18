@@ -3,6 +3,8 @@ import { QRCodeCanvas } from "qrcode.react";
 import { apiFetch } from "../apiClient";
 import { BrandLogo } from "./BrandLogo";
 import "./PublicMarketing.css";
+import { GUIDES } from "../guideContent";
+import { recordFunnelEvent } from "../marketingAnalytics";
 
 const TEMPORARY_EXPIRY_OPTIONS = [
   { label: "5 minutes", value: 5 },
@@ -82,7 +84,7 @@ const INSTITUTION_FEATURES = [
   {
     index: "03",
     title: "Expiry and fallback routes",
-    text: "Time-limit admission notices, event forms, circulars, or recordings and send visitors to a safe fallback when a resource closes.",
+    text: "Time-limit admission notices, event forms, circulars, or recordings and use a fallback if an active link’s destination becomes unavailable. Expiry closes the route.",
     tag: "Lifecycle control",
   },
   {
@@ -158,7 +160,7 @@ const FAQS = [
   {
     question: "How long can a temporary link stay active?",
     answer:
-      "You can choose 5, 10, 15, or 30 minutes. The link and its QR code stop routing automatically when that time ends. Use a workspace when a campaign needs a permanent route.",
+      "You can choose 5, 10, 15, or 30 minutes. The link and its QR code stop routing automatically when that time ends. Verified workspaces support links lasting up to seven days.",
   },
   {
     question: "Can I use the QR code offline?",
@@ -196,13 +198,13 @@ function Arrow({ diagonal = false }) {
   return <span aria-hidden="true">{diagonal ? "↗" : "→"}</span>;
 }
 
-function CreatorConsole() {
+function CreatorConsole({ onStart }) {
   return (
     <div className="mk-console" aria-label="Creator campaign preview">
       <div className="mk-console-bar">
         <div className="mk-console-dots" aria-hidden="true"><i /><i /><i /></div>
-        <span>app.shotlink.in / campaigns</span>
-        <span className="mk-console-live"><i /> campaign live</span>
+        <span>Campaign preview · sample data</span>
+        <span className="mk-console-live"><i /> example campaign</span>
       </div>
       <div className="mk-console-body">
         <aside className="mk-console-rail" aria-hidden="true">
@@ -211,7 +213,7 @@ function CreatorConsole() {
         <div className="mk-console-main">
           <div className="mk-console-heading">
             <div><small>SUMMER DROP</small><strong>Campaign overview</strong></div>
-            <button type="button" tabIndex={-1}>New link +</button>
+            <button type="button" onClick={onStart}>New link +</button>
           </div>
           <div className="mk-domain-record">
             <div className="mk-domain-name"><span>IG</span><div><strong>@yourprofile</strong><small>Creator workspace</small></div></div>
@@ -292,8 +294,10 @@ function TemporaryLinkStudio({ onStart }) {
       }
 
       setResult(data.link);
+      recordFunnelEvent("guest_link_created");
       setMessage("Your temporary short link and QR code are ready.");
     } catch (requestError) {
+      recordFunnelEvent("guest_link_failed");
       setError(requestError.message || "Could not create the temporary link");
     } finally {
       setSubmitting(false);
@@ -304,6 +308,7 @@ function TemporaryLinkStudio({ onStart }) {
     if (!result?.shortUrl || remainingMs <= 0) return;
     try {
       await navigator.clipboard.writeText(result.shortUrl);
+      recordFunnelEvent("guest_link_copied");
       setMessage("Short link copied.");
     } catch {
       setError("Copy was blocked by the browser. Select the link and copy it manually.");
@@ -318,14 +323,15 @@ function TemporaryLinkStudio({ onStart }) {
     download.download = `shotlink-${result.shortCode}.png`;
     download.href = qrCanvas.toDataURL("image/png");
     download.click();
+    recordFunnelEvent("guest_qr_downloaded");
     setMessage("QR code downloaded.");
   };
 
   return (
     <section className="mk-quick mk-section" id="create">
       <div className="mk-section-heading mk-section-heading-row">
-        <div><p>Instant share tool</p><h2>Short link and QR.<br />Live for up to 30 minutes.</h2></div>
-        <span>Create one disposable link without an account. Upgrade when the campaign needs persistence, branding, or analytics.</span>
+        <div><h2>Create your link</h2></div>
+        <span>No account needed. Temporary links expire within 30 minutes.</span>
       </div>
 
       <div className="mk-quick-grid">
@@ -368,7 +374,7 @@ function TemporaryLinkStudio({ onStart }) {
           <button className="mk-quick-submit" type="submit" disabled={submitting}>
             {submitting ? "Creating…" : "Create short link + QR"} <Arrow />
           </button>
-          <p className="mk-quick-terms">Temporary links expire automatically. Persistent links require a Shotlink workspace.</p>
+          <p className="mk-quick-terms">Guest links expire within 30 minutes. Free workspace links can last up to seven days.</p>
         </form>
 
         <aside className={`mk-quick-result ${result ? "has-result" : ""}`} aria-live="polite">
@@ -405,7 +411,7 @@ function TemporaryLinkStudio({ onStart }) {
             </div>
           )}
           <button type="button" className="mk-quick-upgrade" onClick={onStart}>
-            Need a permanent link? Create a workspace <Arrow diagonal />
+            Need up to 7 days? Create a free workspace <Arrow diagonal />
           </button>
         </aside>
       </div>
@@ -418,23 +424,23 @@ function CreatorPlans({ onStart }) {
     <section className="mk-creators mk-section" id="creators">
       <div className="mk-section-heading mk-section-heading-row">
         <div><p>Built for public profiles</p><h2>From one post<br />to every campaign.</h2></div>
-        <span>Creators can start free, then subscribe when they need permanent links, branded domains, more QR codes, and deeper audience insight.</span>
+        <span>Start with up to 10 active links in a free workspace. Paid plans for branded domains and higher limits are coming soon.</span>
       </div>
       <div className="mk-creator-plan-grid">
         {CREATOR_PLANS.map((plan) => (
           <article key={plan.id} className={plan.featured ? "is-featured" : ""}>
-            <div className="mk-creator-plan-top"><span>{plan.label}</span>{plan.featured ? <b>Most popular</b> : null}</div>
+            <div className="mk-creator-plan-top"><span>{plan.label}</span>{plan.id !== "free" ? <b>Coming soon</b> : null}</div>
             <h3>{plan.name}</h3>
             <p className="mk-creator-price">{plan.price}</p>
             <p className="mk-creator-description">{plan.description}</p>
             <ul>{plan.features.map((feature) => <li key={feature}>{feature}</li>)}</ul>
-            <button type="button" onClick={() => onStart(plan.id)}>
-              {plan.id === "free" ? "Create a free workspace" : `Choose ${plan.name}`} <Arrow />
+            <button type="button" onClick={() => onStart("free")}>
+              {plan.id === "free" ? "Create a free workspace" : "Start with Free"} <Arrow />
             </button>
           </article>
         ))}
       </div>
-      <p className="mk-creator-note">Paid subscriptions are activated securely from the workspace billing panel after account creation.</p>
+      <p className="mk-creator-note">Live paid checkout is not available yet. Create a free workspace without payment details.</p>
     </section>
   );
 }
@@ -541,40 +547,23 @@ export function PublicLanding({ onStart }) {
 
   return (
     <div className="mk-page">
-      <section className="mk-hero">
-        <div className="mk-hero-grid" aria-hidden="true" />
-        <div className="mk-orbit mk-orbit-one" aria-hidden="true" />
-        <div className="mk-orbit mk-orbit-two" aria-hidden="true" />
-        <div className="mk-hero-topline">
-          <span>Two purpose-built link workspaces</span>
-          <span>Creators · Universities · Institutions</span>
-        </div>
+      <section className="mk-hero mk-hero-compact">
         <div className="mk-hero-copy">
-          <p className="mk-kicker"><i /> Built for public campaigns and official resources.</p>
-          <h1>One link platform.<br /><em>Two different workspaces.</em></h1>
-          <div className="mk-hero-bottom">
-            <p>
-              Creators get campaign links, QR assets, and audience signals. Universities and
-              institutions get official resource publishing, destination recognition, governance,
-              expiry, and audit controls.
-            </p>
-            <div className="mk-hero-actions">
-              <a className="mk-primary-button" href="#create">
-                Create a free link <Arrow />
-              </a>
-              <a className="mk-secondary-button" href="#creators">
-                Compare workspaces <Arrow diagonal />
-              </a>
-            </div>
-          </div>
-        </div>
-        <CreatorConsole />
-        <div className="mk-hero-footnote">
-          <span>Instant QR generation</span><span>Automatic expiry</span><span>Destination-aware publishing</span>
+          <h1>Shorten links. <em>Create QR codes.</em></h1>
+          <p>Paste a URL below to create a temporary link without signing up. Need up to seven days and click analytics? <button type="button" onClick={onStart}>Create a free workspace</button>.</p>
         </div>
       </section>
 
       <TemporaryLinkStudio onStart={onStart} />
+      <section className="mk-section mk-preview-section" aria-label="Sample campaign workspace">
+        <CreatorConsole onStart={onStart} />
+      </section>
+      <section className="mk-section" aria-labelledby="sharing-guides">
+        <div className="mk-section-heading"><p>Practical sharing guides</p><h2 id="sharing-guides">Choose the right link for the job.</h2></div>
+        <div className="mk-guide-grid">{GUIDES.map(guide => (
+          <article key={guide.slug}><h3><a href={`/${guide.slug}`}>{guide.label}</a></h3><p>{guide.description}</p></article>
+        ))}</div>
+      </section>
       <CreatorPlans onStart={onStart} />
       <InstitutionWorkspace onStart={onStart} />
 
@@ -720,7 +709,7 @@ export function PublicFooter({ authenticated = false, onDashboard, onStart }) {
           <a href="tel:+918797053635">+91 87970 53635</a>
         </div>
         <div className="mk-footer-column">
-          <strong>Platform</strong><a href="/#create">Quick link</a><a href="/#creators">Creators</a><a href="/#institutions">Institutions</a><a href="/pricing">Pricing</a>
+          <strong>Platform</strong><a href="/#create">Quick link</a><a href="/#creators">Creators</a><a href="/#institutions">Institutions</a><a href="/pricing">Pricing</a>{GUIDES.map(guide => <a key={guide.slug} href={`/${guide.slug}`}>{guide.label}</a>)}
         </div>
         <div className="mk-footer-column">
           <strong>Legal</strong><a href="/terms">Terms</a><a href="/privacy">Privacy</a><a href="/shipping-policy">Digital delivery</a><a href="/refund-policy">Cancellations &amp; refunds</a>

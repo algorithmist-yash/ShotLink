@@ -145,7 +145,7 @@
   position: relative;
   display: flex;
   flex-direction: column;
-  min-height: 860px;
+  min-height: 0;
   margin: 0 12px;
   padding: 32px clamp(22px, 4.8vw, 76px) 24px;
   overflow: hidden;
@@ -219,7 +219,7 @@
 .mk-hero-copy {
   position: relative;
   z-index: 2;
-  margin-top: clamp(68px, 9vh, 118px);
+  margin-top: clamp(28px, 4vh, 56px);
 }
 
 .mk-kicker,
@@ -556,7 +556,7 @@
 }
 
 .mk-quick {
-  padding: 148px 0 132px;
+  padding: 48px 0 64px;
 }
 
 .mk-quick-grid {
@@ -982,6 +982,13 @@
   font-size: 0.72rem;
   text-align: center;
 }
+
+.mk-guide-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 24px; }
+.mk-guide-grid article { padding: 24px; border: 1px solid var(--mk-line); border-radius: 16px; background: white; }
+.mk-guide-grid a { color: var(--mk-ink); text-underline-offset: 4px; }
+.mk-guide-grid p { color: var(--mk-muted); line-height: 1.65; }
+.mk-preview-section .mk-console { width: min(960px, 100%); margin: 0 auto; transform: none; box-shadow: 0 12px 36px rgba(0,0,0,.1); }
+@media (max-width: 760px) { .mk-guide-grid { grid-template-columns: 1fr; } }
 
 .mk-institutions {
   padding: clamp(48px, 7vw, 96px);
@@ -1855,12 +1862,7 @@
   }
 }
 
-@media (max-width: 780px) {
-  .mk-header {
-    min-height: 70px;
-    padding: 12px 18px;
-  }
-
+@media (max-width: 1100px) {
   .mk-header-actions {
     display: none;
   }
@@ -1921,6 +1923,13 @@
     color: #fff;
     background: var(--mk-ink);
   }
+}
+
+@media (max-width: 780px) {
+  .mk-header {
+    min-height: 70px;
+    padding: 12px 18px;
+  }
 
   .mk-hero {
     min-height: auto;
@@ -1935,7 +1944,7 @@
   }
 
   .mk-hero-copy {
-    margin-top: 76px;
+    margin-top: 32px;
   }
 
   .mk-hero h1 {
@@ -2171,6 +2180,11 @@
   }
 
   .mk-console-bar > span:nth-child(2) {
+    display: block;
+    font-size: 10px;
+  }
+
+  .mk-console-bar .mk-console-live {
     display: none;
   }
 
@@ -2193,4 +2207,24 @@
   .mk-orbit {
     animation: none;
   }
+}
+
+/* Keep the first creation task ahead of optional marketing detail. */
+.mk-hero.mk-hero-compact {
+  min-height: 0;
+  padding: 28px clamp(22px, 4.8vw, 76px);
+}
+.mk-hero-compact .mk-hero-copy { margin: 0; }
+.mk-hero-compact h1 { margin: 0 0 16px; font-size: clamp(2rem, 4vw, 3.6rem); line-height: 1.12; }
+.mk-hero-compact .mk-hero-copy > p { max-width: 850px; margin: 0; color: #d5dce5; font-size: 1rem; line-height: 1.6; }
+.mk-hero-compact button { padding: 0; border: 0; color: var(--mk-lime); background: none; font: inherit; text-decoration: underline; cursor: pointer; }
+.mk-quick { padding: 24px 0 48px; }
+.mk-quick .mk-section-heading { margin-bottom: 20px; }
+.mk-quick .mk-section-heading h2 { font-size: 1.5rem; }
+.mk-quick .mk-section-heading > span { font-size: .9rem; }
+.mk-quick-form, .mk-quick-result { min-height: 0; padding: 28px; }
+.mk-quick-form-top, .mk-quick-result-top { margin-bottom: 20px; }
+@media (max-width: 780px) {
+  .mk-hero.mk-hero-compact { padding: 22px 18px; }
+  .mk-quick-form, .mk-quick-result { padding: 22px 18px; }
 }

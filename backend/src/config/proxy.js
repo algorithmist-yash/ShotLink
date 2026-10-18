@@ -13,6 +13,9 @@ function parseTrustedProxyRanges(value) {
 }
 
 function getTrustProxySetting(env = process.env) {
+  // The Cloudflare container is reachable only through our Worker, which
+  // replaces forwarding headers with the platform-authenticated client IP.
+  if (env.CLOUDFLARE_CONTAINER === "true") return 1;
   const configuredRanges = parseTrustedProxyRanges(env.TRUST_PROXY_CIDRS);
   if (configuredRanges.length) return configuredRanges;
 

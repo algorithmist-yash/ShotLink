@@ -6,6 +6,7 @@ const { configureHttpServer } = require("./config/httpServer");
 const { gracefullyShutdown, registerProcessHandlers } = require("./config/lifecycle");
 const { closeRedis, connectRedis } = require("./config/redis");
 const { redirectEventWorker } = require("./services/redirectEventService");
+const { urlHealthWorker } = require("./services/urlHealthQueueService");
 const app = require("./app");
 
 async function startServer({
@@ -50,12 +51,16 @@ if (require.main === module) {
   startServer()
     .then((server) => {
       redirectEventWorker.start();
+      if (process.env.RUN_HEALTH_WORKER === "true") urlHealthWorker.start();
       registerProcessHandlers({
         server,
         shutdown: (options) =>
           gracefullyShutdown({
             ...options,
-            stopBackground: () => redirectEventWorker.stop(),
+            stopBackground: () => Promise.all([
+              redirectEventWorker.stop(),
+              ...(process.env.RUN_HEALTH_WORKER === "true" ? [urlHealthWorker.stop()] : []),
+            ]),
             disconnectCache: closeRedis,
           }),
       });
