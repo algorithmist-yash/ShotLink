@@ -19,10 +19,18 @@ test("production checkout requires Razorpay Live Mode", () => {
   const liveMode = getCheckoutAvailability({
     NODE_ENV: "production",
     RAZORPAY_KEY_ID: "rzp_live_example",
+    RAZORPAY_KEY_SECRET: "test-secret",
+    RAZORPAY_WEBHOOK_SECRET: "test-webhook",
+    RAZORPAY_PLAN_ID_PRO_MONTHLY: "plan_pro",
+    RAZORPAY_PLAN_ID_BUSINESS_MONTHLY: "plan_business",
   });
   const explicitlyDisabled = getCheckoutAvailability({
     NODE_ENV: "production",
     RAZORPAY_KEY_ID: "rzp_live_example",
+    RAZORPAY_KEY_SECRET: "test-secret",
+    RAZORPAY_WEBHOOK_SECRET: "test-webhook",
+    RAZORPAY_PLAN_ID_PRO_MONTHLY: "plan_pro",
+    RAZORPAY_PLAN_ID_BUSINESS_MONTHLY: "plan_business",
     BILLING_CHECKOUT_ENABLED: "false",
   });
 
@@ -598,4 +606,74 @@ test("a definitive provider rejection releases the claim for a safe retry", asyn
   assert.equal(retryResponse.body.subscriptionId, "sub_after_retry");
   assert.equal(fetchCalls, 2);
   assert.equal(state.records.length, 2);
+});
+
+test("checkout stays unavailable when credentials or live monthly plans are incomplete", () => {
+  assert.equal(getCheckoutAvailability({}).enabled, false);
+  assert.equal(getCheckoutAvailability({ NODE_ENV: "production", RAZORPAY_KEY_ID: "rzp_live_example", RAZORPAY_KEY_SECRET: "secret" }).enabled, false);
+});
+
+function installWebhookRegressionState(t) {
+  const record = createBillingRecord();
+  const workspace = createWorkspace();
+  record.subscriptionId = "sub_test";
+  record.providerPlanId = "plan_pro";
+  const originalSecret = process.env.RAZORPAY_WEBHOOK_SECRET;
+  process.env.RAZORPAY_WEBHOOK_SECRET = "regression-secret";
+  t.after(() => {
+    if (originalSecret === undefined) delete process.env.RAZORPAY_WEBHOOK_SECRET;
+    else process.env.RAZORPAY_WEBHOOK_SECRET = originalSecret;
+  });
+  t.mock.method(BillingRecord, "findOne", async () => record);
+  t.mock.method(Workspace, "findById", async () => workspace);
+  return { record, workspace };
+}
+
+test("unsupported signed webhook cannot overwrite a paid billing record", async t => {
+  const { record } = installWebhookRegressionState(t);
+  record.status = "active";
+  const result = await deliverWebhook(buildSubscriptionPayload("payment.authorized"), "event-unknown");
+  assert.equal(result.body.ignored, true);
+  assert.equal(record.status, "active");
+});
+
+test("webhook rejects an unpaid activation and mismatched provider plan", async t => {
+  const { workspace } = installWebhookRegressionState(t);
+  const unpaid = await deliverWebhook(buildSubscriptionPayload("subscription.activated"), "event-unpaid");
+  assert.equal(unpaid.statusCode, 409);
+  const mismatch = await deliverWebhook(buildSubscriptionPayload("subscription.activated", { paid_count: 1, plan_id: "plan_wrong" }), "event-wrong");
+  assert.equal(mismatch.statusCode, 409);
+  assert.equal(workspace.plan, "free");
+});
+
+test("late webhooks cannot regress a newer event or reactivate a cancelled checkout", async t => {
+  const { record, workspace } = installWebhookRegressionState(t);
+  record.status = "active";
+  record.lastWebhookCreatedAt = 1_784_200_001;
+  const late = await deliverWebhook(buildSubscriptionPayload("subscription.pending"), "event-late");
+  assert.equal(late.body.ignored, true);
+  assert.equal(record.status, "active");
+  record.lastWebhookCreatedAt = 0;
+  record.status = "cancelled";
+  const activated = await deliverWebhook(buildSubscriptionPayload("subscription.activated", { paid_count: 1 }), "event-old-active");
+  assert.equal(activated.body.ignored, true);
+  assert.equal(workspace.plan, "free");
+});
+
+test("an old checkout cannot replace the workspace's newer subscription", async t => {
+  const { workspace } = installWebhookRegressionState(t);
+  workspace.billing.providerSubscriptionId = "sub_newer";
+  const result = await deliverWebhook(buildSubscriptionPayload("subscription.activated", { paid_count: 1 }), "event-old-checkout");
+  assert.equal(result.statusCode, 200);
+  assert.equal(workspace.billing.providerSubscriptionId, "sub_newer");
+  assert.equal(workspace.plan, "free");
+});
+
+test("a provider 5xx retains the claim to prevent duplicate subscription creation", async t => {
+  const state = installSubscriptionCreationStubs(t, async () => ({ ok: false, status: 503, json: async () => ({ error: { description: "Unavailable" } }) }));
+  const response = createResponse();
+  await createSubscription(createSubscriptionRequest(state.workspace), response);
+  assert.equal(response.statusCode, 502);
+  assert.equal(response.body.retryable, false);
+  assert.ok(state.workspace.billing.subscriptionCreationReference);
 });

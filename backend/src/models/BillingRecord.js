@@ -53,6 +53,7 @@ const billingRecordSchema = new mongoose.Schema(
     currentPeriodEndsAt: { type: Date, default: null },
     nextChargeAt: { type: Date, default: null },
     expiresAt: { type: Date, default: null },
+    lastWebhookCreatedAt: { type: Number, default: 0 },
     rawLastEvent: { type: String, default: "" },
     webhookEventIds: {
       type: [String],

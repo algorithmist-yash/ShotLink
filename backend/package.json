@@ -4,6 +4,7 @@
   "description": "Shotlink backend API and redirect service",
   "main": "src/server.js",
   "scripts": {
+    "check:billing": "node scripts/check-billing-readiness.js",
     "check": "node scripts/check-source.js",
     "start": "node src/server.js",
     "dev": "node --watch src/server.js",
