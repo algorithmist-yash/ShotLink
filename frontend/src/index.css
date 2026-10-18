@@ -2112,3 +2112,23 @@ button:disabled {
   .sl-command-strip { padding: 18px !important; }
   .sl-dashboard-main #builder-panel { padding: 18px !important; }
 }
+
+.sl-signup-options {
+  padding: 16px;
+  border: 1px solid #d4d4d4;
+  border-radius: 12px;
+  background: #fafafa;
+}
+.sl-signup-options > summary { cursor: pointer; font-weight: 700; color: #262626; }
+.sl-signup-options > summary span { display: block; margin: 6px 0 0 16px; color: #525252; font-size: 0.8rem; font-weight: 400; }
+.sl-signup-options[open] > summary { margin-bottom: 16px; }
+.sl-signup-options[open] { display: grid; gap: 16px; }
+.sl-password-toggle { align-self: start; padding: 6px 0; color: #334155; background: transparent; border: 0; font: inherit; font-size: 0.85rem; text-decoration: underline; cursor: pointer; }
+.sl-onboarding { margin: 24px; padding: clamp(20px, 3vw, 32px); border: 1px solid #d4d4d4; border-radius: 18px; background: #fff; color: #262626; }
+.sl-onboarding h2 { margin: 8px 0; font-size: 1.6rem; }
+.sl-onboarding p { line-height: 1.6; }
+.sl-onboarding ol { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 20px; padding: 0; margin: 24px 0; list-style: none; }
+.sl-onboarding li { display: grid; align-content: start; gap: 8px; }
+.sl-onboarding li span, .sl-onboarding-note { color: #525252; font-size: 0.9rem; line-height: 1.6; overflow-wrap: anywhere; }
+.sl-onboarding button:disabled { opacity: 0.65; cursor: not-allowed; }
+@media (max-width: 640px) { .sl-onboarding { margin: 16px; } .sl-onboarding ol { grid-template-columns: 1fr; } }

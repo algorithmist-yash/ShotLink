@@ -197,6 +197,7 @@ test("real registration, cookie session, link redirect, analytics, and logout wo
   await page.getByRole("textbox", { name: "Full name" }).fill("Browser E2E Owner");
   await page.getByRole("textbox", { name: "Email" }).fill(email);
   await page.getByLabel("Password").fill("StrongPass123");
+  await page.locator(".sl-signup-options > summary").click();
   await page.getByRole("textbox", { name: "Workspace name" }).fill(workspaceName);
 
   for (const label of ACCOUNT_CONSENT_LABELS) {
@@ -254,6 +255,7 @@ test("real registration, cookie session, link redirect, analytics, and logout wo
   );
   await page.getByRole("button", { name: "Shorten URL", exact: true }).click();
   expect((await createLinkResponsePromise).status()).toBe(201);
+  await expect(page.getByRole("region", { name: "Create your first link" })).toHaveCount(0);
 
   const selectedLink = page
     .locator("#builder-panel")
@@ -331,6 +333,10 @@ test("@mobile public and sign-in layouts fit a 390px viewport", async ({ page },
   await mobileNavigation.getByRole("button", { name: "Sign in", exact: true }).click();
   await expect(page.getByRole("heading", { level: 1, name: "Sign in" })).toBeVisible();
   await expect(page.getByRole("textbox", { name: "Email" })).toBeVisible();
+  await expectNoWcagViolations(page, testInfo);
+  await page.getByRole("button", { name: "Create account", exact: true }).click();
+  await expect(page.getByRole("textbox", { name: "Full name" })).toBeVisible();
+  await expect(page.getByRole("textbox", { name: "Workspace name" })).toBeHidden();
   await expectNoWcagViolations(page, testInfo);
   expect(
     await page.evaluate(
