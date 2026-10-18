@@ -83,6 +83,8 @@ test("transactional email uses Resend HTTPS authentication and idempotency", asy
   assert.equal(request.options.headers.Authorization, "Bearer re_test_key");
   assert.match(request.options.headers["Idempotency-Key"], /^verify-user-1-/);
   assert.equal(request.options.headers["User-Agent"], "shotlink-backend/1.0");
+  assert.ok(request.options.signal instanceof AbortSignal);
+  assert.equal(request.options.signal.aborted, false);
   const body = JSON.parse(request.options.body);
   assert.deepEqual(body.to, ["owner@example.com"]);
   assert.equal(body.from, "Shotlink <support@shotlink.in>");
