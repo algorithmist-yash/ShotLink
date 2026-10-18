@@ -536,7 +536,7 @@
   grid-template-columns: 42px minmax(0, 1fr) auto;
   gap: 10px;
   align-items: center;
-  color: rgba(10, 10, 10, 0.5);
+  color: #525252;
   font-size: 0.6rem;
 }
 

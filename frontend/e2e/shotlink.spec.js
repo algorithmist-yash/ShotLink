@@ -4,8 +4,8 @@ import { expect, test } from "@playwright/test";
 const BACKEND_URL = "http://127.0.0.1:5001";
 const ACCOUNT_CONSENT_LABELS = [
   "I confirm I am 18+ or legally allowed to use this service.",
-  "I agree to the Terms of Service and paid-plan rules.",
-  "I have read the Privacy Notice for account, billing, and support data.",
+  "I agree to the Terms of Service and paid-plan rules. Read terms (new tab)",
+  "I have read the Privacy Notice for account, billing, and support data. Read privacy notice (new tab)",
   "I understand link visits collect time, device type, browser, OS, referrer, and hashed IP for analytics, security, and abuse prevention.",
   "I agree not to use this service for spam, phishing, malware, impersonation, illegal content, or misleading links.",
 ];
@@ -77,7 +77,7 @@ test("public navigation, auth validation, and WCAG guardrails work", async ({ pa
   const runtimeErrors = collectRuntimeErrors(page);
   await openPublicHomepage(page);
 
-  await expect(page).toHaveTitle("Shotlink | Link workspaces for creators and institutions");
+  await expect(page).toHaveTitle("Free URL Shortener & QR Code Generator | Shotlink");
   const publicNavigation = page.getByRole("navigation", { name: "Primary navigation" });
   const publicHeader = page.getByRole("banner");
   await expect(publicNavigation).toBeVisible();
