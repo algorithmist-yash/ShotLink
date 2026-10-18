@@ -88,6 +88,60 @@ describe("Shotlink frontend workflows", () => {
     expect(window.location.pathname).toBe("/register");
   });
 
+  test("signs up with default workspace settings and guides the first link", async () => {
+    vi.stubGlobal("matchMedia", vi.fn(() => ({ matches: true, addEventListener() {}, removeEventListener() {} })));
+    const user = userEvent.setup();
+    window.history.replaceState({}, "", "/register");
+    fetch.mockImplementation(async (input, options = {}) => {
+      const path = getRequestPath(input);
+      if (path === "/api/v1/auth/me") return jsonResponse(401, {});
+      if (path === "/api/v1/billing/plans") return jsonResponse(200, { plans: [] });
+      if (path === "/api/v1/auth/register") {
+        const payload = JSON.parse(options.body);
+        expect(payload.workspaceName).toBe("");
+        expect(payload.workspaceType).toBe("creator");
+        expect(payload.consents.marketingOptIn).toBe(false);
+        return jsonResponse(201, sessionPayload);
+      }
+      if (path === "/api/v1/links") return jsonResponse(200, { links: [] });
+      if (path === "/api/v1/billing/summary") return jsonResponse(200, { currentPlan: sessionPayload.workspace.billing, plans: [], recentPayments: [] });
+      throw new Error(`Unexpected request: ${path}`);
+    });
+    render(<App />);
+    const form = (await screen.findByRole("heading", { name: "Create your Shotlink workspace" })).closest("form");
+    expect(form.querySelector(".sl-signup-options")).not.toHaveAttribute("open");
+    await user.type(screen.getByLabelText("Full name"), "Test Owner");
+    await user.type(screen.getByLabelText(/^Email/), "owner@example.com");
+    await user.type(screen.getByLabelText("Password"), "StrongPass1");
+    await user.click(screen.getByRole("button", { name: "Show password" }));
+    expect(screen.getByLabelText("Password")).toHaveAttribute("type", "text");
+    await user.click(screen.getByRole("button", { name: "Hide password" }));
+    expect(screen.getByLabelText("Password")).toHaveAttribute("type", "password");
+    const submit = screen.getByRole("button", { name: "Create workspace", exact: true });
+    expect(submit).toBeDisabled();
+    for (const checkbox of within(form).getAllByRole("checkbox").slice(0, 5)) await user.click(checkbox);
+    await user.click(submit);
+    const onboarding = await screen.findByRole("region", { name: "Create your first link" });
+    expect(within(onboarding).getByText("2. Email verified")).toBeInTheDocument();
+    await user.click(within(onboarding).getByRole("button", { name: "Make my first link" }));
+    expect(screen.getByLabelText("Campaign destination")).toHaveFocus();
+  });
+
+  test("unverified new workspaces get a clear next step without bypassing verification", async () => {
+    fetch.mockImplementation(async input => {
+      const path = getRequestPath(input);
+      if (path === "/api/v1/auth/me") return jsonResponse(200, { ...sessionPayload, user: { ...sessionPayload.user, emailVerifiedAt: null } });
+      if (path === "/api/v1/billing/plans") return jsonResponse(200, { plans: [] });
+      if (path === "/api/v1/links") return jsonResponse(200, { links: [] });
+      if (path === "/api/v1/billing/summary") return jsonResponse(200, { currentPlan: sessionPayload.workspace.billing, plans: [], recentPayments: [] });
+      throw new Error(`Unexpected request: ${path}`);
+    });
+    render(<App />);
+    expect(await screen.findByRole("button", { name: "Verify email to continue" })).toBeDisabled();
+    expect(screen.getByText("2. Verify your email")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Send verification email" })).toBeEnabled();
+  });
+
   test("creates an institution workspace with the official publishing interface", async () => {
     const institutionSession = {
       ...sessionPayload,

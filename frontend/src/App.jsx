@@ -579,6 +579,7 @@ function App() {
     // React now owns the page; remove the fallback to avoid duplicate anchor IDs.
     document.querySelector(".sl-static-shell")?.remove();
   }, []);
+  const [passwordVisible, setPasswordVisible] = useState(false);
   const initialAuthPath = window.location.pathname.replace(/\/$/, "") || "/";
   const [authMode, setAuthMode] = useState(() => getAuthModeForPath(initialAuthPath));
   const [authViewOpen, setAuthViewOpen] = useState(() =>
@@ -1224,6 +1225,7 @@ function App() {
   const openAuthView = (mode) => {
     setPublicPage("home");
     setAuthMode(mode);
+    setPasswordVisible(false);
     setAuthViewOpen(true);
     setAuthError("");
     setAuthMessage("");
@@ -2066,7 +2068,7 @@ function App() {
   const authSubtitle = isRegistrationMode
     ? authForm.workspaceType === "institution"
       ? "Create an official workspace for university, institute, or organisation links."
-      : "Start with free campaign links, QR codes, and creator analytics."
+      : "Enter your name, email and password. No payment details needed. Verify your email, then create your first link."
     : isLoginMode
       ? "Continue to your links, analytics, domains, and billing."
       : isForgotPasswordMode
@@ -2207,7 +2209,7 @@ function App() {
                     <input
                       aria-labelledby="password-label"
                       style={styles.input}
-                      type="password"
+                      type={passwordVisible ? "text" : "password"}
                       value={authForm.password}
                       autoComplete={isRegistrationMode || isResetPasswordMode ? "new-password" : "current-password"}
                       minLength={isLoginMode ? undefined : 8}
@@ -2218,6 +2220,9 @@ function App() {
                         setAuthForm((current) => ({ ...current, password: event.target.value }))
                       }
                     />
+                    <button type="button" className="sl-password-toggle" aria-pressed={passwordVisible} onClick={() => setPasswordVisible(visible => !visible)}>
+                      {passwordVisible ? "Hide password" : "Show password"}
+                    </button>
                     {isRegistrationMode || isResetPasswordMode ? (
                       <span id="password-requirements" style={styles.miniHelperText}>
                         Use at least 8 characters, including an uppercase letter, a lowercase letter, and a number.
@@ -2247,7 +2252,9 @@ function App() {
                 ) : null}
 
                 {isRegistrationMode ? (
-                  <>
+                  <details className="sl-signup-options" open={authForm.workspaceType === "institution" ? true : undefined}>
+                    <summary>Workspace settings <span>Optional for personal use · institutions choose here</span></summary>
+                    <p style={styles.miniHelperText}>Your free personal workspace uses your name by default. Change it here, or choose an institution workspace.</p>
                     <fieldset style={styles.workspaceTypeFieldset}>
                       <legend style={styles.labelText}>Choose your workspace</legend>
                       <div className="sl-workspace-type-grid" style={styles.workspaceTypeGrid}>
@@ -2286,7 +2293,7 @@ function App() {
                       />
                     </label>
                     {authForm.workspaceType === "creator" ? <p style={styles.miniHelperText}>Workspace name is optional. Leave it blank to use your name.</p> : null}
-                  </>
+                  </details>
                 ) : null}
 
                 {isRegistrationMode ? (
@@ -2512,6 +2519,23 @@ function App() {
             </div>
             <FeedbackMessage message={emailVerificationError} />
             <FeedbackMessage message={emailVerificationMessage} tone="success" />
+          </section>
+        ) : null}
+
+        {!workspaceLoading && !linkError && links.length === 0 ? (
+          <section className="sl-onboarding" aria-labelledby="onboarding-title">
+            <div><p style={styles.sectionEyebrow}>Get started</p><h2 id="onboarding-title">Create your first link</h2><p>Three steps to a short link and QR code you can share.</p></div>
+            <ol>
+              <li><strong>1. Account created</strong><span>Your free workspace is ready. No payment details needed.</span></li>
+              <li><strong>{session.user.emailVerifiedAt ? "2. Email verified" : "2. Verify your email"}</strong><span>{session.user.emailVerifiedAt ? "You’re ready to publish." : `Open the verification email sent to ${session.user.email}. Check spam, or resend it above.`}</span></li>
+              <li><strong>3. Create and test a link</strong><span>Paste a destination, choose an expiry, then copy the link or download its QR code.</span></li>
+            </ol>
+            <button type="button" style={styles.primaryButton} disabled={!session.user.emailVerifiedAt} onClick={() => {
+              setActiveDashboardSection("builder-panel");
+              scrollToDashboardSection("builder-panel");
+              document.getElementById("primary-destination")?.focus();
+            }}>{session.user.emailVerifiedAt ? "Make my first link" : "Verify email to continue"}</button>
+            <p className="sl-onboarding-note">Workspace links last up to seven days. For long-term signage, use a durable destination directly.</p>
           </section>
         ) : null}
 
