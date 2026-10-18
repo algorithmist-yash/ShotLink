@@ -245,6 +245,7 @@ test("real registration, cookie session, link redirect, analytics, and logout wo
   await expectNoWcagViolations(page, testInfo);
 
   await page.getByRole("textbox", { name: "Campaign destination" }).fill(destination);
+  await page.locator(".sl-advanced-options > summary").click();
   await page.getByRole("textbox", { name: "Custom alias" }).fill(alias);
   await page.getByRole("checkbox", { name: LINK_POLICY_LABEL, exact: true }).check();
 

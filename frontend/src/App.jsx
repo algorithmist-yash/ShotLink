@@ -576,6 +576,8 @@ function toBrowserSession(data) {
 function App() {
   useEffect(() => {
     document.documentElement.classList.add("sl-js-ready");
+    // React now owns the page; remove the fallback to avoid duplicate anchor IDs.
+    document.querySelector(".sl-static-shell")?.remove();
   }, []);
   const initialAuthPath = window.location.pathname.replace(/\/$/, "") || "/";
   const [authMode, setAuthMode] = useState(() => getAuthModeForPath(initialAuthPath));
