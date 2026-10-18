@@ -13,6 +13,7 @@ const {
 } = require("../controllers/workspaceController");
 const {
   requireAuth,
+  requireVerifiedEmail,
   requireWorkspaceAdmin,
 } = require("../middleware/authMiddleware");
 const { writeRateLimit } = require("../middleware/rateLimitMiddleware");
@@ -28,6 +29,7 @@ router.get("/audit-events", requireWorkspaceAdmin, listAuditEvents);
 router.post(
   "/domains",
   requireWorkspaceAdmin,
+  requireVerifiedEmail,
   writeRateLimit,
   validateRequestBody(customDomainContract),
   addCustomDomain
@@ -35,24 +37,28 @@ router.post(
 router.post(
   "/domains/:hostname/verify",
   requireWorkspaceAdmin,
+  requireVerifiedEmail,
   writeRateLimit,
   verifyCustomDomain
 );
 router.patch(
   "/domains/:hostname/primary",
   requireWorkspaceAdmin,
+  requireVerifiedEmail,
   writeRateLimit,
   setPrimaryCustomDomain
 );
 router.delete(
   "/domains/:hostname",
   requireWorkspaceAdmin,
+  requireVerifiedEmail,
   writeRateLimit,
   removeCustomDomain
 );
 router.post(
   "/email-domains",
   requireWorkspaceAdmin,
+  requireVerifiedEmail,
   writeRateLimit,
   validateRequestBody(customDomainContract),
   addManagedEmailDomain
@@ -60,12 +66,14 @@ router.post(
 router.post(
   "/email-domains/:hostname/verify",
   requireWorkspaceAdmin,
+  requireVerifiedEmail,
   writeRateLimit,
   verifyManagedEmailDomain
 );
 router.delete(
   "/email-domains/:hostname",
   requireWorkspaceAdmin,
+  requireVerifiedEmail,
   writeRateLimit,
   removeManagedEmailDomain
 );

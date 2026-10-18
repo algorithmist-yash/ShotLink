@@ -64,6 +64,9 @@ test("normalizeCustomAlias rejects unsafe or reserved aliases", () => {
   assert.equal(normalizeCustomAlias("metrics"), null);
   assert.equal(normalizeCustomAlias("trust"), null);
   assert.equal(isReservedShortCode("METRICS"), true);
+  for (const route of ["verify-email", "reset-password", "forgot-password", "privacy", "contact"]) {
+    assert.equal(normalizeCustomAlias(route), null);
+  }
 });
 
 test("validateShortenPayload returns normalized custom alias", () => {

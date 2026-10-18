@@ -8,6 +8,7 @@ import { PublicFooter, PublicHeader, PublicLanding } from "./components/PublicMa
 import { StatusPill } from "./components/StatusPill";
 import { usePublicPage } from "./hooks/usePublicPage";
 import { useResponsiveLayout } from "./hooks/useResponsiveLayout";
+import { recordMarketingPage, recordFunnelEvent } from "./marketingAnalytics";
 import {
   LEGAL_PAGE_CONTENT,
   OPERATOR_NOTICE,
@@ -50,7 +51,7 @@ const DOC_SECTIONS = [
   },
   {
     title: "Handle billing",
-    body: "Upgrade from the billing panel and wait for the payment webhook to update your plan.",
+    body: "Check plan availability in Billing. After an available checkout completes, return to Billing and use Verify payment if your plan has not updated.",
   },
 ];
 
@@ -61,7 +62,12 @@ const API_SNIPPET_LINES = [
   '  "originalUrl": "https://example.com/campaign",',
   '  "customAlias": "summer-sale",',
   '  "fallbackUrls": ["https://backup.example.com"],',
-  '  "expiresInMinutes": 10080',
+  '  "expiresInMinutes": 10080,',
+  '  "compliance": {',
+  '    "destinationAuthorityAccepted": true,',
+  '    "securityScanAccepted": true,',
+  '    "abusePolicyAccepted": true',
+  '  }',
   "}",
 ];
 
@@ -195,6 +201,25 @@ function getSocialShareUrl(platformId, shortUrl, caption) {
     return `https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(shortUrl)}`;
   }
   return SOCIAL_PUBLISH_PLATFORMS.find((platform) => platform.id === platformId)?.openUrl || "";
+}
+
+const AUTH_PATH_BY_MODE = Object.freeze({
+  register: "/register",
+  login: "/login",
+  "forgot-password": "/forgot-password",
+  "reset-password": "/reset-password",
+  "verify-email": "/verify-email",
+});
+
+function getAuthModeForPath(pathname) {
+  const normalizedPath = String(pathname || "").replace(/\/$/, "") || "/";
+  return Object.entries(AUTH_PATH_BY_MODE).find(([, path]) => path === normalizedPath)?.[0] || "register";
+}
+
+function getAuthActionToken(location = window.location) {
+  const queryToken = new URLSearchParams(location.search).get("token") || "";
+  const fragmentToken = new URLSearchParams(location.hash.replace(/^#/, "")).get("token") || "";
+  return fragmentToken || queryToken;
 }
 
 function getLocalDateInputValue() {
@@ -381,7 +406,7 @@ const DEFAULT_PUBLIC_PLANS = [
       "1 branded domain",
       "250 campaign QR codes",
       "Audience, device, and referrer analytics",
-      "Editable destinations and fallback routing",
+      "Fallback routing for active links",
       "Priority email support",
     ],
   },
@@ -400,9 +425,9 @@ const DEFAULT_PUBLIC_PLANS = [
     features: [
       "Up to 10,000 active campaign links",
       "Up to 10 branded domains",
-      "Team workspaces for talent and campaign managers",
       "5,000 campaign QR codes",
-      "Campaign analytics and exports",
+      "Audience, device, and referrer analytics",
+      "Fallback routing for active links",
       "Priority onboarding support",
     ],
   },
@@ -520,9 +545,17 @@ function getBillingTone(status) {
 }
 
 function scrollToDashboardSection(sectionId) {
-  document.getElementById(sectionId)?.scrollIntoView({
-    behavior: "smooth",
-    block: "start",
+  const section = document.getElementById(sectionId);
+  if (!section) return;
+  const stickyOffset = [...document.querySelectorAll(".sl-dashboard-header, .sl-dashboard-nav")]
+    .reduce((offset, element) => {
+      const computed = window.getComputedStyle(element);
+      if (!["sticky", "fixed"].includes(computed.position)) return offset;
+      return Math.max(offset, (parseFloat(computed.top) || 0) + element.getBoundingClientRect().height);
+    }, 0);
+  window.scrollTo({
+    top: Math.max(0, window.scrollY + section.getBoundingClientRect().top - stickyOffset - 16),
+    behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth",
   });
 }
 
@@ -541,12 +574,18 @@ function toBrowserSession(data) {
 }
 
 function App() {
+  useEffect(() => {
+    document.documentElement.classList.add("sl-js-ready");
+    // React now owns the page; remove the fallback to avoid duplicate anchor IDs.
+    document.querySelector(".sl-static-shell")?.remove();
+  }, []);
   const initialAuthPath = window.location.pathname.replace(/\/$/, "") || "/";
-  const [authMode, setAuthMode] = useState(
-    initialAuthPath === "/login" ? "login" : "register"
+  const [authMode, setAuthMode] = useState(() => getAuthModeForPath(initialAuthPath));
+  const [authViewOpen, setAuthViewOpen] = useState(() =>
+    Object.values(AUTH_PATH_BY_MODE).includes(initialAuthPath)
   );
-  const [authViewOpen, setAuthViewOpen] = useState(
-    initialAuthPath === "/login" || initialAuthPath === "/register"
+  const [authActionToken, setAuthActionToken] = useState(
+    () => getAuthActionToken()
   );
   const [publicPage, setPublicPage] = usePublicPage();
   const [session, setSession] = useState(null);
@@ -554,11 +593,15 @@ function App() {
     name: "",
     email: "",
     password: "",
+    confirmPassword: "",
     workspaceName: "",
     workspaceType: "creator",
     consents: createDefaultConsents(),
   });
   const [authLoading, setAuthLoading] = useState(true);
+  useEffect(() => {
+    if (!authLoading && !session) recordMarketingPage();
+  }, [authLoading, session, publicPage, authMode, authViewOpen]);
   const [authSubmitting, setAuthSubmitting] = useState(false);
   const [workspaceLoading, setWorkspaceLoading] = useState(false);
   const [links, setLinks] = useState([]);
@@ -583,6 +626,10 @@ function App() {
   const [refreshingHealth, setRefreshingHealth] = useState(false);
   const [countdown, setCountdown] = useState("");
   const [authError, setAuthError] = useState("");
+  const [authMessage, setAuthMessage] = useState("");
+  const [emailVerificationSubmitting, setEmailVerificationSubmitting] = useState(false);
+  const [emailVerificationMessage, setEmailVerificationMessage] = useState("");
+  const [emailVerificationError, setEmailVerificationError] = useState("");
   const [linkError, setLinkError] = useState("");
   const [analyticsError, setAnalyticsError] = useState("");
   const [copied, setCopied] = useState("");
@@ -716,12 +763,35 @@ function App() {
   }, [session]);
 
   useEffect(() => {
+    const currentUrl = new URL(window.location.href);
+    const path = currentUrl.pathname.replace(/\/$/, "") || "/";
+    if (
+      (path === AUTH_PATH_BY_MODE["reset-password"] ||
+        path === AUTH_PATH_BY_MODE["verify-email"]) &&
+      (currentUrl.searchParams.has("token") ||
+        new URLSearchParams(currentUrl.hash.replace(/^#/, "")).has("token"))
+    ) {
+      currentUrl.searchParams.delete("token");
+      const fragmentParams = new URLSearchParams(currentUrl.hash.replace(/^#/, ""));
+      fragmentParams.delete("token");
+      currentUrl.hash = fragmentParams.toString();
+      const cleanedSearch = currentUrl.searchParams.toString();
+      window.history.replaceState(
+        {},
+        "",
+        `${currentUrl.pathname}${cleanedSearch ? `?${cleanedSearch}` : ""}${currentUrl.hash}`
+      );
+    }
+  }, []);
+
+  useEffect(() => {
     if (session) return undefined;
 
     const syncAuthRoute = () => {
       const path = window.location.pathname.replace(/\/$/, "") || "/";
-      if (path === "/login" || path === "/register") {
-        setAuthMode(path === "/login" ? "login" : "register");
+      if (Object.values(AUTH_PATH_BY_MODE).includes(path)) {
+        setAuthMode(getAuthModeForPath(path));
+        setAuthActionToken(getAuthActionToken());
         setAuthViewOpen(true);
         return;
       }
@@ -823,6 +893,7 @@ function App() {
           try {
             await apiFetch("/api/v1/auth/logout", {
               method: "POST",
+              signal: AbortSignal.timeout(8000),
               headers: { Authorization: `Bearer ${legacyToken}` },
             });
           } catch {
@@ -831,7 +902,9 @@ function App() {
           }
         }
 
-        const response = await apiFetch("/api/v1/auth/me");
+        const response = await apiFetch("/api/v1/auth/me", {
+          signal: AbortSignal.timeout(8000),
+        });
 
         if (!response.ok) {
           throw new Error("Session expired");
@@ -1152,7 +1225,10 @@ function App() {
     setPublicPage("home");
     setAuthMode(mode);
     setAuthViewOpen(true);
-    window.history.pushState({}, "", mode === "login" ? "/login" : "/register");
+    setAuthError("");
+    setAuthMessage("");
+    setAuthActionToken("");
+    window.history.pushState({}, "", AUTH_PATH_BY_MODE[mode] || "/register");
     window.scrollTo({ top: 0, left: 0, behavior: "auto" });
   };
 
@@ -1162,8 +1238,16 @@ function App() {
     openAuthView("register");
   };
   const openLoginPanel = () => openAuthView("login");
+  const openForgotPasswordPanel = () => openAuthView("forgot-password");
 
   const closeAuthView = () => {
+    setAuthViewOpen(false);
+    setPublicPage("home");
+    window.history.pushState({}, "", "/");
+    window.scrollTo({ top: 0, left: 0, behavior: "auto" });
+  };
+
+  const openDashboard = () => {
     setAuthViewOpen(false);
     setPublicPage("home");
     window.history.pushState({}, "", "/");
@@ -1331,6 +1415,29 @@ function App() {
     return <PublicLanding onStart={openRegistrationPanel} />;
   };
 
+  const renderPublicShell = ({ authenticated = false } = {}) => (
+    <div className="sl-page sl-public-page" style={{ ...styles.page, ...styles.publicPageRoot }}>
+      <div className="mk-public-shell">
+        <PublicHeader
+          authenticated={authenticated}
+          onDashboard={openDashboard}
+          onLogin={openLoginPanel}
+          onStart={openRegistrationPanel}
+        />
+
+        <main style={styles.publicMain}>
+          {renderPublicContent()}
+        </main>
+
+        <PublicFooter
+          authenticated={authenticated}
+          onDashboard={openDashboard}
+          onStart={openRegistrationPanel}
+        />
+      </div>
+    </div>
+  );
+
   const updateAuthConsent = (field, checked) => {
     setAuthForm((current) => ({
       ...current,
@@ -1342,14 +1449,67 @@ function App() {
   };
 
   const submitAuth = async () => {
+    if (authMode === "register") recordFunnelEvent("signup_started");
     setAuthSubmitting(true);
     setAuthError("");
+    setAuthMessage("");
 
     try {
+      if (authMode === "forgot-password") {
+        const response = await apiFetch("/api/v1/auth/forgot-password", {
+          method: "POST",
+          body: JSON.stringify({ email: authForm.email }),
+        });
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error || "Could not request a reset link");
+        setAuthMessage(data.message);
+        return;
+      }
+
+      if (authMode === "reset-password") {
+        if (authForm.password !== authForm.confirmPassword) {
+          throw new Error("Passwords do not match.");
+        }
+        const response = await apiFetch("/api/v1/auth/reset-password", {
+          method: "POST",
+          body: JSON.stringify({ token: authActionToken, password: authForm.password }),
+        });
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error || "Could not reset the password");
+        clearSession();
+        setAuthActionToken("");
+        setAuthForm((current) => ({ ...current, password: "", confirmPassword: "" }));
+        setAuthMessage(data.message);
+        return;
+      }
+
+      if (authMode === "verify-email") {
+        const response = await apiFetch("/api/v1/auth/verify-email", {
+          method: "POST",
+          body: JSON.stringify({ token: authActionToken }),
+        });
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error || "Could not verify the email");
+        recordFunnelEvent("email_verified");
+        setSession((current) => current
+          ? { ...current, user: { ...current.user, emailVerifiedAt: data.emailVerifiedAt } }
+          : current);
+        setAuthActionToken("");
+        setAuthMessage(data.message);
+        return;
+      }
+
       const { consents, ...registerFields } = authForm;
       const payload =
         authMode === "register"
-          ? { ...registerFields, consents }
+          ? {
+              name: registerFields.name,
+              email: registerFields.email,
+              password: registerFields.password,
+              workspaceName: registerFields.workspaceName,
+              workspaceType: registerFields.workspaceType,
+              consents,
+            }
           : { email: authForm.email, password: authForm.password };
 
       const response = await apiFetch(`/api/v1/auth/${authMode}`, {
@@ -1363,12 +1523,14 @@ function App() {
       }
 
       setSession(toBrowserSession(data));
+      if (authMode === "register") recordFunnelEvent("signup_completed");
       setAuthViewOpen(false);
       window.history.replaceState({}, "", "/");
       setAuthForm({
         name: "",
         email: authForm.email,
         password: "",
+        confirmPassword: "",
         workspaceName: "",
         workspaceType: "creator",
         consents: createDefaultConsents(),
@@ -1659,6 +1821,7 @@ function App() {
       }
 
       upsertLink(data.link);
+      recordFunnelEvent("workspace_link_created");
       setSelectedShortCode(data.link.shortCode);
       setUrl("");
       setCustomAlias("");
@@ -1748,9 +1911,13 @@ function App() {
   const copyShortUrl = async () => {
     if (!analytics?.shortUrl) return;
 
-    await navigator.clipboard.writeText(analytics.shortUrl);
-    setCopied("Short URL copied");
-    window.setTimeout(() => setCopied(""), 1800);
+    try {
+      await navigator.clipboard.writeText(analytics.shortUrl);
+      setCopied("Short URL copied");
+      window.setTimeout(() => setCopied(""), 1800);
+    } catch {
+      setLinkError("Copy was blocked by the browser. Select the short URL and copy it manually.");
+    }
   };
 
   const prepareSocialPost = async () => {
@@ -1779,6 +1946,25 @@ function App() {
     } catch {
       setSocialMessage("");
       setSocialError("Could not copy the post package. Check browser clipboard permission and try again.");
+    }
+  };
+
+  const resendVerificationEmail = async () => {
+    setEmailVerificationSubmitting(true);
+    setEmailVerificationError("");
+    setEmailVerificationMessage("");
+    try {
+      const response = await apiFetch("/api/v1/auth/resend-verification", {
+        method: "POST",
+        body: JSON.stringify({ email: session?.user?.email || "" }),
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || "Could not send a verification email");
+      setEmailVerificationMessage(data.message);
+    } catch (requestError) {
+      setEmailVerificationError(requestError.message || "Could not send a verification email");
+    } finally {
+      setEmailVerificationSubmitting(false);
     }
   };
 
@@ -1811,6 +1997,9 @@ function App() {
     usage: {},
   };
   const billingRecords = billingSummary?.recentPayments || [];
+  const billingStatusLabel = currentPlan.effectivePlanId === "free" && currentPlan.billingStatus === "inactive"
+    ? "Free plan · no subscription"
+    : formatLabel(currentPlan.billingStatus);
   const workspaceType = session?.workspace?.workspaceType || "creator";
   const isInstitutionWorkspace = workspaceType === "institution";
   const dashboardNavItems = isInstitutionWorkspace
@@ -1853,10 +2042,50 @@ function App() {
   const requiredAccountConsentsAccepted = REQUIRED_AUTH_CONSENTS.every(
     (item) => authForm.consents[item.id]
   );
+  const isRegistrationMode = authMode === "register";
+  const isLoginMode = authMode === "login";
+  const isForgotPasswordMode = authMode === "forgot-password";
+  const isResetPasswordMode = authMode === "reset-password";
+  const isVerifyEmailMode = authMode === "verify-email";
+  const shouldRenderAuthAction =
+    authViewOpen && (isResetPasswordMode || isVerifyEmailMode);
+  const authHeading = isRegistrationMode
+    ? "Create your Shotlink workspace"
+    : isLoginMode
+      ? "Sign in"
+      : isForgotPasswordMode
+        ? "Reset your password"
+        : isResetPasswordMode
+          ? "Choose a new password"
+          : "Verify your email";
+  const authEyebrow = isRegistrationMode
+    ? "Start for free"
+    : isLoginMode
+      ? "Welcome back"
+      : "Account security";
+  const authSubtitle = isRegistrationMode
+    ? authForm.workspaceType === "institution"
+      ? "Create an official workspace for university, institute, or organisation links."
+      : "Start with free campaign links, QR codes, and creator analytics."
+    : isLoginMode
+      ? "Continue to your links, analytics, domains, and billing."
+      : isForgotPasswordMode
+        ? "Enter your account email and we will send a single-use reset link."
+        : isResetPasswordMode
+          ? "This link can be used once. Your existing sessions will be signed out."
+          : "Confirm that this email address belongs to you.";
   const authSubmitDisabled =
-    authSubmitting || (authMode === "register" && !requiredAccountConsentsAccepted);
-  const linkSubmitDisabled = loading || remainingLinkSlots <= 0 || !linkComplianceAccepted;
-  if (authLoading) {
+    authLoading ||
+    authSubmitting ||
+    (isRegistrationMode && !requiredAccountConsentsAccepted) ||
+    ((isResetPasswordMode || isVerifyEmailMode) && !authActionToken) ||
+    (isResetPasswordMode && authForm.password !== authForm.confirmPassword);
+  const linkSubmitDisabled =
+    loading ||
+    remainingLinkSlots <= 0 ||
+    !linkComplianceAccepted ||
+    !session?.user?.emailVerifiedAt;
+  if (authLoading && session) {
     return (
       <div className="sl-page sl-dashboard-page" style={styles.page}>
         <div className="sl-grid-overlay" style={styles.backgroundGrid} />
@@ -1871,7 +2100,7 @@ function App() {
     );
   }
 
-  if (!session) {
+  if (!session || shouldRenderAuthAction) {
     if (authViewOpen) {
       return (
         <div className="sl-page sl-auth-page" style={{ ...styles.page, ...styles.publicPageRoot }}>
@@ -1888,13 +2117,35 @@ function App() {
               <BrandLogo style={styles.navLogo} />
             </a>
             <div style={styles.authHeaderSwitch}>
-              <span>{authMode === "register" ? "Already have an account?" : "New to Shotlink?"}</span>
+              <span>
+                {isRegistrationMode
+                  ? "Already have an account?"
+                  : isLoginMode
+                    ? "New to Shotlink?"
+                    : session
+                      ? "Return to your workspace"
+                      : "Remembered your password?"}
+              </span>
               <button
                 type="button"
                 style={styles.authHeaderButton}
-                onClick={authMode === "register" ? openLoginPanel : openRegistrationPanel}
+                onClick={
+                  isRegistrationMode
+                    ? openLoginPanel
+                    : isLoginMode
+                      ? openRegistrationPanel
+                      : session
+                        ? openDashboard
+                        : openLoginPanel
+                }
               >
-                {authMode === "register" ? "Sign in" : "Create account"}
+                {isRegistrationMode
+                  ? "Sign in"
+                  : isLoginMode
+                    ? "Create account"
+                    : session
+                      ? "Open workspace"
+                      : "Back to sign in"}
               </button>
             </div>
           </header>
@@ -1910,21 +2161,13 @@ function App() {
               >
                 <div>
                   <p style={styles.sectionEyebrow}>
-                    {authMode === "register" ? "Start for free" : "Welcome back"}
+                    {authEyebrow}
                   </p>
-                  <h1 style={styles.authTitle}>
-                    {authMode === "register" ? "Create your Shotlink workspace" : "Sign in"}
-                  </h1>
-                  <p style={styles.authSubtitle}>
-                    {authMode === "register"
-                      ? authForm.workspaceType === "institution"
-                        ? "Create an official workspace for university, institute, or organisation links."
-                        : "Start with free campaign links, QR codes, and creator analytics."
-                      : "Continue to your links, analytics, domains, and billing."}
-                  </p>
+                  <h1 style={styles.authTitle}>{authHeading}</h1>
+                  <p style={styles.authSubtitle}>{authSubtitle}</p>
                 </div>
 
-                {authMode === "register" ? (
+                {isRegistrationMode ? (
                   <label style={styles.label}>
                     Full name
                     <input
@@ -1939,39 +2182,71 @@ function App() {
                   </label>
                 ) : null}
 
-                <label style={styles.label}>
-                  Email
-                  <input
-                    style={styles.input}
-                    type="email"
-                    value={authForm.email}
-                    autoComplete="email"
-                    required
-                    onChange={(event) =>
-                      setAuthForm((current) => ({ ...current, email: event.target.value }))
-                    }
-                  />
-                  {authMode === "register" ? (
-                    <span style={styles.miniHelperText}>Use an email address you can access and verify.</span>
-                  ) : null}
-                </label>
+                {isRegistrationMode || isLoginMode || isForgotPasswordMode ? (
+                  <label style={styles.label}>
+                    Email
+                    <input
+                      style={styles.input}
+                      type="email"
+                      value={authForm.email}
+                      autoComplete="email"
+                      required
+                      onChange={(event) =>
+                        setAuthForm((current) => ({ ...current, email: event.target.value }))
+                      }
+                    />
+                    {isRegistrationMode ? (
+                      <span style={styles.miniHelperText}>Use an email address you can access and verify.</span>
+                    ) : null}
+                  </label>
+                ) : null}
 
-                <label style={styles.label}>
-                  Password
-                  <input
-                    style={styles.input}
-                    type="password"
-                    value={authForm.password}
-                    autoComplete={authMode === "register" ? "new-password" : "current-password"}
-                    minLength={8}
-                    required
-                    onChange={(event) =>
-                      setAuthForm((current) => ({ ...current, password: event.target.value }))
-                    }
-                  />
-                </label>
+                {isRegistrationMode || isLoginMode || isResetPasswordMode ? (
+                  <label style={styles.label}>
+                    <span id="password-label">{isResetPasswordMode ? "New password" : "Password"}</span>
+                    <input
+                      aria-labelledby="password-label"
+                      style={styles.input}
+                      type="password"
+                      value={authForm.password}
+                      autoComplete={isRegistrationMode || isResetPasswordMode ? "new-password" : "current-password"}
+                      minLength={isLoginMode ? undefined : 8}
+                      pattern={isRegistrationMode || isResetPasswordMode ? "(?=.*[a-z])(?=.*[A-Z])(?=.*[0-9]).{8,}" : undefined}
+                      aria-describedby={isRegistrationMode || isResetPasswordMode ? "password-requirements" : undefined}
+                      required
+                      onChange={(event) =>
+                        setAuthForm((current) => ({ ...current, password: event.target.value }))
+                      }
+                    />
+                    {isRegistrationMode || isResetPasswordMode ? (
+                      <span id="password-requirements" style={styles.miniHelperText}>
+                        Use at least 8 characters, including an uppercase letter, a lowercase letter, and a number.
+                      </span>
+                    ) : null}
+                  </label>
+                ) : null}
 
-                {authMode === "register" ? (
+                {isResetPasswordMode ? (
+                  <label style={styles.label}>
+                    Confirm new password
+                    <input
+                      style={styles.input}
+                      type="password"
+                      value={authForm.confirmPassword}
+                      autoComplete="new-password"
+                      minLength={8}
+                      required
+                      onChange={(event) =>
+                        setAuthForm((current) => ({ ...current, confirmPassword: event.target.value }))
+                      }
+                    />
+                    {authForm.confirmPassword && authForm.password !== authForm.confirmPassword ? (
+                      <span style={styles.miniHelperText}>Passwords must match.</span>
+                    ) : null}
+                  </label>
+                ) : null}
+
+                {isRegistrationMode ? (
                   <>
                     <fieldset style={styles.workspaceTypeFieldset}>
                       <legend style={styles.labelText}>Choose your workspace</legend>
@@ -2001,7 +2276,7 @@ function App() {
                         style={styles.input}
                         value={authForm.workspaceName}
                         autoComplete="organization"
-                        required
+                        required={authForm.workspaceType === "institution"}
                         onChange={(event) =>
                           setAuthForm((current) => ({
                             ...current,
@@ -2010,15 +2285,16 @@ function App() {
                         }
                       />
                     </label>
+                    {authForm.workspaceType === "creator" ? <p style={styles.miniHelperText}>Workspace name is optional. Leave it blank to use your name.</p> : null}
                   </>
                 ) : null}
 
-                {authMode === "register" ? (
+                {isRegistrationMode ? (
                   <div className="sl-consent-box" style={styles.consentBox}>
                     <div>
                       <p style={styles.sectionEyebrow}>Required consent</p>
                       <p style={styles.consentIntro}>
-                        We keep a timestamped consent record for security and compliance.
+                        All five confirmations below are required. Product emails are optional. We keep a timestamped consent record.
                       </p>
                     </div>
 
@@ -2029,6 +2305,8 @@ function App() {
                         onChange={(checked) => updateAuthConsent(item.id, checked)}
                       >
                         {item.label}
+                        {item.id === "termsAccepted" ? <> <a href="/terms" target="_blank" rel="noopener noreferrer">Read terms (new tab)</a></> : null}
+                        {item.id === "privacyAccepted" ? <> <a href="/privacy" target="_blank" rel="noopener noreferrer">Read privacy notice (new tab)</a></> : null}
                       </ConsentCheckbox>
                     ))}
 
@@ -2039,13 +2317,29 @@ function App() {
                       Optional: send me product updates and launch offers by email.
                     </ConsentCheckbox>
                   </div>
-                ) : (
+                ) : isLoginMode ? (
                   <p style={styles.authSecurityNote}>
                     Secure cookie session · CSRF protected · Automatic session expiry
                   </p>
-                )}
+                ) : null}
+
+                {isLoginMode ? (
+                  <p style={styles.authInlineSwitch}>
+                    <button
+                      type="button"
+                      style={styles.inlineTextButton}
+                      onClick={openForgotPasswordPanel}
+                    >
+                      Forgot your password?
+                    </button>
+                  </p>
+                ) : null}
 
                 <FeedbackMessage message={authError} />
+                <FeedbackMessage message={authMessage} tone="success" />
+                {(isResetPasswordMode || isVerifyEmailMode) && !authActionToken ? (
+                  <FeedbackMessage message="This link is incomplete. Request a new email and use its full address." />
+                ) : null}
 
                 <button
                   type="submit"
@@ -2058,19 +2352,45 @@ function App() {
                 >
                   {authSubmitting
                     ? "Working..."
-                    : authMode === "register"
+                    : isRegistrationMode
                       ? "Create workspace"
-                      : "Sign in"}
+                      : isLoginMode
+                        ? "Sign in"
+                        : isForgotPasswordMode
+                          ? "Send reset link"
+                          : isResetPasswordMode
+                            ? "Update password"
+                            : "Verify email"}
                 </button>
 
                 <p style={styles.authInlineSwitch}>
-                  {authMode === "register" ? "Already use Shotlink?" : "Need a workspace?"}{" "}
+                  {isRegistrationMode
+                    ? "Already use Shotlink?"
+                    : isLoginMode
+                      ? "Need a workspace?"
+                      : session
+                        ? "Verification complete?"
+                        : "Ready to sign in?"}{" "}
                   <button
                     type="button"
                     style={styles.inlineTextButton}
-                    onClick={authMode === "register" ? openLoginPanel : openRegistrationPanel}
+                    onClick={
+                      isRegistrationMode
+                        ? openLoginPanel
+                        : isLoginMode
+                          ? openRegistrationPanel
+                          : session
+                            ? openDashboard
+                            : openLoginPanel
+                    }
                   >
-                    {authMode === "register" ? "Sign in" : "Create one for free"}
+                    {isRegistrationMode
+                      ? "Sign in"
+                      : isLoginMode
+                        ? "Create one for free"
+                        : session
+                          ? "Open workspace"
+                          : "Back to sign in"}
                   </button>
                 </p>
               </form>
@@ -2096,7 +2416,7 @@ function App() {
               <div style={styles.authVisualStats}>
                 <div><strong>9+</strong><span>analytics signals</span></div>
                 <div><strong>3</strong><span>routing layers</span></div>
-                <div><strong>24/7</strong><span>health checks</span></div>
+                <div><strong>On-demand</strong><span>health checks</span></div>
               </div>
             </aside>
           </main>
@@ -2114,19 +2434,11 @@ function App() {
       );
     }
 
-    return (
-      <div className="sl-page sl-public-page" style={{ ...styles.page, ...styles.publicPageRoot }}>
-        <div className="mk-public-shell">
-          <PublicHeader onLogin={openLoginPanel} onStart={openRegistrationPanel} />
+    return renderPublicShell();
+  }
 
-          <main style={styles.publicMain}>
-            {renderPublicContent()}
-          </main>
-
-          <PublicFooter onStart={openRegistrationPanel} />
-        </div>
-      </div>
-    );
+  if (publicPage !== "home") {
+    return renderPublicShell({ authenticated: true });
   }
 
   const workspaceInitials = session.workspace.name
@@ -2167,7 +2479,7 @@ function App() {
               label={isInstitutionWorkspace ? "Institution workspace" : "Creator workspace"}
               tone={isInstitutionWorkspace ? "neutral" : "healthy"}
             />
-            <StatusPill label={formatLabel(currentPlan.billingStatus)} tone={getBillingTone(currentPlan.billingStatus)} />
+            <StatusPill label={billingStatusLabel} tone={getBillingTone(currentPlan.billingStatus)} />
             <button
               className="sl-header-new-link"
               style={styles.primaryButton}
@@ -2181,6 +2493,27 @@ function App() {
             <button style={styles.secondaryButton} onClick={logout}>Sign out</button>
           </div>
         </header>
+
+        {!session.user.emailVerifiedAt ? (
+          <section style={{ ...styles.checkoutNotice, margin: "18px 24px 0" }} aria-label="Email verification">
+            <strong>Verify {session.user.email}</strong>
+            <span>
+              Confirm your address before creating workspace links, managing domains, or changing billing.
+            </span>
+            <div style={styles.inlineActions}>
+              <button
+                type="button"
+                style={styles.secondaryButton}
+                onClick={resendVerificationEmail}
+                disabled={emailVerificationSubmitting}
+              >
+                {emailVerificationSubmitting ? "Sending..." : "Send verification email"}
+              </button>
+            </div>
+            <FeedbackMessage message={emailVerificationError} />
+            <FeedbackMessage message={emailVerificationMessage} tone="success" />
+          </section>
+        ) : null}
 
         <section className="sl-command-strip" style={styles.commandStrip}>
           <div style={styles.commandStripHeading}>
@@ -2215,7 +2548,7 @@ function App() {
           <article className="sl-lift sl-command-card" data-accent="violet" style={{ ...styles.commandCard, ...enterpriseDashboardStyles.commandCard }}>
             <div style={styles.commandCardTop}><span style={styles.commandIndex}>04</span><p style={styles.metricLabel}>Current plan</p></div>
             <strong style={styles.commandValue}>{currentPlan.effectivePlanName}</strong>
-            <span style={styles.metricHint}>{formatLabel(currentPlan.billingStatus)}</span>
+            <span style={styles.metricHint}>{billingStatusLabel}</span>
           </article>
         </section>
 
@@ -2283,11 +2616,11 @@ function App() {
               <div>
                 <p style={styles.sectionEyebrow}>{isInstitutionWorkspace ? "Official publishing" : "Create"}</p>
                 <h2 style={styles.panelTitle}>{isInstitutionWorkspace ? "Publish an official resource" : "Publish a short link"}</h2>
-                <p style={styles.panelLead}>{isInstitutionWorkspace ? "Classify the resource, set its official path and expiry, then add a continuity route when needed." : "Set the destination, branded path, expiry, and failover behavior."}</p>
+                <p className="sl-builder-help" style={styles.panelLead}>{isInstitutionWorkspace ? "Classify the resource, set its official path and expiry, then add a continuity route when needed." : "Set the destination, branded path, expiry, and failover behavior."}</p>
               </div>
               <StatusPill label={currentPlan.effectivePlanName} tone={getPlanTone(currentPlan.effectivePlanId)} />
             </div>
-            <p style={styles.helperText}>
+            <p className="sl-builder-help" style={styles.helperText}>
               {remainingLinkSlots > 0
                 ? `${remainingLinkSlots} active link slots remaining on the ${currentPlan.effectivePlanName} plan.`
                 : `You have used all ${activeLinkLimit} active-link slots on the ${currentPlan.effectivePlanName} plan. Upgrade billing to create more links.`}
@@ -2309,7 +2642,44 @@ function App() {
                 if (!linkSubmitDisabled) event.currentTarget.requestSubmit();
               }}
             >
-              <div className="sl-builder-form-grid" style={styles.builderFormGrid}>
+              <div style={styles.label}>
+                <label htmlFor="primary-destination">
+                  {isInstitutionWorkspace ? "Official resource URL" : "Campaign destination"}
+                </label>
+                <input
+                  id="primary-destination"
+                  style={styles.input}
+                  type="url"
+                  autoComplete="url"
+                  aria-describedby="primary-destination-help"
+                  placeholder={isInstitutionWorkspace ? "https://docs.google.com/spreadsheets/..." : "https://youtube.com/watch?v=..."}
+                  value={url}
+                  onChange={(event) => setUrl(event.target.value)}
+                />
+                <span id="primary-destination-help" style={styles.miniHelperText}>
+                  {isInstitutionWorkspace
+                    ? "Paste a Google Sheet, form, document, video, notice, or other official HTTPS resource."
+                    : "Paste the post, video, portfolio, store, booking, or sponsor page your audience should reach."}
+                </span>
+                {detectedDestination && detectedDestination.type !== "website" ? (
+                  <div role="status" style={styles.destinationInsight}>
+                    <strong>{detectedDestination.label}</strong>
+                    <span>{detectedDestination.guidance}</span>
+                  </div>
+                ) : null}
+              </div>
+                <label style={styles.label}>
+                  Link expiry
+                  <select style={styles.select} value={expiry} onChange={(event) => setExpiry(Number(event.target.value))}>
+                    {EXPIRY_OPTIONS.map((option) => (
+                      <option key={option.value} value={option.value}>{option.label}</option>
+                    ))}
+                  </select>
+                </label>
+              <p className="sl-builder-help">This link and its QR code stop working at expiry. Workspace links can last up to seven days.</p>
+              <details className="sl-advanced-options">
+                <summary>Advanced options <span>Custom alias, templates, domains and backups</span></summary>
+                <div className="sl-advanced-content">
                 <label style={styles.label}>
                   Short link domain
                   <select style={styles.select} value={selectedDomainHost} onChange={(event) => setSelectedDomainHost(event.target.value)}>
@@ -2319,15 +2689,6 @@ function App() {
                     ))}
                   </select>
                 </label>
-                <label style={styles.label}>
-                  Link expiry
-                  <select style={styles.select} value={expiry} onChange={(event) => setExpiry(Number(event.target.value))}>
-                    {EXPIRY_OPTIONS.map((option) => (
-                      <option key={option.value} value={option.value}>{option.label}</option>
-                    ))}
-                  </select>
-                </label>
-              </div>
               <div className="sl-smart-path-card">
                 <div className="sl-smart-path-heading">
                   <div>
@@ -2418,7 +2779,7 @@ function App() {
                 <div className="sl-smart-path-preview" aria-live="polite">
                   <span>Suggested short link</span>
                   <strong>
-                    {selectedDomainHost || "shotlink.in"}/{smartAliasSuggestion || (isInstitutionWorkspace ? "cse-42-attendance-2026-08-10" : "youtube-video-2026-08-10")}
+                    {selectedDomainHost || "shotlink.in"}/{smartAliasSuggestion || `${isInstitutionWorkspace ? "cse-42-attendance" : "youtube-video"}-${resourceDate || getLocalDateInputValue()}`}
                   </strong>
                   {smartAliasSuggestion && customAliasManuallyEdited && customAlias !== smartAliasSuggestion ? (
                     <button
@@ -2432,32 +2793,6 @@ function App() {
                     </button>
                   ) : null}
                 </div>
-              </div>
-              <div style={styles.label}>
-                <label htmlFor="primary-destination">
-                  {isInstitutionWorkspace ? "Official resource URL" : "Campaign destination"}
-                </label>
-                <input
-                  id="primary-destination"
-                  style={styles.input}
-                  type="url"
-                  autoComplete="url"
-                  aria-describedby="primary-destination-help"
-                  placeholder={isInstitutionWorkspace ? "https://docs.google.com/spreadsheets/..." : "https://youtube.com/watch?v=..."}
-                  value={url}
-                  onChange={(event) => setUrl(event.target.value)}
-                />
-                <span id="primary-destination-help" style={styles.miniHelperText}>
-                  {isInstitutionWorkspace
-                    ? "Paste a Google Sheet, form, document, video, notice, or other official HTTPS resource."
-                    : "Paste the post, video, portfolio, store, booking, or sponsor page your audience should reach."}
-                </span>
-                {detectedDestination && detectedDestination.type !== "website" ? (
-                  <div role="status" style={styles.destinationInsight}>
-                    <strong>{detectedDestination.label}</strong>
-                    <span>{detectedDestination.guidance}</span>
-                  </div>
-                ) : null}
               </div>
               <div style={styles.label}>
                 <label htmlFor="custom-alias">Custom alias</label>
@@ -2491,6 +2826,8 @@ function App() {
                 />
                 <span id="fallback-destinations-help" style={styles.miniHelperText}>Add one HTTPS backup destination per line, in failover order.</span>
               </div>
+                </div>
+              </details>
               <div className="sl-consent-box" style={styles.consentBox}>
                 <p style={styles.consentIntro}>
                   Link policy version {LINK_POLICY_VERSION}. Required for every link so abusive or illegal destinations can be suspended with a clear audit trail.
@@ -2949,14 +3286,14 @@ function App() {
             <div style={styles.billingOverviewGrid}>
               <div style={{ ...styles.subscriptionCard, ...enterpriseDashboardStyles.subscriptionCard }}>
                 <div><p style={styles.mutedLabel}>Current subscription</p><h3 style={styles.subscriptionTitle}>{currentPlan.effectivePlanName}</h3></div>
-                <StatusPill label={formatLabel(currentPlan.billingStatus)} tone={getBillingTone(currentPlan.billingStatus)} />
+                <StatusPill label={billingStatusLabel} tone={getBillingTone(currentPlan.billingStatus)} />
                 <p style={styles.helperText}>{activeLinkCount}/{activeLinkLimit} active links used. {remainingLinkSlots} slots still available.</p>
                 <p style={styles.miniHelperText}>{currentPlan.currentPeriodEndsAt ? `Renews or ends ${formatDate(currentPlan.currentPeriodEndsAt)}` : "Free tier subscription"}</p>
               </div>
               <div style={styles.billingStatsGrid}>
                 <div style={styles.billingStatCard}><p style={styles.billingStatLabel}>Current plan</p><p style={styles.billingStatValue}>{currentPlan.effectivePlanName}</p></div>
                 <div style={styles.billingStatCard}><p style={styles.billingStatLabel}>Slots left</p><p style={styles.billingStatValue}>{remainingLinkSlots}</p></div>
-                <div style={styles.billingStatCard}><p style={styles.billingStatLabel}>Billing status</p><p style={styles.billingStatValueSmall}>{formatLabel(currentPlan.billingStatus)}</p></div>
+                <div style={styles.billingStatCard}><p style={styles.billingStatLabel}>Billing status</p><p style={styles.billingStatValueSmall}>{billingStatusLabel}</p></div>
                 <div style={styles.billingStatCard}><p style={styles.billingStatLabel}>Current period</p><p style={styles.billingStatValueSmall}>{currentPlan.currentPeriodEndsAt ? formatDate(currentPlan.currentPeriodEndsAt) : "Free tier"}</p></div>
               </div>
             </div>
@@ -2996,7 +3333,7 @@ function App() {
             </div>
             <div style={styles.billingDetailGrid}>
               <div style={styles.paymentCard}>
-                <div style={styles.planHeader}><div><p style={styles.mutedLabel}>Usage</p><p style={styles.helperText}>Monthly quotas reset with your billing cycle.</p></div><StatusPill label={currentPlan.usagePeriodKey || "Current month"} tone="neutral" /></div>
+                <div style={styles.planHeader}><div><p style={styles.mutedLabel}>Usage</p><p style={styles.helperText}>Monthly usage counters reset on the first day of each month (UTC). Active-link and domain limits apply separately.</p></div><StatusPill label={currentPlan.usagePeriodKey || "Current month"} tone="neutral" /></div>
                 <div style={styles.usageGrid}>{Object.values(currentPlan.usage || {}).map((metric) => <UsageBar key={metric.key} metric={metric} />)}</div>
               </div>
               <div style={styles.paymentCard}>

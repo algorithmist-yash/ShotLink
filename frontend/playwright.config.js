@@ -22,7 +22,10 @@ export default defineConfig({
     baseURL: FRONTEND_URL,
     screenshot: "only-on-failure",
     trace: "retain-on-failure",
-    video: "retain-on-failure",
+    // Playwright video finalization can keep the Windows desktop runner alive
+    // after every assertion has completed. CI runs on Linux and still retains
+    // failure videos; local runs keep screenshots and traces without hanging.
+    video: process.env.CI ? "retain-on-failure" : "off",
   },
   projects: [
     {
@@ -48,7 +51,7 @@ export default defineConfig({
         E2E_FRONTEND_URL: FRONTEND_URL,
         MONGOMS_VERSION: "8.2.6",
       },
-      reuseExistingServer: !process.env.CI,
+      reuseExistingServer: false,
       stderr: "pipe",
       stdout: "pipe",
       timeout: 240_000,
@@ -61,7 +64,7 @@ export default defineConfig({
         ...process.env,
         VITE_API_BASE_URL: BACKEND_URL,
       },
-      reuseExistingServer: !process.env.CI,
+      reuseExistingServer: false,
       stderr: "pipe",
       stdout: "pipe",
       timeout: 60_000,

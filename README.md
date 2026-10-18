@@ -1,5 +1,8 @@
 # Shotlink
 
+Latest project cleanup, visibility findings, validation and publishing steps:
+[18 October 2026 project review](docs/PROJECT_REVIEW_2026-10-18.md).
+
 Shotlink is a full-stack URL shortener with authenticated workspaces, link expiry, custom aliases,
 fallback destinations, click analytics, QR codes, custom domains, and Razorpay-backed billing.
 
@@ -53,6 +56,9 @@ RAZORPAY_KEY_SECRET=replace_me
 RAZORPAY_WEBHOOK_SECRET=replace_me
 RAZORPAY_PLAN_ID_PRO_MONTHLY=replace_me
 RAZORPAY_PLAN_ID_BUSINESS_MONTHLY=replace_me
+RESEND_API_KEY=replace_me
+AUTH_EMAIL_FROM=Shotlink <support@shotlink.in>
+SUPPORT_EMAIL=support@shotlink.in
 METRICS_TOKEN=replace_with_a_long_random_monitoring_token
 AUDIT_RETENTION_DAYS=730
 LEGACY_ANALYTICS_RETENTION_DAYS=90
@@ -69,6 +75,11 @@ sends requests with credentials enabled and returns the `csrfToken` from the
 authentication response in the `X-CSRF-Token` header for `POST`, `PUT`, `PATCH`,
 and `DELETE` requests. Non-browser API clients remain compatible with
 `Authorization: Bearer <session-token>` and do not use the browser CSRF flow.
+New accounts receive a single-use email-verification link, and permanent link
+creation, domain administration, and billing changes require a verified email.
+Password-reset links revoke every older session. Email action tokens are placed
+in the client-only URL fragment and removed from the browser address after the
+frontend captures them.
 
 Redirect analytics use a durable MongoDB outbox. The API acknowledges one queued
 event before responding, while a leased background worker commits the click
@@ -162,7 +173,8 @@ while the pinned MongoDB test binary is downloaded and cached.
 `test:e2e` starts the same isolated MongoDB-backed Express test stack plus Vite,
 then runs Playwright against desktop Chromium and a 390px mobile viewport. It
 verifies public navigation, form validation, required consent, registration,
-cookie restoration, link creation, a real 302 redirect, asynchronous analytics,
+email-gated writes, cookie restoration, link creation, a real 302 redirect,
+asynchronous analytics,
 logout, responsive overflow, runtime errors, and WCAG A/AA rules. Run
 `test:e2e:install` once after installing or upgrading Playwright; CI installs
 Chromium automatically and retains the HTML report and failure artifacts.
@@ -173,6 +185,10 @@ processes without asking Playwright to manage their process trees.
 
 - `POST /api/v1/auth/register`
 - `POST /api/v1/auth/login`
+- `POST /api/v1/auth/forgot-password`
+- `POST /api/v1/auth/reset-password`
+- `POST /api/v1/auth/verify-email`
+- `POST /api/v1/auth/resend-verification`
 - `GET /api/v1/auth/me`
 - `POST /api/v1/auth/logout`
 - `GET /api/v1/links`
@@ -195,7 +211,7 @@ processes without asking Playwright to manage their process trees.
 
 ## Notes
 
-- Link creation requires a signed-in user and required compliance consent fields.
+- Permanent link creation requires a signed-in user with a verified email and required compliance consent fields.
 - Direct private/local IP destinations are rejected.
 - Health checks also reject hostnames that resolve to private or local network addresses.
 - Railway proxy ranges are trusted automatically. Render's managed proxy chain is enabled only when Render-provided deployment metadata is present, and its documented forwarded client IP is validated before use. On other proxy deployments, set `TRUST_PROXY_CIDRS` to the exact proxy CIDRs; never use a blanket `true` trust setting.

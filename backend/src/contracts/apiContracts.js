@@ -79,6 +79,19 @@ const loginContract = {
   password: optionalString(128),
 };
 
+const emailActionContract = {
+  email: optionalString(254),
+};
+
+const tokenActionContract = {
+  token: optionalString(512),
+};
+
+const resetPasswordContract = {
+  token: optionalString(512),
+  password: optionalString(128),
+};
+
 const createLinkContract = {
   originalUrl: optionalString(4096),
   customAlias: optionalString(48),
@@ -98,7 +111,10 @@ module.exports = {
   cancelSubscriptionContract,
   createLinkContract,
   customDomainContract,
+  emailActionContract,
   loginContract,
   planContract,
   registerContract,
+  resetPasswordContract,
+  tokenActionContract,
 };

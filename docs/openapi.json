@@ -44,6 +44,37 @@
         "responses": { "200": { "$ref": "#/components/responses/JsonSuccess" }, "400": { "$ref": "#/components/responses/JsonError" }, "401": { "$ref": "#/components/responses/JsonError" }, "429": { "$ref": "#/components/responses/JsonError" } }
       }
     },
+    "/api/v1/auth/forgot-password": {
+      "post": {
+        "tags": ["Auth"], "summary": "Request a single-use password-reset link",
+        "description": "Always returns the same accepted response so account existence is not disclosed.",
+        "requestBody": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/EmailRequest" } } } },
+        "responses": { "202": { "$ref": "#/components/responses/JsonSuccess" }, "429": { "$ref": "#/components/responses/JsonError" } }
+      }
+    },
+    "/api/v1/auth/reset-password": {
+      "post": {
+        "tags": ["Auth"], "summary": "Consume a password-reset token",
+        "description": "Changes the password and revokes all existing sessions for the account.",
+        "requestBody": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ResetPasswordRequest" } } } },
+        "responses": { "200": { "$ref": "#/components/responses/JsonSuccess" }, "400": { "$ref": "#/components/responses/JsonError" }, "429": { "$ref": "#/components/responses/JsonError" } }
+      }
+    },
+    "/api/v1/auth/verify-email": {
+      "post": {
+        "tags": ["Auth"], "summary": "Consume a single-use email-verification token",
+        "requestBody": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/TokenRequest" } } } },
+        "responses": { "200": { "$ref": "#/components/responses/JsonSuccess" }, "400": { "$ref": "#/components/responses/JsonError" }, "429": { "$ref": "#/components/responses/JsonError" } }
+      }
+    },
+    "/api/v1/auth/resend-verification": {
+      "post": {
+        "tags": ["Auth"], "summary": "Request a new email-verification link",
+        "description": "Always returns the same accepted response so account state is not disclosed.",
+        "requestBody": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/EmailRequest" } } } },
+        "responses": { "202": { "$ref": "#/components/responses/JsonSuccess" }, "429": { "$ref": "#/components/responses/JsonError" } }
+      }
+    },
     "/api/v1/auth/me": {
       "get": { "tags": ["Auth"], "summary": "Read current session", "security": [{ "sessionCookie": [] }, { "sessionBearer": [] }], "responses": { "200": { "$ref": "#/components/responses/JsonSuccess" }, "401": { "$ref": "#/components/responses/JsonError" } } }
     },
@@ -142,9 +173,12 @@
     },
     "schemas": {
       "Error": { "type": "object", "required": ["error"], "properties": { "error": { "type": "string" }, "details": { "type": "array", "items": { "type": "object", "properties": { "field": { "type": "string" }, "message": { "type": "string" } } } } } },
-      "RegisterRequest": { "type": "object", "required": ["name", "email", "password", "consents"], "properties": { "name": { "type": "string", "maxLength": 100 }, "email": { "type": "string", "format": "email", "maxLength": 254 }, "password": { "type": "string", "minLength": 8, "maxLength": 128 }, "workspaceName": { "type": "string", "maxLength": 100 }, "consents": { "$ref": "#/components/schemas/AccountConsents" } } },
+      "RegisterRequest": { "type": "object", "required": ["name", "email", "password", "consents"], "properties": { "name": { "type": "string", "maxLength": 100 }, "email": { "type": "string", "format": "email", "maxLength": 254 }, "password": { "type": "string", "minLength": 8, "maxLength": 128 }, "workspaceName": { "type": "string", "maxLength": 100 }, "workspaceType": { "type": "string", "enum": ["creator", "institution"] }, "consents": { "$ref": "#/components/schemas/AccountConsents" } } },
       "AccountConsents": { "type": "object", "required": ["ageConfirmed", "termsAccepted", "privacyAccepted", "analyticsAccepted", "lawfulUseAccepted"], "properties": { "ageConfirmed": { "type": "boolean" }, "termsAccepted": { "type": "boolean" }, "privacyAccepted": { "type": "boolean" }, "analyticsAccepted": { "type": "boolean" }, "lawfulUseAccepted": { "type": "boolean" }, "marketingOptIn": { "type": "boolean" } } },
       "LoginRequest": { "type": "object", "required": ["email", "password"], "properties": { "email": { "type": "string", "format": "email", "maxLength": 254 }, "password": { "type": "string", "maxLength": 128 } } },
+      "EmailRequest": { "type": "object", "required": ["email"], "properties": { "email": { "type": "string", "format": "email", "maxLength": 254 } } },
+      "TokenRequest": { "type": "object", "required": ["token"], "properties": { "token": { "type": "string", "maxLength": 512 } } },
+      "ResetPasswordRequest": { "type": "object", "required": ["token", "password"], "properties": { "token": { "type": "string", "maxLength": 512 }, "password": { "type": "string", "minLength": 8, "maxLength": 128 } } },
       "CreateLinkRequest": { "type": "object", "required": ["originalUrl", "compliance"], "properties": { "originalUrl": { "type": "string", "format": "uri", "maxLength": 4096 }, "customAlias": { "type": "string", "minLength": 3, "maxLength": 48 }, "customDomainHost": { "type": "string", "maxLength": 253 }, "expiresInMinutes": { "type": "integer", "minimum": 1, "maximum": 10080 }, "fallbackUrls": { "type": "array", "maxItems": 5, "items": { "oneOf": [{ "type": "string", "format": "uri" }, { "type": "object", "required": ["url"], "properties": { "url": { "type": "string", "format": "uri" }, "label": { "type": "string", "maxLength": 100 } } }] } }, "compliance": { "type": "object", "required": ["destinationAuthorityAccepted", "securityScanAccepted", "abusePolicyAccepted"], "properties": { "destinationAuthorityAccepted": { "type": "boolean" }, "securityScanAccepted": { "type": "boolean" }, "abusePolicyAccepted": { "type": "boolean" } } } } }
     },
     "requestBodies": {

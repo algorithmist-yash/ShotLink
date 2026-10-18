@@ -14,8 +14,8 @@ This is an engineering checklist, not legal advice. Before taking paid customers
 
 ## Do before public launch
 
-- Replace placeholder support details with a real business email such as `legal@shotlink.in` and `abuse@shotlink.in`.
-- Publish standalone Terms of Service, Privacy Notice, Acceptable Use Policy, Refund/Cancellation Policy, and Grievance/Abuse reporting page.
+- Confirm `support@shotlink.in` is monitored and route dedicated `legal@shotlink.in` and `abuse@shotlink.in` aliases to an accountable owner.
+- Obtain legal review of the published Terms, Privacy, Trust/Acceptable Use, Refund/Cancellation, Digital Delivery, and Contact/Abuse pages.
 - Put the same policy version/date in the public documents and in `ACCOUNT_POLICY_VERSION` / `LINK_POLICY_VERSION`.
 - Configure `ALLOWED_ORIGINS` on Render with only your real frontend URLs, for example `https://shotlink.in,https://www.shotlink.in`.
 - Use production `CSRF_SECRET` and `IP_HASH_SALT` values, a MongoDB Atlas least-privilege database user, and Razorpay live keys only in Render/Vercel environment variables.

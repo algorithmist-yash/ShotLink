@@ -3,6 +3,8 @@
 Date: 2026-08-08
 Scope: public website, authentication, workspace boundaries, domain ownership, link creation, analytics, responsive UI, metadata, automated tests, and production-readiness constraints.
 
+Status update — 2026-09-04: verified-email activation and password recovery are now implemented and locally validated. Administrator invitations, SSO, and SCIM remain future identity-lifecycle work.
+
 ## Executive outcome
 
 Shotlink already had a credible full-stack core: cookie sessions, CSRF protection, workspace role checks, custom-domain DNS verification, link expiry, fallback routing, click analytics, audit events, rate limits, and billing controls. The largest commercial gap was not the routing engine. It was the mismatch between the public website and the institutional buyer.
@@ -43,7 +45,7 @@ After verification, registration with that email domain returns `INSTITUTION_DOM
 
 No website can technically prevent an individual from using a different URL-shortening provider. Shotlink can enforce ownership and provisioning inside Shotlink. To make Shotlink the exclusive institutional link layer, the institution must also adopt an organisational policy and normally connect SSO/SCIM or an invitation lifecycle, route official short domains through Shotlink, and restrict competing services at the organisation level.
 
-The current implementation blocks shadow Shotlink workspaces safely. It does not yet include email verification, invitation delivery, SSO, or SCIM. Automatic enrolment based only on an entered email address was intentionally not implemented because that would let an attacker impersonate an institution user without proving mailbox ownership.
+At the time of this audit, the implementation blocked shadow Shotlink workspaces safely but did not include email verification, invitation delivery, SSO, or SCIM. Verified-email activation was added on 2026-09-04. Automatic enrolment based only on an entered email address remains intentionally unsupported because that would let an attacker impersonate an institution user without proving mailbox ownership.
 
 ### 5. Public UX and accessibility — improved
 
@@ -95,6 +97,7 @@ The live npm advisory refresh was not performed because it would transmit depend
 - Deploy the API, redirect service, MongoDB, and Redis-compatible cache using the Free Render validation Blueprint and launch runbook; add the health worker before an institutional pilot depends on automatic failover.
 - Add the production frontend origin to backend CORS configuration.
 - Run the documented production migrations.
+- Configure Resend, verify the sending domain, and test account emails with real inboxes.
 - Configure Razorpay production credentials and webhook delivery.
 - Configure `shotlink.in`, `api.shotlink.in`, and `go.shotlink.in` DNS and TLS.
 - Add institution invitation or SSO provisioning before enabling broad end-user access on a governed domain.
@@ -102,4 +105,4 @@ The live npm advisory refresh was not performed because it would transmit depend
 
 ## Recommended next product increment
 
-Build administrator invitations and verified-email acceptance first. Then add SAML/OIDC SSO and SCIM for customers that require automatic joiner, mover, and leaver controls. That is the path from the current safe domain lock to a complete institution-wide identity lifecycle.
+Build administrator invitations and workspace membership management next. Then add SAML/OIDC SSO and SCIM for customers that require automatic joiner, mover, and leaver controls. That is the path from the current verified-email domain lock to a complete institution-wide identity lifecycle.

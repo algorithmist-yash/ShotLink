@@ -4,7 +4,42 @@
   "installCommand": "npm install",
   "buildCommand": "npm run build",
   "outputDirectory": "dist",
+  "redirects": [
+    {
+      "source": "/:path*",
+      "has": [
+        {
+          "type": "host",
+          "value": "shotlink.in"
+        }
+      ],
+      "destination": "https://www.shotlink.in/:path*",
+      "permanent": true
+    },
+    {
+      "source": "/cancellation-refund-policy",
+      "destination": "/refund-policy",
+      "permanent": true
+    },
+    {
+      "source": "/delivery-policy",
+      "destination": "/shipping-policy",
+      "permanent": true
+    }
+  ],
   "rewrites": [
+    {
+      "source": "/google-forms-qr-code",
+      "destination": "/google-forms-qr-code.html"
+    },
+    {
+      "source": "/event-qr-codes",
+      "destination": "/event-qr-codes.html"
+    },
+    {
+      "source": "/expiring-links",
+      "destination": "/expiring-links.html"
+    },
     {
       "source": "/pricing",
       "destination": "/pricing.html"
@@ -54,12 +89,20 @@
       "destination": "/index.html"
     },
     {
-      "source": "/:shortCode([A-Za-z0-9_-]{3,48})",
-      "destination": "https://api.shotlink.in/:shortCode"
+      "source": "/forgot-password",
+      "destination": "/index.html"
     },
     {
-      "source": "/(.*)",
+      "source": "/reset-password",
       "destination": "/index.html"
+    },
+    {
+      "source": "/verify-email",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/:shortCode([A-Za-z0-9_-]{3,48})",
+      "destination": "https://api.shotlink.in/:shortCode"
     }
   ],
   "headers": [
@@ -98,6 +141,15 @@
         {
           "key": "Cache-Control",
           "value": "public, max-age=31536000, immutable"
+        }
+      ]
+    },
+    {
+      "source": "/:page(login|register|forgot-password|reset-password|verify-email)",
+      "headers": [
+        {
+          "key": "X-Robots-Tag",
+          "value": "noindex, nofollow"
         }
       ]
     }

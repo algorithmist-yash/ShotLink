@@ -49,7 +49,19 @@ function installDeterministicHealthCheck() {
 async function closeServer(server) {
   if (!server) return;
   await new Promise((resolve, reject) => {
-    server.close((error) => (error ? reject(error) : resolve()));
+    server.close((error) => {
+      if (error && error.code !== "ERR_SERVER_NOT_RUNNING") {
+        reject(error);
+        return;
+      }
+      resolve();
+    });
+
+    // Playwright's APIRequestContext keeps HTTP connections alive while its
+    // web-server teardown is already in progress. Close those test-only
+    // sockets explicitly so a successful E2E run cannot hang in shutdown.
+    server.closeIdleConnections?.();
+    server.closeAllConnections?.();
   });
 }
 

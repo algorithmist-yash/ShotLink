@@ -1,0 +1,25 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "shotlink",
+  "main": "worker.js",
+  "compatibility_date": "2026-09-15",
+  "compatibility_flags": ["nodejs_compat"],
+  "workers_dev": true,
+  "assets": {
+    "directory": "../frontend/dist",
+    "binding": "ASSETS",
+    "run_worker_first": true,
+    "html_handling": "none",
+    "not_found_handling": "none"
+  },
+  "containers": [{
+    "class_name": "ShotlinkBackend",
+    "image": "../backend/Dockerfile",
+    "max_instances": 1
+  }],
+  "durable_objects": {
+    "bindings": [{ "name": "BACKEND", "class_name": "ShotlinkBackend" }]
+  },
+  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["ShotlinkBackend"] }],
+  "triggers": { "crons": ["*/5 * * * *"] }
+}

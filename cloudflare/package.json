@@ -1,0 +1,12 @@
+{
+  "name": "shotlink-cloudflare",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "check": "node --test routing.test.js",
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy"
+  },
+  "dependencies": { "@cloudflare/containers": "0.3.7" },
+  "devDependencies": { "wrangler": "4.131.1" }
+}

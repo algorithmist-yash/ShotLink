@@ -1,0 +1,47 @@
+export const GUIDES = [
+  {
+    slug: "google-forms-qr-code", label: "Google Forms QR codes",
+    title: "Share a Google Form with a short link and QR code",
+    description: "Create a Shotlink for a Google Form, check respondent access, and choose a link lifetime that fits your registration window.",
+    intro: "Give people one easy route to an event registration, feedback form, or attendance form. A QR code opens the same short link, so both follow the same expiry time.",
+    steps: [
+      ["Copy the respondent link", "Use the link intended for people filling in your form. Do not share an editing link. Open it in a signed-out browser first to check whether your audience can respond."],
+      ["Choose a link lifetime", "For a quick test, the homepage offers links lasting 5, 10, 15, or 30 minutes. For an event registration window, create and verify a free workspace; link expiry can be set up to seven days."],
+      ["Create the short link and QR", "Paste the respondent URL into Shotlink, confirm you are authorised to share it, and create the link. Copy the short URL or download its QR image."],
+      ["Test as a respondent", "Scan the final QR on another device. Confirm the correct form opens and accepts responses. Keep a readable destination or alternative contact alongside printed codes."],
+    ],
+    example: "For a registration window from Monday to Friday, choose a workspace link whose expiry covers the whole window. A 15-minute guest link is useful for testing, but will stop working long before registration closes.",
+    limitations: ["Shortening does not change Google Form access permissions or response settings.", "Closing a form and expiring a Shotlink are separate actions. Check both when registrations end.", "Shotlink does not automatically discover new forms or collect their responses.", "A QR image remains on paper after the link expires. Avoid permanent signage for a time-limited route."],
+    questions: [["Will this make a restricted form public?", "No. Google controls access to the form. Shotlink only redirects the visitor."], ["Can I track completed responses?", "Shotlink records link-click activity in a workspace. A click does not prove that a visitor submitted the form; check responses in the form itself."]],
+  },
+  {
+    slug: "event-qr-codes", label: "Event QR codes",
+    title: "Create QR codes for a short event or college activity",
+    description: "Plan and test short-lived event QR codes for registration, schedules, and feedback with Shotlink's expiry limits made clear.",
+    intro: "Use separate routes for registration, the event schedule, and feedback. Each destination has a different useful lifetime, even when all three belong to the same event.",
+    steps: [
+      ["Pick one task per code", "Send registration visitors to the registration page and attendees to the schedule. Label every QR with the action it performs, such as View today's schedule."],
+      ["Create a verified workspace", "Use a free workspace for up to 10 active links and 5 QR codes. Choose an expiry that covers the event; the current maximum link lifetime is seven days."],
+      ["Make a print-ready handoff", "Download the QR image, leave clear space around it, and include the short URL as a text alternative. Test the actual printed size rather than only the image on your monitor."],
+      ["Check the route on event day", "Scan using a phone on mobile data. Check destination permissions and remaining link lifetime. Keep an alternative route ready if the venue network or destination fails."],
+    ],
+    example: "For a one-day campus workshop, create one link for the schedule and another for feedback. Label them separately so attendees know what each scan does. Review click counts per link without treating them as attendance totals.",
+    limitations: ["Guest links last at most 30 minutes and are unsuitable for posters shared days ahead.", "For promotions spanning more than seven days, use a durable destination directly until longer-lived links are supported.", "A QR scan can produce a link click; it is not proof of attendance, payment, or registration.", "Free workspace limits apply. Paid checkout, multi-user invitations, and downloadable campaign exports are not available yet."],
+    questions: [["Can a QR code work without internet?", "The image can be printed offline, but opening the destination requires a network connection."], ["Can I keep the same printed QR forever?", "No. Current Shotlink routes have an expiry. Use a durable URL directly for long-term signage."]],
+  },
+  {
+    slug: "expiring-links", label: "Expiring links",
+    title: "Share an expiring link with a clear deadline",
+    description: "Understand temporary short links, workspace expiry, QR lifetime, and what Shotlink does when a route expires.",
+    intro: "An expiring route helps end a short sharing window. It stops the Shotlink from redirecting after a deadline; it does not revoke access to the original destination.",
+    steps: [
+      ["Decide what must expire", "If only the short route should stop working, choose a Shotlink expiry. If the document or form must become inaccessible, also change access at the destination."],
+      ["Choose guest or workspace sharing", "Guest links offer 5, 10, 15, or 30 minutes without an account. Verified workspaces offer link lifetimes up to seven days and workspace click analytics."],
+      ["Share the deadline", "Tell recipients when the route closes, including the time zone when relevant. A clear deadline prevents a broken-link surprise."],
+      ["Check the end of the window", "After expiry, the short route shows an expired-link response. The QR uses that same route and stops redirecting too. Independently close or restrict the destination if required."],
+    ],
+    example: "To share an agenda during a 30-minute discussion, use a guest link and state the closing time. If someone saves the original agenda URL, they may still open it later; restrict the agenda itself if access must end.",
+    limitations: ["Expiry is not password protection and does not erase copies or downloads.", "A fallback can help an active route when its primary destination is unavailable. It does not extend an expired link's lifetime.", "Workspace links are not permanent: the current maximum lifetime is seven days.", "Do not use a temporary route for account recovery links or other content that must remain reachable beyond its expiry."],
+    questions: [["Does expiry delete the destination?", "No. Shotlink stops routing. The destination remains under its owner's control."], ["Will a fallback open after expiry?", "No. Expiry closes the short route. Configure destination access and your communication plan separately."]],
+  },
+];

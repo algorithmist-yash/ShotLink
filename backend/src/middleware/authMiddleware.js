@@ -96,6 +96,15 @@ async function requireAuth(req, res, next) {
       return res.status(401).json({ error: "Account is unavailable" });
     }
 
+    if (
+      user.passwordChangedAt &&
+      session.createdAt &&
+      new Date(session.createdAt) <= new Date(user.passwordChangedAt)
+    ) {
+      await Session.deleteOne({ _id: session._id });
+      return res.status(401).json({ error: "Session expired or invalid" });
+    }
+
     const workspaceRole = getWorkspaceRole(workspace, user._id);
 
     if (!workspaceRole) {
@@ -141,6 +150,17 @@ function requireWorkspaceRole(...allowedRoles) {
   };
 }
 
+function requireVerifiedEmail(req, res, next) {
+  if (!req.auth?.user?.emailVerifiedAt) {
+    return res.status(403).json({
+      code: "EMAIL_VERIFICATION_REQUIRED",
+      error: "Verify your email address before performing this action.",
+    });
+  }
+
+  return next();
+}
+
 const requireWorkspaceOwner = requireWorkspaceRole("owner");
 const requireWorkspaceAdmin = requireWorkspaceRole("owner", "admin");
 
@@ -148,6 +168,7 @@ module.exports = {
   getAuthCredentials,
   getWorkspaceRole,
   requireAuth,
+  requireVerifiedEmail,
   requireWorkspaceAdmin,
   requireWorkspaceOwner,
   requireWorkspaceRole,

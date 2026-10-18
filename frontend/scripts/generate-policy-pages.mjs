@@ -63,7 +63,7 @@ function renderContactRows(rows = []) {
 function renderPage({ id, path }) {
   const policy = LEGAL_PAGE_CONTENT[id];
   const title = `${policy.eyebrow} | Shotlink`;
-  const canonical = `https://shotlink.in${path}`;
+  const canonical = `https://www.shotlink.in${path}`;
 
   return `<!doctype html>
 <html lang="en">
@@ -78,7 +78,7 @@ function renderPage({ id, path }) {
     <meta property="og:description" content="${escapeHtml(policy.lead)}" />
     <meta property="og:url" content="${canonical}" />
     <meta property="og:type" content="website" />
-    <meta property="og:image" content="https://shotlink.in/og.png" />
+    <meta property="og:image" content="https://www.shotlink.in/og.png" />
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:title" content="${escapeHtml(title)}" />
     <meta name="twitter:description" content="${escapeHtml(policy.lead)}" />

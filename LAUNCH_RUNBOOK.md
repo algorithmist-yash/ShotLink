@@ -76,6 +76,8 @@ RAZORPAY_KEY_SECRET=razorpay_secret
 RAZORPAY_WEBHOOK_SECRET=your_webhook_secret
 RAZORPAY_PLAN_ID_PRO_MONTHLY=plan_live_or_test_id
 RAZORPAY_PLAN_ID_BUSINESS_MONTHLY=plan_live_or_test_id
+RESEND_API_KEY=re_live_key
+AUTH_EMAIL_FROM=Shotlink <support@shotlink.in>
 ```
 
 The Blueprint generates the session, IP-hashing, and monitoring secrets, injects
@@ -127,6 +129,15 @@ Add this Vercel domain:
 ```text
 shotlink.in
 ```
+
+### Transactional account email
+
+Verify `shotlink.in` with Resend, including the DNS records Resend provides,
+then configure `RESEND_API_KEY` and `AUTH_EMAIL_FROM` on the API service. Before
+inviting users, confirm that registration verification, resend verification,
+password reset, and expired/single-use links work with a real inbox. Permanent
+link creation, domain administration, and billing changes remain blocked until
+the account email is verified.
 
 ## 6. Razorpay setup
 

@@ -57,6 +57,8 @@ test(
           AuditEvent.collection.indexes(),
         ]);
         assert.equal(userIndexes.find((index) => index.name === "email_1")?.unique, true);
+        assert.ok(userIndexes.some((index) => index.name === "emailVerificationTokenHash_1"));
+        assert.ok(userIndexes.some((index) => index.name === "passwordResetTokenHash_1"));
         assert.equal(urlIndexes.find((index) => index.name === "shortCode_1")?.unique, true);
         assert.ok(redirectIndexes.some((index) => index.name === "redirect_jobs_available"));
         assert.equal(
@@ -89,6 +91,7 @@ test(
       await t.test("active-link plan limits remain exact under concurrent creates", async () => {
         await environment.resetDatabase();
         const Url = require("../../src/models/Url");
+        const User = require("../../src/models/User");
         const Workspace = require("../../src/models/Workspace");
 
         const owner = new HttpTestClient(environment.baseUrl);
@@ -100,6 +103,10 @@ test(
           }),
         });
         assert.equal(registration.status, 201);
+        await User.updateOne(
+          { _id: registration.body.user.id },
+          { emailVerifiedAt: new Date() }
+        );
 
         const workspaceId = registration.body.workspace.id;
         await Url.insertMany(
@@ -156,6 +163,7 @@ test(
           const UsageCounter = require("../../src/models/UsageCounter");
           const User = require("../../src/models/User");
           const Workspace = require("../../src/models/Workspace");
+          const { hashSessionToken } = require("../../src/utils/authUtils");
           const {
             claimRedirectEventJob,
             processClaimedRedirectEvent,
@@ -206,6 +214,25 @@ test(
           const currentSession = await owner.request("/api/v1/auth/me");
           assert.equal(currentSession.status, 200);
           assert.equal(currentSession.body.user.email, "owner@integration.test");
+          assert.equal(currentSession.body.user.emailVerifiedAt, null);
+
+          const verificationToken = "integration-verification-token";
+          savedUser.emailVerificationTokenHash = hashSessionToken(verificationToken);
+          savedUser.emailVerificationExpiresAt = new Date(Date.now() + 60_000);
+          await savedUser.save();
+          const verification = await owner.request("/api/v1/auth/verify-email", {
+            method: "POST",
+            body: { token: verificationToken },
+          });
+          assert.equal(verification.status, 200);
+          assert.ok((await User.findById(savedUser._id)).emailVerifiedAt instanceof Date);
+
+          const recoveryDisclosure = await owner.request("/api/v1/auth/forgot-password", {
+            method: "POST",
+            body: { email: "missing@integration.test" },
+          });
+          assert.equal(recoveryDisclosure.status, 202);
+          assert.match(recoveryDisclosure.body.message, /If that address has an active/);
 
           const [workspaceSettings, billingSummary] = await Promise.all([
             owner.request("/api/v1/workspace"),
@@ -403,6 +430,27 @@ test(
           assert.equal(owner.cookie, "");
           assert.equal(await Session.countDocuments({ userId: savedUser._id }), 0);
           assert.equal((await owner.request("/api/v1/auth/me")).status, 401);
+
+          const resetToken = "integration-password-reset-token";
+          await User.updateOne(
+            { _id: savedUser._id },
+            {
+              passwordResetTokenHash: hashSessionToken(resetToken),
+              passwordResetExpiresAt: new Date(Date.now() + 60_000),
+              passwordResetRequestedAt: new Date(),
+            }
+          );
+          const reset = await owner.request("/api/v1/auth/reset-password", {
+            method: "POST",
+            body: { token: resetToken, password: "ChangedPass456" },
+          });
+          assert.equal(reset.status, 200);
+          assert.equal(await Session.countDocuments({ userId: savedUser._id }), 0);
+          const resetLogin = await owner.request("/api/v1/auth/login", {
+            method: "POST",
+            body: { email: "owner@integration.test", password: "ChangedPass456" },
+          });
+          assert.equal(resetLogin.status, 200);
 
           assert.equal(mongoose.connection.readyState, 1);
         }

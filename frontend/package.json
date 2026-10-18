@@ -8,20 +8,23 @@
   },
   "scripts": {
     "generate:policies": "node scripts/generate-policy-pages.mjs",
-    "prebuild": "npm run generate:policies",
+    "prebuild": "node scripts/generate-policy-pages.mjs && node scripts/generate-guide-pages.mjs",
     "dev": "vite --configLoader runner",
     "build": "vite build --configLoader runner",
+    "postbuild": "node scripts/check-marketing-build.mjs",
     "lint": "eslint .",
     "preview": "vite preview --configLoader runner",
     "test": "vitest run --configLoader runner",
     "test:e2e": "playwright test",
     "test:e2e:running": "playwright test --config playwright.running.config.js",
     "test:e2e:install": "playwright install chromium",
-    "test:watch": "vitest --configLoader runner"
+    "test:watch": "vitest --configLoader runner",
+    "generate:guides": "node scripts/generate-guide-pages.mjs"
   },
   "dependencies": {
     "@fontsource/inter": "5.2.8",
     "@fontsource/plus-jakarta-sans": "5.2.8",
+    "@vercel/analytics": "^2.0.1",
     "qrcode.react": "^4.2.0",
     "react": "^19.2.0",
     "react-dom": "^19.2.0"

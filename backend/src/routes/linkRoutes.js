@@ -9,7 +9,7 @@ const {
   listLinks,
   refreshLinkHealth,
 } = require("../controllers/linkController");
-const { requireAuth } = require("../middleware/authMiddleware");
+const { requireAuth, requireVerifiedEmail } = require("../middleware/authMiddleware");
 const {
   guestLinkRateLimit,
   writeRateLimit,
@@ -29,7 +29,13 @@ router.post(
 router.use(requireAuth);
 
 router.get("/", listLinks);
-router.post("/", writeRateLimit, validateRequestBody(createLinkContract), createLink);
+router.post(
+  "/",
+  requireVerifiedEmail,
+  writeRateLimit,
+  validateRequestBody(createLinkContract),
+  createLink
+);
 router.get("/:shortCode/analytics", getLinkAnalytics);
 router.get("/:shortCode/events", getClickEvents);
 router.patch("/:shortCode/expire", writeRateLimit, expireLink);
