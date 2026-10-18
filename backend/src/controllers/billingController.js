@@ -48,7 +48,10 @@ function getCheckoutAvailability(env = process.env) {
     .toLowerCase() === "false";
   const production = env.NODE_ENV === "production";
   const usesLiveKey = keyId.startsWith("rzp_live_");
-  const enabled = !explicitlyDisabled && (!production || usesLiveKey);
+  const required = ["RAZORPAY_KEY_ID", "RAZORPAY_KEY_SECRET"];
+  if (production) required.push("RAZORPAY_WEBHOOK_SECRET", "RAZORPAY_PLAN_ID_PRO_MONTHLY", "RAZORPAY_PLAN_ID_BUSINESS_MONTHLY");
+  const configured = required.every(key => String(env[key] || "").trim());
+  const enabled = configured && !explicitlyDisabled && (!production || usesLiveKey);
 
   return {
     enabled,
@@ -239,7 +242,7 @@ exports.createPaymentLink = async (req, res) => {
     const planId = String(req.body.planId || "").trim().toLowerCase();
     const plan = getPlanDefinition(planId);
 
-    if (!plan || plan.id === "free") {
+    if (!plan || plan.id === "free" || plan.id === "enterprise") {
       return res.status(400).json({ error: "Choose a paid plan to continue" });
     }
 
@@ -266,6 +269,7 @@ exports.createPaymentLink = async (req, res) => {
 
     const response = await fetch("https://api.razorpay.com/v1/payment_links/", {
       method: "POST",
+      signal: AbortSignal.timeout(15000),
       headers: {
         Authorization: getRazorpayBasicAuthHeader(),
         "Content-Type": "application/json",
@@ -435,6 +439,7 @@ exports.createSubscription = async (req, res) => {
     providerRequestStarted = true;
     const response = await fetch("https://api.razorpay.com/v1/subscriptions", {
       method: "POST",
+      signal: AbortSignal.timeout(15000),
       headers: {
         Authorization: authorization,
         "Content-Type": "application/json",
@@ -457,6 +462,10 @@ exports.createSubscription = async (req, res) => {
 
     const data = await response.json();
 
+    // A provider 5xx may have created a subscription before its response failed.
+    // Retain the claim so a retry cannot create a second charge agreement.
+    if (response.status >= 500) throw new Error("Ambiguous provider subscription response");
+
     if (!response.ok) {
       record.status = "failed";
       record.rawLastEvent = "subscription_create_failed";
@@ -471,6 +480,7 @@ exports.createSubscription = async (req, res) => {
       });
     }
 
+    if (!data.id || !data.short_url) throw new Error("Incomplete provider subscription response");
     record.subscriptionId = data.id || "";
     record.subscriptionShortUrl = data.short_url || "";
     record.status = data.status || "created";
@@ -554,6 +564,7 @@ exports.cancelSubscription = async (req, res) => {
       `https://api.razorpay.com/v1/subscriptions/${subscriptionId}/cancel`,
       {
         method: "POST",
+        signal: AbortSignal.timeout(15000),
         headers: {
           Authorization: getRazorpayBasicAuthHeader(),
           "Content-Type": "application/json",
@@ -618,7 +629,7 @@ function mapWebhookStatus(eventName) {
     "invoice.paid": "paid",
   };
 
-  return statuses[eventName] || "created";
+  return statuses[eventName] || null;
 }
 
 async function applySubscriptionState(record, subscription, payment, invoice, payload) {
@@ -645,6 +656,9 @@ async function applySubscriptionState(record, subscription, payment, invoice, pa
   }
 
   if (!workspace) return;
+  // An old subscription must not overwrite a newer checkout's entitlements.
+  if (workspace.billing?.providerSubscriptionId &&
+      workspace.billing.providerSubscriptionId !== record.subscriptionId) return;
 
   if (["active", "paid"].includes(record.status)) {
     workspace.plan = plan?.id || workspace.plan;
@@ -721,6 +735,7 @@ exports.syncSubscription = async (req, res) => {
       `https://api.razorpay.com/v1/subscriptions/${encodeURIComponent(subscriptionId)}`,
       {
         method: "GET",
+        signal: AbortSignal.timeout(15000),
         headers: {
           Authorization: getRazorpayBasicAuthHeader(),
           Accept: "application/json",
@@ -800,7 +815,11 @@ exports.handleRazorpayWebhook = async (req, res) => {
       return res.status(401).json({ error: "Invalid webhook signature" });
     }
 
-    const payload = JSON.parse(req.body.toString("utf8"));
+    let payload;
+    try { payload = JSON.parse(req.body.toString("utf8")); }
+    catch { return res.status(400).json({ error: "Invalid webhook JSON" }); }
+    const nextStatus = mapWebhookStatus(payload.event);
+    if (!nextStatus) return res.json({ received: true, ignored: true });
     const paymentLink = payload?.payload?.payment_link?.entity;
     const subscription = payload?.payload?.subscription?.entity;
     const invoice = payload?.payload?.invoice?.entity;
@@ -838,7 +857,21 @@ exports.handleRazorpayWebhook = async (req, res) => {
       return res.json({ received: true, duplicate: true });
     }
 
-    record.status = mapWebhookStatus(payload.event);
+    // Signed events can still arrive late, refer to another checkout, or precede payment.
+    if ((record.subscriptionId && subscriptionId && record.subscriptionId !== subscriptionId) ||
+        (record.providerPlanId && subscription?.plan_id && record.providerPlanId !== subscription.plan_id)) {
+      return res.status(409).json({ error: "Webhook does not match this checkout" });
+    }
+    const eventTime = Number(payload.created_at || 0);
+    if ((eventTime && record.lastWebhookCreatedAt && eventTime < record.lastWebhookCreatedAt) ||
+        (["cancelled", "completed", "expired"].includes(record.status) && ["active", "paid", "authenticated", "pending"].includes(nextStatus))) {
+      return res.json({ received: true, ignored: true });
+    }
+    if (subscription && nextStatus === "active" && Number(subscription.paid_count || 0) < 1) {
+      return res.status(409).json({ error: "No paid subscription cycle recorded" });
+    }
+    record.status = nextStatus;
+    if (eventTime) record.lastWebhookCreatedAt = eventTime;
     record.rawLastEvent = payload.event;
     record.paymentLinkId = paymentLinkId || record.paymentLinkId;
     record.paymentLinkUrl = paymentLink?.short_url || record.paymentLinkUrl;
